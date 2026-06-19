@@ -1,0 +1,28 @@
+[pyprland]
+plugins = [
+    "scratchpads",
+]
+
+[scratchpads.term]
+animation = "fromTop"
+command = "kitty --class kitty-dropterm"
+class = "kitty-dropterm"
+size = "75% 40%"
+max_size = "1920px 100%"
+margin = 50
+
+[scratchpads.volume]
+animation = "fromLeft"
+command = "pavucontrol"
+class = "org.pulseaudio.pavucontrol"
+size = "35% 90%"
+unfocus = "hide"
+margin = 10
+
+[scratchpads.cava]
+animation = "fromBottom"
+command = "kitty --class kitty-cava --title cava cava"
+class = "kitty-cava"
+size = "98% 30%"
+unfocus = "hide"
+margin = 0

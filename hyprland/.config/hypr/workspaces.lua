@@ -1,0 +1,11 @@
+-- ── workspaces.lua ───────────────────────────────────────────────────
+-- Lua replacement for workspaces.conf (managed by nwg-displays).
+--
+-- nwg-displays writes hyprlang syntax which is not valid Lua.
+-- Until nwg-displays supports Lua output, maintain this manually.
+--
+-- Workspace rules use hl.workspace_rule({ ... }).
+-- Example:
+--   hl.workspace_rule({ workspace = "1", monitor = "eDP-1" })
+--
+-- If you have no workspace pin rules from nwg-displays, leave this empty.

@@ -1,0 +1,117 @@
+{
+    "background": {
+        "desktopClock": {
+            "background": {
+                "blur": true,
+                "enabled": true,
+                "opacity": 0.7
+            },
+            "enabled": true,
+            "invertColors": false,
+            "position": "bottom-right",
+            "scale": 1,
+            "shadow": {
+                "blur": 0.4,
+                "enabled": true,
+                "opacity": 0.7
+            }
+        }
+    },
+    "bar": {
+        "activeWindow": {
+            "compact": false,
+            "inverted": false,
+            "showOnHover": true
+        },
+        "clock": {
+            "background": true,
+            "showDate": true,
+            "showIcon": false
+        },
+        "persistent": false,
+        "popouts": {
+            "activeWindow": false
+        },
+        "scrollActions": {
+            "brightness": false,
+            "volume": false,
+            "workspaces": false
+        },
+        "showOnHover": true,
+        "status": {
+            "showKbLayout": true,
+            "showLockStatus": false
+        },
+        "tray": {
+            "background": true,
+            "compact": false,
+            "recolour": false
+        },
+        "workspaces": {
+            "activeTrail": true,
+            "occupiedBg": true
+        }
+    },
+    "border": {
+        "rounding": 23
+    },
+    "dashboard": {
+        "hoverEdge": "top",
+        "hoverHeight": 50,
+        "hoverWidth": 100,
+        "showHoverIndicator": true,
+        "showOnHover": false
+    },
+    "general": {
+        "apps": {
+            "audio": [
+                "pavucontrol"
+            ],
+            "explorer": [
+                "dolphin"
+            ],
+            "playback": [
+                "mpv"
+            ],
+            "terminal": [
+                "kitty"
+            ]
+        }
+    },
+    "launcher": {
+        "enabled": true,
+        "hoverEdge": "bottom",
+        "hoverHeight": 50,
+        "hoverWidth": 100,
+        "showHoverIndicator": true,
+        "showOnHover": true,
+        "useFuzzy": {
+            "actions": true,
+            "apps": true,
+            "schemes": false,
+            "variants": false,
+            "wallpapers": false
+        }
+    },
+    "osd": {
+        "enabled": true
+    },
+    "services": {
+        "useFahrenheit": false,
+        "useTwelveHourClock": false
+    },
+    "sidebar": {
+        "hoverEdge": "topRight",
+        "hoverHeight": 100,
+        "hoverWidth": 100,
+        "showHoverIndicator": true
+    },
+    "utilities": {
+        "toasts": {
+            "capsLockChanged": false,
+            "kbLayoutChanged": false,
+            "kbLimit": false,
+            "numLockChanged": false
+        }
+    }
+}
