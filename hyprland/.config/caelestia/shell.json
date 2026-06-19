@@ -96,6 +96,12 @@
     "osd": {
         "enabled": true
     },
+    "wallpaper": {
+        "randomTimer": {
+            "enabled": false,
+            "intervalHours": 1
+        }
+    },
     "services": {
         "useFahrenheit": false,
         "useTwelveHourClock": false

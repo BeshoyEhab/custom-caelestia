@@ -20,11 +20,14 @@ hl.window_rule({
 hl.window_rule({ match = { class = "^(steam)$" }, tile = true })
 
 -- ── copyq clipboard manager ───────────────────────────────────────────
+-- float + place near cursor, and keep it pinned so it doesn't hide on focus loss
 hl.window_rule({
   name  = "clipboard copyq",
   match = { class = "^(com\\.github\\.hluk\\.copyq|copyq)$" },
   float = true,
   move  = "min(cursor_x,(monitor_w-window_w)) min(cursor_y,monitor_h-window_h)",
+  pin   = true,          -- stays on top across workspaces (prevents hide-on-deactivate)
+  no_initial_focus = false,
 })
 
 -- ── wl-mirror on hdmi-a-1 ────────────────────────────────────────────

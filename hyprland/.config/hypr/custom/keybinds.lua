@@ -50,9 +50,10 @@ hl.bind("SUPER + SHIFT + P", hl.dsp.exec_cmd("pavucontrol"))
 -- Float toggle (was SUPER+ALT+Space in defaults, add SUPER+SHIFT+F alias)
 hl.bind("SUPER + SHIFT + F", hl.dsp.window.float({ action = "toggle" }))
 
--- Clipboard: CopyQ toggle (overrides quickshell clipboard)
+-- Clipboard: CopyQ show (overrides quickshell clipboard)
+-- Use 'show' not 'toggle': toggle re-hides on second press which races with focus loss
 hl.unbind("SUPER + V")
-hl.bind("SUPER + V", hl.dsp.exec_cmd("copyq toggle"))
+hl.bind("SUPER + V", hl.dsp.exec_cmd("copyq show"))
 
 -- Emoji: emote app (overrides quickshell emoji)
 hl.unbind("SUPER + Period")
