@@ -25,8 +25,6 @@ hl.window_rule({
   match = { class = "^(com\\.github\\.hluk\\.copyq|copyq)$" },
   float = true,
   size  = { "500", "700" },
-  center = true,
-  stayfocused = true,
   animation = "popup",
 })
 

@@ -28,7 +28,7 @@ Apply "hover to open" pattern to any widget (Launcher, Sidebar, Dashboard, OSD, 
 - [ ] Add settings UI for clock position, scale, and styling.
 
 ### 5. Utility Fixes
-- [ ] **CopyQ**: Fix not closing on item select or mouse-away.
+- [x] **CopyQ**: Fix not closing on item select or mouse-away. — Fixed by enabling "Hide main window" in CopyQ Preferences > Layout (Wayland limitation).
 - [ ] **Launcher Calculator**: Fix hardcoded terminal/shell when opening `qalc`.
 - [ ] **Discord**: Fix screen share source selection window not opening.
 - [ ] **Settings App**: Add featured wallpapers and missing color schemas.
