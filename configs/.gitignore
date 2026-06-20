@@ -1,0 +1,9 @@
+# Fish machine-specific state (z-jump history, universal vars, fisher internal state)
+.config/fish/fish_variables
+.config/fish/fish_history
+
+# Caelestia generated theme files (regenerated at runtime)
+.config/caelestia/
+
+# BTop log
+.config/btop/*.log
