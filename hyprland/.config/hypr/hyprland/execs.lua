@@ -12,6 +12,12 @@ hl.on("hyprland.start", function ()
     hl.exec_cmd("dbus-update-activation-environment --all")
     hl.exec_cmd("sleep 1 && dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP") -- Some fix idk
 
+    -- XDG Desktop Portal (screen sharing, file pickers)
+    -- Hyprland doesn't activate graphical-session.target, so portals must be
+    -- started manually. The service file override at
+    -- ~/.config/systemd/user/xdg-desktop-portal.service drops the Requisite.
+    hl.exec_cmd("sleep 1 && systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP DISPLAY PATH && systemctl --user restart xdg-desktop-portal-hyprland && sleep 1 && systemctl --user restart xdg-desktop-portal")
+
     -- Audio
     hl.exec_cmd("easyeffects --hide-window --service-mode")
 

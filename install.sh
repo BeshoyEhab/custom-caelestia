@@ -201,6 +201,40 @@ deploy_configs() {
     mkdir -p "$HOME/.config/quickshell/caelestia"
     rsync -a --exclude=".git*" ./shell/ "$HOME/.config/quickshell/caelestia/"
 
+    # Deploy systemd user services (portal fix etc.)
+    if [[ -d ./hyprland/.config/systemd ]]; then
+        mkdir -p "$HOME/.config/systemd/user"
+        rsync -a --exclude=".git*" ./hyprland/.config/systemd/user/ "$HOME/.config/systemd/user/"
+        systemctl --user daemon-reload 2>/dev/null || true
+    fi
+
+    # Deploy xdg-desktop-portal config
+    if [[ -d ./hyprland/.config/xdg-desktop-portal ]]; then
+        mkdir -p "$HOME/.config/xdg-desktop-portal"
+        rsync -a --exclude=".git*" ./hyprland/.config/xdg-desktop-portal/ "$HOME/.config/xdg-desktop-portal/"
+    fi
+
+    # 3b. Deploy extra dotfiles (fish, kitty, foot, etc.)
+    if [[ -d ./configs/.config ]]; then
+        echo ""
+        echo -e "${YELLOW}Deploy extra dotfiles? (fish, kitty, foot, fuzzel, btop, cava, starship, wlogout)${NC}"
+        echo -e "  ${CYAN}[y]${NC} Yes - overwrite existing   ${CYAN}[n]${NC} No - skip   ${CYAN}[m]${NC} Merge (keep existing, add new)"
+        read -p "Choice [y/n/m]: " cfg_choice
+        case "$cfg_choice" in
+            [Yy])
+                rsync -a --exclude=".git*" ./configs/.config/ "$HOME/.config/"
+                echo -e "${GREEN}Extra dotfiles deployed.${NC}"
+                ;;
+            [Mm])
+                rsync -a --ignore-existing --exclude=".git*" ./configs/.config/ "$HOME/.config/"
+                echo -e "${GREEN}Extra dotfiles merged (existing files kept).${NC}"
+                ;;
+            *)
+                echo -e "${YELLOW}Skipping extra dotfiles.${NC}"
+                ;;
+        esac
+    fi
+
     # 4. Restore stashed custom/device-specific files
     if [[ -d /tmp/hypr_custom_stash ]]; then
         echo -e "${GREEN}Restoring your custom Hyprland configs...${NC}"
