@@ -24,9 +24,10 @@ hl.window_rule({
   name  = "clipboard copyq",
   match = { class = "^(com\\.github\\.hluk\\.copyq|copyq)$" },
   float = true,
+  size  = { "500", "700" },
+  center = true,
   stayfocused = true,
   animation = "popup",
-  move  = "min(cursor_x,(monitor_w-window_w)) min(cursor_y,monitor_h-window_h)",
 })
 
 -- ── wl-mirror on hdmi-a-1 ────────────────────────────────────────────

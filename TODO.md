@@ -33,6 +33,10 @@ Apply "hover to open" pattern to any widget (Launcher, Sidebar, Dashboard, OSD, 
 - [ ] **Discord**: Fix screen share source selection window not opening.
 - [ ] **Settings App**: Add featured wallpapers and missing color schemas.
 
+### 6. Bugs
+- [x] **Launcher Search**: Typing "f" shows Fluid above Ferdium despite Ferdium being more frequently used. Same for "d" showing something above Discord. Scoring/weighting needs fixing. — Fixed: short queries (≤3 chars) now always use match+frequency scoring instead of FZF.
+- [ ] **Settings App**: Broken layout after recent changes — text mixed in buttons, panels halved. Needs investigation after plugin recompile.
+
 ---
 
 ## Done

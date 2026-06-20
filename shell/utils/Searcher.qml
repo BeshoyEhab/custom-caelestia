@@ -110,26 +110,16 @@ Singleton {
             usageWeight = 0.3;
         }
 
-        // Short queries (≤3): fuzzysort + frequency + first-letter scoring
-        if (useFuzzy && searchLen <= 3) {
-            const fuzzyResults = Fuzzy.go(search, fuzzyPrepped, Object.assign({
-                all: true,
-                keys,
-                scoreFn: r => weights.reduce((a, w, i) => a + r[i].score * w, 0)
-            }, extraOpts));
-
-            const results = fuzzyResults.map(r => {
-                const item = r.obj._item;
+        // Short queries (≤3): match scoring + frequency
+        if (searchLen <= 3) {
+            const results = list.map(item => {
                 const nameLower = (item.name || "").toLowerCase();
-
-                // Fuzzysort match score (normalize to 0-1)
-                const fuzzyScore = Math.min(1.0, Math.max(0, (r.score + 100) / 100));
 
                 // First-letter / substring match score
                 const letterScore = getMatchScore(nameLower, searchLower);
 
-                // Combined: weighted average of fuzzy + letter score
-                const matchScore = (fuzzyScore + letterScore) / 2;
+                // Normalize to 0-1 range (getMatchScore ranges from ~-0.5 to ~1.1)
+                const matchScore = Math.min(1.0, Math.max(0, (letterScore + 0.5) / 1.6));
 
                 const usageScore = getFreqScore(item);
                 const combinedScore = matchScore * matchWeight + usageScore * usageWeight;

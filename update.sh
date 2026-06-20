@@ -90,7 +90,7 @@ handle_file_conflict() {
     echo ""
 
     while true; do
-        read -p "Enter choice (1-7): " choice
+        read -p "Enter choice (1-7): " choice < /dev/tty
         case "$choice" in
             1)
                 cp -p "$repo_file" "$home_file"
@@ -184,7 +184,7 @@ deploy_active_updates() {
     # 3. Deploy Quickshell caelestia configs file by file
     log "Processing Quickshell configurations..."
     mkdir -p "$HOME/.config/quickshell/caelestia"
-    find ./shell/ -type f | while read -r repo_file; do
+    find ./shell/ -type f -not -path "*/build/*" -not -path "*/.git/*" | while read -r repo_file; do
         local rel_path="${repo_file#./shell/}"
         local home_file="$HOME/.config/quickshell/caelestia/$rel_path"
         

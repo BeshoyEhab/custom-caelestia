@@ -130,6 +130,7 @@ ColumnLayout {
                     sourceComponent: Workspaces {
                         screen: root.screen
                         fullscreen: root.fullscreen
+                        bar: root
                     }
                 }
             }

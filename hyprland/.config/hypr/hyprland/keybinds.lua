@@ -14,7 +14,7 @@ local qsIpcCall = "qs -c $qsConfig ipc call"
 hl.bind("SUPER + I", hl.dsp.global("caelestia:nexus"), { description = "Shell: Toggle nexus/settings" })
 -- Launcher (Super alone opens, interrupt for other binds)
 hl.bind("SUPER + SUPER_L", hl.dsp.global("caelestia:launcher"), { release = true, description = "Shell: Toggle launcher" })
-hl.bind("SUPER + Space", hl.dsp.global("caelestia:launcher"), { description = "Shell: Toggle launcher" })
+
 -- Dashboard
 hl.bind("SUPER + G", hl.dsp.global("caelestia:dashboard"), { description = "Shell: Toggle dashboard" })
 -- Utilities
@@ -42,11 +42,12 @@ hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO
 hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-"),
     { locked = true, repeating = true })
 
--- Clipboard (CopyQ fallback to Caelestia cliphist)
-hl.bind("SUPER + V", hl.dsp.exec_cmd("if command -v copyq &>/dev/null; then if [ \"$(hyprctl activewindow -j | jq -r '.class')\" = \"copyq\" ] || [ \"$(hyprctl activewindow -j | jq -r '.class')\" = \"com.github.hluk.copyq\" ]; then copyq hide; else copyq show; fi; else caelestia clipboard; fi"), { description = "Utilities: Clipboard history" })
+-- ##! Utilities
+-- Clipboard (CopyQ)
+hl.bind("SUPER + V", hl.dsp.exec_cmd("env QT_QPA_PLATFORM=xcb copyq toggle"), { description = "Utilities: Clipboard history" })
 
--- Emoji (Emote fallback to Caelestia emoji picker)
-hl.bind("SUPER + Period", hl.dsp.exec_cmd("if command -v emote &>/dev/null; then emote --class=emote; else caelestia emoji -p; fi"), { description = "Utilities: Emoji picker" })
+-- Emoji (emote)
+hl.bind("SUPER + Period", hl.dsp.exec_cmd("emote --class=emote"), { description = "Utilities: Emoji picker" })
 
 -- Screenshot
 hl.bind("SUPER + SHIFT + S", hl.dsp.exec_cmd("qs -c $qsConfig ipc call picker openFreezeClip || hyprshot --freeze --clipboard-only --mode region --silent"),
@@ -57,8 +58,8 @@ hl.bind("SUPER + SHIFT + A", hl.dsp.exec_cmd(hyprScripts .. "/snip_to_search.sh"
     { description = "Utilities: Google Lens" })
 
 -- OCR (tesseract)
-hl.bind("SUPER + SHIFT + X", hl.dsp.exec_cmd("grim -g \"$(slurp)\" /tmp/ocr_image.png && tesseract /tmp/ocr_image.png stdout -l eng+ara | wl-copy && rm /tmp/ocr_image.png"),
-    { description = "OCR: Screenshot to clipboard" })
+hl.bind("SUPER + SHIFT + X", hl.dsp.exec_cmd("hyprshot -m region -z -o /tmp -f ocr_image.png && tesseract /tmp/ocr_image.png stdout -l eng+ara | wl-copy && rm /tmp/ocr_image.png"),
+    { description = "OCR: Freeze screenshot to clipboard" })
 
 -- Color picker
 hl.bind("SUPER + SHIFT + C", hl.dsp.exec_cmd("hyprpicker -a"),

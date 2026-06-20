@@ -2,6 +2,8 @@
 
 #include "configobject.hpp"
 
+using Qt::StringLiterals::operator""_s;
+
 namespace caelestia::config {
 
 class DashboardPerformance : public ConfigObject {

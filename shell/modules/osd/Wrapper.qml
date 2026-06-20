@@ -40,8 +40,8 @@ Item {
 
     visible: offsetScale < 1
     anchors.rightMargin: (-implicitWidth - 5 - sidebarOffset) * offsetScale
-    implicitWidth: content.implicitWidth
-    implicitHeight: content.implicitHeight
+    implicitWidth: Math.min(content.implicitWidth, screen?.width ?? 1920)
+    implicitHeight: Math.min(content.implicitHeight, screen?.height ?? 1080)
     opacity: 1 - offsetScale
 
     Behavior on offsetScale {

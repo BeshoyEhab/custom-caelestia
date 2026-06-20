@@ -46,8 +46,8 @@ Item {
         anchors.rightMargin: sessionWrapper.anchors.rightMargin + session.width * (1 - session.offsetScale)
         clip: sidebar.visible || session.visible
 
-        implicitWidth: osd.implicitWidth * (1 - osd.offsetScale)
-        implicitHeight: osd.implicitHeight
+        implicitWidth: Math.min(osd.implicitWidth, screen?.width ?? 1920) * (1 - osd.offsetScale)
+        implicitHeight: Math.min(osd.implicitHeight, screen?.height ?? 1080)
 
         Osd.Wrapper {
             id: osd

@@ -1,0 +1,5 @@
+shell/build/
+*.o
+*.so
+*.dylib
+.cache/

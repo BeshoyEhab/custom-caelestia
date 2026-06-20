@@ -15,6 +15,7 @@ ColumnLayout {
     required property int activeWsId
     required property var occupied
     required property int groupOffset
+    property var bar
 
     readonly property bool isWorkspace: true // Flag for finding workspace children
     // Unanimated prop for others to use as reference

@@ -13,7 +13,7 @@ hl.on("hyprland.start", function()
   hl.exec_cmd("xhost +SI:localuser:root")
 
   -- Clipboard manager
-  hl.exec_cmd("sleep 5 && copyq exit ; copyq --start-server")
+  hl.exec_cmd("sleep 5 && copyq exit ; env QT_QPA_PLATFORM=xcb copyq --start-server")
 
   -- Pyprland (scratchpads plugin)
   hl.exec_cmd("pypr")
@@ -22,7 +22,7 @@ hl.on("hyprland.start", function()
   hl.exec_cmd("sleep 5 && pkill deadd-notific")
 
   -- Emote (emoji picker daemon)
-  hl.exec_cmd("emote")
+  --hl.exec_cmd("emote")
 
   -- Per-window keyboard layout
   hl.exec_cmd("/usr/bin/hyprland-per-window-layout &")
@@ -32,7 +32,7 @@ hl.on("hyprland.start", function()
   hl.exec_cmd("$HOME/.local/share/bin/sudor rm etc/xdg/autostart/org.fcitx.Fcitx5.desktop")
 
   -- Start wayscriber (Wayland screen laser)
-  hl.exec_cmd("wayscriber --daemon")
+  hl.exec_cmd("wayscriber --daemon --no-tray")
 
   -- Reload hyprpm plugins
   hl.exec_cmd("hyprpm reload")

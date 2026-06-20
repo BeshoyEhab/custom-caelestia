@@ -4,6 +4,8 @@
 
 #include <qstring.h>
 
+using Qt::StringLiterals::operator""_s;
+
 namespace caelestia::config {
 
 class DesktopClockBackground : public ConfigObject {
@@ -40,6 +42,7 @@ class DesktopClock : public ConfigObject {
     CONFIG_PROPERTY(qreal, scale, 1.0)
     CONFIG_PROPERTY(QString, position, QStringLiteral("bottom-right"))
     CONFIG_PROPERTY(bool, invertColors, false)
+    CONFIG_PROPERTY(QString, clockStyle, QStringLiteral("digital"))
     CONFIG_SUBOBJECT(DesktopClockBackground, background)
     CONFIG_SUBOBJECT(DesktopClockShadow, shadow)
 
