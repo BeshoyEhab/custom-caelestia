@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Caelestia-Impulse (Celestimpulse) Installer
+# custom-caelestia Installer
 # Interactive installer with component selection
 
 set -e
@@ -31,7 +31,7 @@ declare -A INSTALLED
 print_header() {
     clear
     echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║            Caelestia-Impulse (Celestimpulse)                 ║${NC}"
+    echo -e "${CYAN}║                   custom-caelestia                           ║${NC}"
     echo -e "${CYAN}║                   Desktop Environment                        ║${NC}"
     echo -e "${CYAN}║  A unified dotfiles setup blending:                        ║${NC}"
     echo -e "${CYAN}║  • Caelestia shell (fluid UX, Material design, themes)     ║${NC}"
@@ -138,6 +138,39 @@ install_components() {
     echo ""
     echo -e "${GREEN}Installation complete!${NC}"
     echo ""
+}
+
+build_and_install_plugin() {
+    echo -e "${CYAN}Building C++ plugin from custom-caelestia source...${NC}"
+
+    local SCRIPT_DIR="$MERGED_DIR"
+    local BUILD_DIR="$SCRIPT_DIR/build"
+
+    mkdir -p "$BUILD_DIR"
+    cmake -B "$BUILD_DIR" -S "$SCRIPT_DIR" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DENABLE_MODULES="plugin" 2>&1 | tail -5
+
+    local NPROC=$(nproc 2>/dev/null || echo 4)
+    cmake --build "$BUILD_DIR" -j"$NPROC" 2>&1 | tail -10
+
+    echo -e "${CYAN}Installing C++ plugin (requires sudo)...${NC}"
+    local INSTALL_DIR="/usr/lib/qt6/qml"
+    find "$BUILD_DIR" -name "libcaelestia-*.so" -type f | while read -r lib; do
+        local modname=$(basename "$lib")
+        local subdir
+        if [[ "$modname" == *"plugin.so" ]]; then
+            subdir=$(echo "$modname" | sed 's/^libcaelestia-//;s/plugin\.so$//' | sed 's/\b\(.\)/\U\1/')
+        else
+            subdir=$(echo "$modname" | sed 's/^libcaelestia-//;s/\.so$//' | sed 's/\b\(.\)/\U\1/')
+        fi
+        local target_dir="$INSTALL_DIR/Caelestia/$subdir"
+        sudo mkdir -p "$target_dir"
+        sudo cp -p "$lib" "$target_dir/$modname"
+        echo -e "  ${GREEN}Installed: $modname -> $target_dir/${NC}"
+    done
+
+    echo -e "${GREEN}Plugin built and installed successfully!${NC}"
 }
 
 deploy_configs() {
@@ -267,6 +300,12 @@ deploy_configs() {
     chmod +x "$HOME/.config/quickshell/caelestia/scripts/thumbnails/"* &>/dev/null || true
     chmod +x "$HOME/.config/quickshell/caelestia/scripts/videos/"* &>/dev/null || true
 
+    # 6. Symlink install/update scripts so the settings app can find them
+    log "Linking install/update scripts for settings app..."
+    mkdir -p "$HOME/.config/quickshell/caelestia/scripts"
+    ln -sf "$MERGED_DIR/update.sh" "$HOME/.config/quickshell/caelestia/scripts/update.sh"
+    ln -sf "$MERGED_DIR/install.sh" "$HOME/.config/quickshell/caelestia/scripts/install.sh"
+
     # Disable trap since deployment finished successfully
     trap - EXIT INT TERM
     echo -e "${GREEN}Configuration deployed successfully!${NC}"
@@ -364,6 +403,7 @@ while true; do
         [Ii])
             install_components
             deploy_configs
+            build_and_install_plugin
             show_summary
             exit 0
             ;;

@@ -59,7 +59,7 @@
         "hoverEdge": "top",
         "hoverHeight": 50,
         "hoverWidth": 100,
-        "showHoverIndicator": true,
+        "showHoverIndicator": false,
         "showOnHover": false
     },
     "general": {
@@ -83,7 +83,7 @@
         "hoverEdge": "bottom",
         "hoverHeight": 50,
         "hoverWidth": 100,
-        "showHoverIndicator": true,
+        "showHoverIndicator": false,
         "showOnHover": true,
         "useFuzzy": {
             "actions": true,
@@ -110,7 +110,7 @@
         "hoverEdge": "topRight",
         "hoverHeight": 100,
         "hoverWidth": 100,
-        "showHoverIndicator": true
+        "showHoverIndicator": false
     },
     "utilities": {
         "toasts": {

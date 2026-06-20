@@ -59,11 +59,6 @@ Item {
             root.volume = Audio.volume;
         }
 
-        function onSourceMutedChanged(): void {
-            root.show();
-            root.sourceMuted = Audio.sourceMuted;
-        }
-
         function onSourceVolumeChanged(): void {
             root.show();
             root.sourceVolume = Audio.sourceVolume;

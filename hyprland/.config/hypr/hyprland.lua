@@ -1,4 +1,4 @@
--- Caelestia-Impulse (Celestimpulse) Hyprland Config
+-- custom-caelestia Hyprland Config
 -- Integrated: Caelestia Shell + Fast Keybinds & Utilities + Personal Customizations
 -- Lua config format (Hyprland 0.55+)
 

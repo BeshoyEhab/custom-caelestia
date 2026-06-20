@@ -37,6 +37,18 @@ hl.window_rule({
   no_anim    = true,
 })
 
+-- ── xwaylandvideobridge (Discord/screen share fix) ────────────────────
+hl.window_rule({
+  name  = "xwaylandvideobridge",
+  match = { class = "^(xwaylandvideobridge)$" },
+  no_initial_focus = true,
+  no_focus         = true,
+  no_anim          = true,
+  no_blur          = true,
+  max_size         = { "1", "1" },
+  opacity          = { "0.0", "0.0" },
+})
+
 -- --- gromit-mpx (screenshot annotation tool) ─────────────────────────
 hl.window_rule({
   match = { class = "^(Gromit-mpx)$" },

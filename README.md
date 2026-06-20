@@ -1,20 +1,20 @@
-# 🌌 Caelestia-Impulse (Celestimpulse)
+# 🌌 custom-caelestia
 
 [![OS](https://img.shields.io/badge/OS-Arch%20Linux-blue?logo=arch-linux&logoColor=white)](https://archlinux.org/)
 [![WM](https://img.shields.io/badge/WM-Hyprland%20%28v0.55%2B%29-ff69b4?logo=wayland&logoColor=white)](https://github.com/hyprwm/Hyprland)
 [![Shell](https://img.shields.io/badge/Shell-Quickshell-9c27b0?logo=qt&logoColor=white)](https://github.com/outfoxxed/quickshell)
 [![License](https://img.shields.io/badge/License-GPL--3.0-green)](LICENSE)
 
-Welcome to **Caelestia-Impulse** (also known as *Celestimpulse*), a unified, high-performance, and visually gorgeous desktop environment. This configuration merges the beauty, theming, and animations of the **Caelestia Shell** with the extreme speed, productivity utilities, and keybindings of **End-4's illogical-impulse**.
+Welcome to **custom-caelestia**, a unified, high-performance, and visually gorgeous desktop environment. This configuration merges the beauty, theming, and animations of the **Caelestia Shell** with the extreme speed, productivity utilities, and keybindings of **End-4's illogical-impulse**.
 
 ---
 
 ## ⚡ The Vision & Naming
-The name **Caelestia-Impulse** represents a synthesis of two design paradigms:
+The name **custom-caelestia** represents a synthesis of two design paradigms:
 - **Caelestia** (*Celestial*): A heavenly, fluid, and state-of-the-art widget ecosystem with deep Material Design color schemes.
 - **Impulse** (*Illogical Impulse*): Rapid, instantaneous, keybinding-driven controls for professional workflows, screen capture, OCR reading, and audio/video controls.
 
-By blending them together, **Caelestia-Impulse** offers a rich aesthetic desktop experience that never compromises on speed or productivity.
+By blending them together, **custom-caelestia** offers a rich aesthetic desktop experience that never compromises on speed or productivity.
 
 ---
 
@@ -43,7 +43,7 @@ This configuration is built upon the incredible work of the open-source communit
 ---
 
 ## 🛠️ Update-Friendly Architecture
-Unlike traditional dotfile setups that overwrite personal modifications, **Caelestia-Impulse** separates the configuration into two layers:
+Unlike traditional dotfile setups that overwrite personal modifications, **custom-caelestia** separates the configuration into two layers:
 
 *   **Global Defaults** (Tracked in Git): Found in `./hyprland/.config/hypr/` and `./shell/`. These are the core templates updated by the community.
 *   **User Customizations** (Ignored by Git): Kept locally in `~/.config/hypr/custom/` and `~/.config/caelestia/shell.json`. This is where you put your keyboard layouts, screen scales, custom startups, or hardware-specific scripts (e.g., custom `lights`, `mic`, or `camera` scripts).

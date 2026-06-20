@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# update.sh - Update the Caelestia-Impulse (Celestimpulse) repo & active configs
+# update.sh - Update the custom-caelestia repo & active configs
 # ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
@@ -212,7 +212,65 @@ deploy_active_updates() {
     chmod +x "$HOME/.config/quickshell/caelestia/scripts/thumbnails/"* &>/dev/null || true
     chmod +x "$HOME/.config/quickshell/caelestia/scripts/videos/"* &>/dev/null || true
 
+    # 5. Ensure install/update script symlinks exist for settings app
+    mkdir -p "$HOME/.config/quickshell/caelestia/scripts"
+    ln -sf "$MERGED_DIR/update.sh" "$HOME/.config/quickshell/caelestia/scripts/update.sh"
+    ln -sf "$MERGED_DIR/install.sh" "$HOME/.config/quickshell/caelestia/scripts/install.sh"
+
     log "Configuration deployed successfully!"
+
+    # 5. Detect plugin source changes and rebuild if needed
+    log "Checking for C++ plugin source changes..."
+    local plugin_changed=false
+    local plugin_src="$MERGED_DIR/shell/plugin/src"
+    local build_dir="$MERGED_DIR/build"
+
+    if [[ -d "$plugin_src" ]]; then
+        # Use a stamp file to track last build time
+        local stamp_file="$build_dir/.plugin_build_stamp"
+
+        if [[ ! -f "$stamp_file" ]]; then
+            # No stamp = never built, rebuild
+            plugin_changed=true
+        else
+            # Check if any plugin source file is newer than the stamp
+            if find "$plugin_src" -type f \( -name "*.hpp" -o -name "*.cpp" \) -newer "$stamp_file" 2>/dev/null | grep -q .; then
+                plugin_changed=true
+            fi
+        fi
+    fi
+
+    if [[ "$plugin_changed" == "true" ]]; then
+        log "Plugin source changed — rebuilding..."
+        local BUILD_DIR="$MERGED_DIR/build"
+        mkdir -p "$BUILD_DIR"
+        cmake -B "$BUILD_DIR" -S "$MERGED_DIR" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_MODULES="plugin" 2>&1 | tail -3
+
+        local NPROC=$(nproc 2>/dev/null || echo 4)
+        cmake --build "$BUILD_DIR" --target caelestia-configplugin -j"$NPROC" 2>&1 | tail -5
+
+        local INSTALL_DIR="/usr/lib/qt6/qml"
+        find "$BUILD_DIR" -name "libcaelestia-*.so" -type f | while read -r lib; do
+            local modname=$(basename "$lib")
+            local subdir
+            if [[ "$modname" == *"plugin.so" ]]; then
+                subdir=$(echo "$modname" | sed 's/^libcaelestia-//;s/plugin\.so$//' | sed 's/\b\(.\)/\U\1/')
+            else
+                subdir=$(echo "$modname" | sed 's/^libcaelestia-//;s/\.so$//' | sed 's/\b\(.\)/\U\1/')
+            fi
+            local target_dir="$INSTALL_DIR/Caelestia/$subdir"
+            sudo mkdir -p "$target_dir"
+            sudo cp -p "$lib" "$target_dir/$modname"
+            echo "  Installed: $modname -> $target_dir/"
+        done
+
+        touch "$stamp_file"
+        log "Plugin rebuilt and installed."
+    else
+        log "Plugin source unchanged — skipping rebuild."
+    fi
 
     # Automatically reload Hyprland if running
     if command -v hyprctl &>/dev/null && [[ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]]; then
@@ -223,7 +281,7 @@ deploy_active_updates() {
 
 main() {
     echo "═══════════════════════════════════════════════════════════════"
-    echo "  Updating Caelestia-Impulse (Celestimpulse) Repository"
+    echo "  Updating custom-caelestia Repository"
     echo "═══════════════════════════════════════════════════════════════"
     echo ""
 

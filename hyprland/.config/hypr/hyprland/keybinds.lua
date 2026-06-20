@@ -1,4 +1,4 @@
--- Caelestia-Impulse (Celestimpulse) Keybinds Configuration
+-- custom-caelestia Keybinds Configuration
 require("hyprland.lib")
 require("hyprland.variables")
 if is_file_exists(HOME .. "/.config/hypr/custom/variables.lua") then

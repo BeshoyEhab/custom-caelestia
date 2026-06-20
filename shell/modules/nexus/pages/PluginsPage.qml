@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import Caelestia.Config
 import qs.components
 import qs.components.controls
+import qs.services
 import qs.modules.nexus.common
 
 PageBase {
@@ -73,44 +74,51 @@ PageBase {
 
             ConnectedRect {
                 Layout.fillWidth: true
-                Layout.preferredHeight: row.implicitHeight + Tokens.padding.medium * 2
+                implicitHeight: pluginLayout.implicitHeight + pluginLayout.anchors.margins * 2
+                first: index === 0
+                last: index === root.plugins.length - 1
 
                 required property var modelData
                 required property int index
 
                 RowLayout {
-                    id: row
+                    id: pluginLayout
 
-                    anchors.centerIn: parent
-                    width: parent.width - Tokens.padding.large * 2
+                    anchors.fill: parent
+                    anchors.margins: Tokens.padding.medium
+                    anchors.leftMargin: Tokens.padding.largeIncreased
+                    anchors.rightMargin: Tokens.padding.largeIncreased
                     spacing: Tokens.spacing.medium
 
                     MaterialIcon {
                         text: modelData.icon
-                        color: modelData.installed ? Colours.palette.m3primary : Colours.palette.m3outline
-                        fontStyle: Tokens.font.icon.large
+                        color: Colours.palette.m3onSurfaceVariant
+                        fontStyle: Tokens.font.icon.medium
                     }
 
                     ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: 2
+                        spacing: 0
 
                         StyledText {
+                            Layout.fillWidth: true
                             text: modelData.name
-                            font: Tokens.font.title.medium
-                            color: Colours.palette.m3onSurface
+                            font: Tokens.font.body.small
+                            elide: Text.ElideRight
                         }
 
                         StyledText {
+                            Layout.fillWidth: true
                             text: modelData.description
-                            font: Tokens.font.body.small
-                            color: Colours.palette.m3onSurfaceVariant
+                            color: Colours.palette.m3outline
+                            font: Tokens.font.label.small
+                            elide: Text.ElideRight
                         }
                     }
 
                     MaterialIcon {
                         text: modelData.installed ? "check_circle" : "cancel"
-                        color: modelData.installed ? Colours.palette.m3tertiary : Colours.palette.m3error
+                        color: Colours.palette.m3onSurfaceVariant
                         fontStyle: Tokens.font.icon.medium
                     }
                 }
@@ -121,41 +129,11 @@ PageBase {
             text: qsTr("Install new plugins")
         }
 
-        ConnectedRect {
-            Layout.fillWidth: true
-            Layout.preferredHeight: installColumn.implicitHeight + Tokens.padding.large * 2
-
-            ColumnLayout {
-                id: installColumn
-
-                anchors.centerIn: parent
-                spacing: Tokens.spacing.small
-
-                MaterialIcon {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: "info"
-                    color: Colours.palette.m3outlineVariant
-                    fontStyle: Tokens.font.icon.extraLarge
-                }
-
-                StyledText {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: qsTr("Additional plugins can be installed via the terminal.")
-                    font: Tokens.font.body.medium
-                    color: Colours.palette.m3onSurfaceVariant
-                    horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                }
-
-                StyledText {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: qsTr("Run ./install.sh to configure components")
-                    font: Tokens.font.label.large
-                    color: Colours.palette.m3outline
-                    horizontalAlignment: Text.AlignHCenter
-                }
-            }
+        InfoRow {
+            first: true
+            last: true
+            label: qsTr("Additional plugins can be installed via the terminal.")
+            value: qsTr("./install.sh")
         }
     }
 }

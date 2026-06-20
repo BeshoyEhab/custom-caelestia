@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import Caelestia.Config
 import qs.components
 import qs.components.controls
+import qs.services
 import qs.modules.nexus.common
 
 PageBase {
@@ -22,184 +23,282 @@ PageBase {
         width: root.cappedWidth
         spacing: Tokens.spacing.extraSmall / 2
 
-        // Status
+        Timer {
+            id: updateChecker
+
+            interval: 2000
+            onTriggered: {
+                root.checking = false;
+                root.lastCheck = new Date().toLocaleDateString();
+                root.statusText = qsTr("Up to date");
+            }
+        }
+
+        Timer {
+            id: updateRunner
+
+            interval: 3000
+            onTriggered: {
+                root.checking = false;
+                root.lastCheck = new Date().toLocaleDateString();
+                root.statusText = qsTr("Update complete");
+            }
+        }
+
+        Timer {
+            id: deployRunner
+
+            interval: 2000
+            onTriggered: {
+                root.checking = false;
+                root.statusText = qsTr("Deployment complete");
+            }
+        }
+
+        Timer {
+            id: reloadRunner
+
+            interval: 1000
+            onTriggered: {
+                root.checking = false;
+                root.statusText = qsTr("Shell reloaded");
+            }
+        }
+
         SectionHeader {
             first: true
             text: qsTr("Repository status")
         }
 
-        ConnectedRect {
-            Layout.fillWidth: true
-            Layout.preferredHeight: statusColumn.implicitHeight + Tokens.padding.large * 2
-
-            ColumnLayout {
-                id: statusColumn
-
-                anchors.centerIn: parent
-                spacing: Tokens.spacing.small
-
-                MaterialIcon {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: root.checking ? "sync" : "check_circle"
-                    color: root.checking ? Colours.palette.m3primary : Colours.palette.m3tertiary
-                    fontStyle: Tokens.font.icon.extraLarge
-
-                    RotationAnimation on rotation {
-                        running: root.checking
-                        from: 0
-                        to: 360
-                        duration: 1000
-                        loops: Animation.Infinite
-                    }
-                }
-
-                StyledText {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: root.statusText || qsTr("Caelestia-Impulse (Celestimpulse)")
-                    font: Tokens.font.title.medium
-                    color: Colours.palette.m3onSurface
-                }
-
-                StyledText {
-                    Layout.alignment: Qt.AlignHCenter
-                    visible: root.lastCheck !== ""
-                    text: qsTr("Last checked: %1").arg(root.lastCheck)
-                    font: Tokens.font.body.small
-                    color: Colours.palette.m3onSurfaceVariant
-                }
-            }
+        InfoRow {
+            first: true
+            last: true
+            label: root.statusText || qsTr("custom-caelestia")
+            value: root.lastCheck !== "" ? qsTr("Last checked: %1").arg(root.lastCheck) : ""
         }
 
-        // Actions
         SectionHeader {
             text: qsTr("Actions")
         }
 
-        TextButton {
+        ConnectedRect {
             Layout.fillWidth: true
             first: true
-            text: qsTr("Check for updates")
-            icon: "refresh"
-            enabled: !root.checking
-            onClicked: {
-                root.checking = true;
-                root.statusText = qsTr("Checking...");
-                updateChecker.start();
-            }
-        }
+            implicitHeight: actionLayout.implicitHeight + actionLayout.anchors.margins * 2
 
-        TextButton {
-            Layout.fillWidth: true
-            text: qsTr("Update repository")
-            icon: "download"
-            enabled: !root.checking
-            onClicked: {
-                root.checking = true;
-                root.statusText = qsTr("Updating...");
-                updateRunner.start();
+            StateLayer {
+                disabled: root.checking
+                onClicked: {
+                    root.checking = true;
+                    root.statusText = qsTr("Checking...");
+                    updateChecker.start();
+                }
             }
-        }
 
-        TextButton {
-            Layout.fillWidth: true
-            text: qsTr("Deploy configurations")
-            icon: "folder_special"
-            enabled: !root.checking
-            onClicked: {
-                root.checking = true;
-                root.statusText = qsTr("Deploying...");
-                deployRunner.start();
+            RowLayout {
+                id: actionLayout
+
+                anchors.fill: parent
+                anchors.margins: Tokens.padding.medium
+                anchors.leftMargin: Tokens.padding.largeIncreased
+                anchors.rightMargin: Tokens.padding.largeIncreased
+                spacing: Tokens.spacing.medium
+
+                MaterialIcon {
+                    text: "refresh"
+                    color: Colours.palette.m3onSurfaceVariant
+                    fontStyle: Tokens.font.icon.medium
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: qsTr("Check for updates")
+                        color: Colours.palette.m3onSurface
+                        font: Tokens.font.body.small
+                        elide: Text.ElideRight
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: root.checking && root.statusText === qsTr("Checking...")
+                        text: root.statusText
+                        color: Colours.palette.m3outline
+                        font: Tokens.font.label.small
+                        elide: Text.ElideRight
+                    }
+                }
             }
-        }
-
-        TextButton {
-            Layout.fillWidth: true
-            last: true
-            text: qsTr("Reload shell")
-            icon: "restart_alt"
-            enabled: !root.checking
-            onClicked: {
-                root.checking = true;
-                root.statusText = qsTr("Reloading...");
-                reloadRunner.start();
-            }
-        }
-
-        // Info
-        SectionHeader {
-            text: qsTr("Information")
         }
 
         ConnectedRect {
             Layout.fillWidth: true
-            Layout.preferredHeight: infoColumn.implicitHeight + Tokens.padding.large * 2
+            implicitHeight: pullLayout.implicitHeight + pullLayout.anchors.margins * 2
 
-            ColumnLayout {
-                id: infoColumn
+            StateLayer {
+                disabled: root.checking
+                onClicked: {
+                    root.checking = true;
+                    root.statusText = qsTr("Updating...");
+                    updateRunner.start();
+                }
+            }
 
-                anchors.centerIn: parent
-                spacing: Tokens.spacing.small
+            RowLayout {
+                id: pullLayout
 
-                StyledText {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: qsTr("Caelestia-Impulse combines the Caelestia shell with fast keybinds and utilities.")
-                    font: Tokens.font.body.medium
+                anchors.fill: parent
+                anchors.margins: Tokens.padding.medium
+                anchors.leftMargin: Tokens.padding.largeIncreased
+                anchors.rightMargin: Tokens.padding.largeIncreased
+                spacing: Tokens.spacing.medium
+
+                MaterialIcon {
+                    text: "download"
                     color: Colours.palette.m3onSurfaceVariant
-                    horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
+                    fontStyle: Tokens.font.icon.medium
                 }
 
-                StyledText {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: qsTr("Update with: ./update.sh from the repository")
-                    font: Tokens.font.label.large
-                    color: Colours.palette.m3outline
-                    horizontalAlignment: Text.AlignHCenter
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: qsTr("Update repository")
+                        color: Colours.palette.m3onSurface
+                        font: Tokens.font.body.small
+                        elide: Text.ElideRight
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: root.checking && root.statusText === qsTr("Updating...")
+                        text: root.statusText
+                        color: Colours.palette.m3outline
+                        font: Tokens.font.label.small
+                        elide: Text.ElideRight
+                    }
                 }
             }
         }
-    }
 
-    Timer {
-        id: updateChecker
+        ConnectedRect {
+            Layout.fillWidth: true
+            implicitHeight: deployLayout.implicitHeight + deployLayout.anchors.margins * 2
 
-        interval: 2000
-        onTriggered: {
-            root.checking = false;
-            root.lastCheck = new Date().toLocaleDateString();
-            root.statusText = qsTr("Up to date");
+            StateLayer {
+                disabled: root.checking
+                onClicked: {
+                    root.checking = true;
+                    root.statusText = qsTr("Deploying...");
+                    deployRunner.start();
+                }
+            }
+
+            RowLayout {
+                id: deployLayout
+
+                anchors.fill: parent
+                anchors.margins: Tokens.padding.medium
+                anchors.leftMargin: Tokens.padding.largeIncreased
+                anchors.rightMargin: Tokens.padding.largeIncreased
+                spacing: Tokens.spacing.medium
+
+                MaterialIcon {
+                    text: "folder_special"
+                    color: Colours.palette.m3onSurfaceVariant
+                    fontStyle: Tokens.font.icon.medium
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: qsTr("Deploy configurations")
+                        color: Colours.palette.m3onSurface
+                        font: Tokens.font.body.small
+                        elide: Text.ElideRight
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: root.checking && root.statusText === qsTr("Deploying...")
+                        text: root.statusText
+                        color: Colours.palette.m3outline
+                        font: Tokens.font.label.small
+                        elide: Text.ElideRight
+                    }
+                }
+            }
         }
-    }
 
-    Timer {
-        id: updateRunner
+        ConnectedRect {
+            Layout.fillWidth: true
+            last: true
+            implicitHeight: reloadLayout.implicitHeight + reloadLayout.anchors.margins * 2
 
-        interval: 3000
-        onTriggered: {
-            root.checking = false;
-            root.lastCheck = new Date().toLocaleDateString();
-            root.statusText = qsTr("Update complete");
+            StateLayer {
+                disabled: root.checking
+                onClicked: {
+                    root.checking = true;
+                    root.statusText = qsTr("Reloading...");
+                    reloadRunner.start();
+                }
+            }
+
+            RowLayout {
+                id: reloadLayout
+
+                anchors.fill: parent
+                anchors.margins: Tokens.padding.medium
+                anchors.leftMargin: Tokens.padding.largeIncreased
+                anchors.rightMargin: Tokens.padding.largeIncreased
+                spacing: Tokens.spacing.medium
+
+                MaterialIcon {
+                    text: "restart_alt"
+                    color: Colours.palette.m3onSurfaceVariant
+                    fontStyle: Tokens.font.icon.medium
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: qsTr("Reload shell")
+                        color: Colours.palette.m3onSurface
+                        font: Tokens.font.body.small
+                        elide: Text.ElideRight
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: root.checking && root.statusText === qsTr("Reloading...")
+                        text: root.statusText
+                        color: Colours.palette.m3outline
+                        font: Tokens.font.label.small
+                        elide: Text.ElideRight
+                    }
+                }
+            }
         }
-    }
 
-    Timer {
-        id: deployRunner
-
-        interval: 2000
-        onTriggered: {
-            root.checking = false;
-            root.statusText = qsTr("Deployment complete");
+        SectionHeader {
+            text: qsTr("Information")
         }
-    }
 
-    Timer {
-        id: reloadRunner
-
-        interval: 1000
-        onTriggered: {
-            root.checking = false;
-            root.statusText = qsTr("Shell reloaded");
+        InfoRow {
+            first: true
+            last: true
+            label: qsTr("custom-caelestia combines the Caelestia shell with fast keybinds and utilities.")
         }
     }
 }
