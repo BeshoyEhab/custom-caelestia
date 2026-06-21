@@ -39,23 +39,23 @@ PageBase {
     property string currentScheme: Colours.scheme || "dynamic"
     property string currentVariant: "tonalspot"
 
-    Process {
-        id: schemeSetProc
-
-        property string pendingScheme
-
-        command: ["sh", "-c"]
-        onRunningChanged: {
-            if (!running && exitCode === 0)
-                root.currentScheme = pendingScheme;
-        }
-    }
-
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         width: root.cappedWidth
         spacing: Tokens.spacing.extraSmall / 2
+
+        Process {
+            id: schemeSetProc
+
+            property string pendingScheme
+
+            command: ["sh", "-c"]
+            onRunningChanged: {
+                if (!running && exitCode === 0)
+                    root.currentScheme = pendingScheme;
+            }
+        }
 
         // Theme mode
         SectionHeader {
