@@ -33,7 +33,7 @@ ColumnLayout {
         Layout.margins: Tokens.padding.large
         Layout.topMargin: 0
         icon: "restart_alt"
-        type: IconButton.Outlined
+        type: IconButton.Tonal
         onClicked: resetAllProc.running = true
     }
 
