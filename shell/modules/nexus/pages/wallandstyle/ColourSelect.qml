@@ -16,19 +16,40 @@ PageBase {
     title: qsTr("Colours")
     isSubPage: true
 
-    readonly property list<var> schemes: [
-        { name: "Dynamic", primary: Qt.rgba(0.706, 0.780, 0.929, 1), secondary: Qt.rgba(0.741, 0.780, 0.875, 1), tertiary: Qt.rgba(0.918, 0.867, 1.0, 1), surface: Qt.rgba(0.047, 0.055, 0.071, 1) },
-        { name: "Catppuccin", primary: Qt.rgba(0.800, 0.651, 0.969, 1), secondary: Qt.rgba(0.961, 0.761, 0.914, 1), tertiary: Qt.rgba(0.580, 0.886, 0.835, 1), surface: Qt.rgba(0.118, 0.118, 0.180, 1) },
-        { name: "Dracula", primary: Qt.rgba(0.741, 0.576, 0.976, 1), secondary: Qt.rgba(0.314, 0.980, 0.482, 1), tertiary: Qt.rgba(1.0, 0.475, 0.776, 1), surface: Qt.rgba(0.157, 0.165, 0.212, 1) },
-        { name: "Everforest", primary: Qt.rgba(0.655, 0.753, 0.502, 1), secondary: Qt.rgba(0.859, 0.733, 0.498, 1), tertiary: Qt.rgba(0.902, 0.494, 0.502, 1), surface: Qt.rgba(0.176, 0.208, 0.231, 1) },
-        { name: "Gruvbox", primary: Qt.rgba(0.843, 0.600, 0.129, 1), secondary: Qt.rgba(0.722, 0.733, 0.149, 1), tertiary: Qt.rgba(0.827, 0.525, 0.608, 1), surface: Qt.rgba(0.157, 0.157, 0.157, 1) },
-        { name: "Nord", primary: Qt.rgba(0.533, 0.753, 0.816, 1), secondary: Qt.rgba(0.639, 0.745, 0.549, 1), tertiary: Qt.rgba(0.706, 0.553, 0.678, 1), surface: Qt.rgba(0.180, 0.204, 0.251, 1) },
-        { name: "Old World", primary: Qt.rgba(0.816, 0.706, 0.549, 1), secondary: Qt.rgba(0.549, 0.722, 0.604, 1), tertiary: Qt.rgba(0.769, 0.573, 0.478, 1), surface: Qt.rgba(0.102, 0.086, 0.078, 1) },
-        { name: "One Dark", primary: Qt.rgba(0.380, 0.686, 0.937, 1), secondary: Qt.rgba(0.596, 0.765, 0.482, 1), tertiary: Qt.rgba(0.776, 0.471, 0.867, 1), surface: Qt.rgba(0.157, 0.173, 0.204, 1) },
-        { name: "Rose Pine", primary: Qt.rgba(0.769, 0.655, 0.906, 1), secondary: Qt.rgba(0.192, 0.510, 0.804, 1), tertiary: Qt.rgba(0.922, 0.435, 0.573, 1), surface: Qt.rgba(0.098, 0.090, 0.141, 1) },
-        { name: "Solarized", primary: Qt.rgba(0.149, 0.545, 0.824, 1), secondary: Qt.rgba(0.165, 0.631, 0.596, 1), tertiary: Qt.rgba(0.424, 0.443, 0.765, 1), surface: Qt.rgba(0.0, 0.169, 0.212, 1) },
-        { name: "Tokyo Night", primary: Qt.rgba(0.478, 0.635, 0.969, 1), secondary: Qt.rgba(0.612, 0.800, 0.416, 1), tertiary: Qt.rgba(0.714, 0.604, 0.969, 1), surface: Qt.rgba(0.102, 0.106, 0.149, 1) },
-        { name: "Caelestia", primary: Qt.rgba(0.706, 0.780, 0.929, 1), secondary: Qt.rgba(0.741, 0.780, 0.875, 1), tertiary: Qt.rgba(0.918, 0.867, 1.0, 1), surface: Qt.rgba(0.047, 0.055, 0.071, 1) }
+    readonly property list<string> schemeNames: [
+        "dynamic", "catppuccin", "dracula", "everforest",
+        "gruvbox", "nord", "oldworld", "onedark",
+        "rosepine", "solarized", "tokyonight", "caelestia"
+    ]
+
+    readonly property list<string> schemeLabels: [
+        "Dynamic", "Catppuccin", "Dracula", "Everforest",
+        "Gruvbox", "Nord", "Old World", "One Dark",
+        "Rose Pine", "Solarized", "Tokyo Night", "Caelestia"
+    ]
+
+    readonly property list<string> schemeSurfaces: [
+        "#0c0e12", "#1e1e2e", "#282a36", "#2d353b",
+        "#282828", "#2e3440", "#1a1614", "#282c34",
+        "#191724", "#002b36", "#1a1b26", "#0c0e12"
+    ]
+
+    readonly property list<string> schemePrimaries: [
+        "#b4c7ed", "#cba6f7", "#bd93f9", "#a7c080",
+        "#d79921", "#88c0d0", "#d0b48c", "#61afef",
+        "#c4a7e7", "#268bd2", "#7aa2f7", "#b4c7ed"
+    ]
+
+    readonly property list<string> schemeSecondaries: [
+        "#bdc7dc", "#f5c2e7", "#50fa7b", "#dbbc7f",
+        "#b8bb26", "#a3be8c", "#8cb89a", "#98c379",
+        "#3182ce", "#2aa198", "#9ece6a", "#bdc7dc"
+    ]
+
+    readonly property list<string> schemeTertiaries: [
+        "#eaddff", "#94e2d5", "#ff79c6", "#e67e80",
+        "#d3869b", "#b48ead", "#c4927a", "#c678dd",
+        "#eb6f92", "#6c71c4", "#bb9af7", "#eaddff"
     ]
 
     readonly property list<string> variantNames: [
@@ -57,7 +78,6 @@ PageBase {
             }
         }
 
-        // Theme mode
         SectionHeader {
             first: true
             text: qsTr("Theme")
@@ -70,7 +90,6 @@ PageBase {
             onToggled: Colours.setMode(checked ? "dark" : "light")
         }
 
-        // Scheme selection as colour buttons
         SectionHeader {
             text: qsTr("Colour scheme")
         }
@@ -93,21 +112,21 @@ PageBase {
                 columnSpacing: Tokens.spacing.small
 
                 Repeater {
-                    model: root.schemes
+                    model: root.schemeNames.length
 
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 64
-                        color: modelData.surface
+                        color: root.schemeSurfaces[index]
                         radius: Tokens.rounding.medium
-                        border.color: modelData.name.toLowerCase() === root.currentScheme
+                        border.color: root.schemeNames[index] === root.currentScheme
                             ? Colours.palette.m3primary
                             : "transparent"
-                        border.width: modelData.name.toLowerCase() === root.currentScheme ? 2 : 0
+                        border.width: root.schemeNames[index] === root.currentScheme ? 2 : 0
 
                         StateLayer {
                             onClicked: {
-                                const scheme = modelData.name.toLowerCase();
+                                const scheme = root.schemeNames[index];
                                 schemeSetProc.command = ["sh", "-c", `caelestia scheme set -n ${scheme} --notify`];
                                 schemeSetProc.pendingScheme = scheme;
                                 schemeSetProc.running = true;
@@ -126,28 +145,28 @@ PageBase {
                                     width: 16
                                     height: 16
                                     radius: 8
-                                    color: modelData.primary
+                                    color: root.schemePrimaries[index]
                                 }
 
                                 Rectangle {
                                     width: 16
                                     height: 16
                                     radius: 8
-                                    color: modelData.secondary
+                                    color: root.schemeSecondaries[index]
                                 }
 
                                 Rectangle {
                                     width: 16
                                     height: 16
                                     radius: 8
-                                    color: modelData.tertiary
+                                    color: root.schemeTertiaries[index]
                                 }
                             }
 
                             StyledText {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: modelData.name
-                                color: modelData.name.toLowerCase() === root.currentScheme
+                                text: root.schemeLabels[index]
+                                color: root.schemeNames[index] === root.currentScheme
                                     ? Colours.palette.m3primary
                                     : Colours.palette.m3onSurface
                                 font: Tokens.font.label.small
@@ -158,7 +177,6 @@ PageBase {
             }
         }
 
-        // Variant selection
         SectionHeader {
             text: qsTr("Variant")
         }
@@ -212,7 +230,6 @@ PageBase {
             }
         }
 
-        // Transparency
         SectionHeader {
             text: qsTr("Transparency")
         }
@@ -224,7 +241,6 @@ PageBase {
             onToggled: GlobalConfig.appearance.transparency.enabled = checked
         }
 
-        // Current palette preview
         SectionHeader {
             text: qsTr("Current palette")
         }
@@ -248,23 +264,23 @@ PageBase {
 
                 Repeater {
                     model: [
-                        { name: "Primary", color: Colours.palette.m3primary },
-                        { name: "On Primary", color: Colours.palette.m3onPrimary },
-                        { name: "Primary Container", color: Colours.palette.m3primaryContainer },
-                        { name: "On Primary Container", color: Colours.palette.m3onPrimaryContainer },
-                        { name: "Secondary", color: Colours.palette.m3secondary }
+                        { label: "Primary", val: Colours.palette.m3primary },
+                        { label: "On Primary", val: Colours.palette.m3onPrimary },
+                        { label: "Primary Container", val: Colours.palette.m3primaryContainer },
+                        { label: "On Primary Container", val: Colours.palette.m3onPrimaryContainer },
+                        { label: "Secondary", val: Colours.palette.m3secondary }
                     ]
 
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 40
-                        color: modelData.color
+                        color: modelData.val
                         radius: Tokens.rounding.extraSmall
 
                         StyledText {
                             anchors.centerIn: parent
-                            text: modelData.name
-                            color: modelData.name.includes("On") ? Colours.palette.m3onSurface : Colours.palette.m3onPrimary
+                            text: modelData.label
+                            color: modelData.label.includes("On") ? Colours.palette.m3onSurface : Colours.palette.m3onPrimary
                             font: Tokens.font.label.small
                         }
                     }
@@ -272,23 +288,23 @@ PageBase {
 
                 Repeater {
                     model: [
-                        { name: "On Secondary", color: Colours.palette.m3onSecondary },
-                        { name: "Secondary Container", color: Colours.palette.m3secondaryContainer },
-                        { name: "On Secondary Container", color: Colours.palette.m3onSecondaryContainer },
-                        { name: "Tertiary", color: Colours.palette.m3tertiary },
-                        { name: "On Tertiary", color: Colours.palette.m3onTertiary }
+                        { label: "On Secondary", val: Colours.palette.m3onSecondary },
+                        { label: "Secondary Container", val: Colours.palette.m3secondaryContainer },
+                        { label: "On Secondary Container", val: Colours.palette.m3onSecondaryContainer },
+                        { label: "Tertiary", val: Colours.palette.m3tertiary },
+                        { label: "On Tertiary", val: Colours.palette.m3onTertiary }
                     ]
 
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 40
-                        color: modelData.color
+                        color: modelData.val
                         radius: Tokens.rounding.extraSmall
 
                         StyledText {
                             anchors.centerIn: parent
-                            text: modelData.name
-                            color: modelData.name.includes("On") ? Colours.palette.m3onSurface : Colours.palette.m3onPrimary
+                            text: modelData.label
+                            color: modelData.label.includes("On") ? Colours.palette.m3onSurface : Colours.palette.m3onPrimary
                             font: Tokens.font.label.small
                         }
                     }
@@ -296,23 +312,23 @@ PageBase {
 
                 Repeater {
                     model: [
-                        { name: "Surface", color: Colours.palette.m3surface },
-                        { name: "On Surface", color: Colours.palette.m3onSurface },
-                        { name: "Surface Variant", color: Colours.palette.m3surfaceVariant },
-                        { name: "On Surface Variant", color: Colours.palette.m3onSurfaceVariant },
-                        { name: "Outline", color: Colours.palette.m3outline }
+                        { label: "Surface", val: Colours.palette.m3surface },
+                        { label: "On Surface", val: Colours.palette.m3onSurface },
+                        { label: "Surface Variant", val: Colours.palette.m3surfaceVariant },
+                        { label: "On Surface Variant", val: Colours.palette.m3onSurfaceVariant },
+                        { label: "Outline", val: Colours.palette.m3outline }
                     ]
 
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 40
-                        color: modelData.color
+                        color: modelData.val
                         radius: Tokens.rounding.extraSmall
 
                         StyledText {
                             anchors.centerIn: parent
-                            text: modelData.name
-                            color: modelData.name.includes("On") ? Colours.palette.m3onSurface : Colours.palette.m3onPrimary
+                            text: modelData.label
+                            color: modelData.label.includes("On") ? Colours.palette.m3onSurface : Colours.palette.m3onPrimary
                             font: Tokens.font.label.small
                         }
                     }
@@ -320,7 +336,6 @@ PageBase {
             }
         }
 
-        // Wallpaper
         SectionHeader {
             text: qsTr("Wallpaper")
         }
