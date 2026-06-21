@@ -12,6 +12,7 @@ QtObject {
 
     property string selectedWallpaperCategory
     property BluetoothDevice selectedBtDevice
+    property var selectedNetwork
     property DesktopEntry selectedApp
 
     signal close

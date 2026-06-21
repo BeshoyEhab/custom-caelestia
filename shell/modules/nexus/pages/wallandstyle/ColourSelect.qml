@@ -58,7 +58,7 @@ PageBase {
     ]
 
     property string currentScheme: Colours.scheme || "dynamic"
-    property string currentVariant: "tonalspot"
+    property string currentVariant: Colours.variant || "tonalspot"
 
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
@@ -73,7 +73,7 @@ PageBase {
 
             command: ["sh", "-c"]
             onRunningChanged: {
-                if (!running && exitCode === 0)
+                if (!running && schemeSetProc.exitCode === 0)
                     root.currentScheme = pendingScheme;
             }
         }
@@ -85,6 +85,7 @@ PageBase {
 
         ToggleRow {
             first: true
+            last: true
             text: qsTr("Dark mode")
             checked: !Colours.light
             onToggled: Colours.setMode(checked ? "dark" : "light")
@@ -115,6 +116,8 @@ PageBase {
                     model: root.schemeNames.length
 
                     Rectangle {
+                        required property int index
+
                         Layout.fillWidth: true
                         Layout.preferredHeight: 64
                         color: root.schemeSurfaces[index]
@@ -200,6 +203,9 @@ PageBase {
                     model: root.variantNames
 
                     Rectangle {
+                        required property string modelData
+                        required property int index
+
                         width: variantLabel.implicitWidth + Tokens.padding.large * 2
                         height: 32
                         color: modelData === root.currentVariant
@@ -236,6 +242,7 @@ PageBase {
 
         ToggleRow {
             first: true
+            last: true
             text: qsTr("Enable transparency")
             checked: Colours.transparency.enabled
             onToggled: GlobalConfig.appearance.transparency.enabled = checked
@@ -264,72 +271,44 @@ PageBase {
 
                 Repeater {
                     model: [
-                        { label: "Primary", val: Colours.palette.m3primary },
-                        { label: "On Primary", val: Colours.palette.m3onPrimary },
-                        { label: "Primary Container", val: Colours.palette.m3primaryContainer },
-                        { label: "On Primary Container", val: Colours.palette.m3onPrimaryContainer },
-                        { label: "Secondary", val: Colours.palette.m3secondary }
+                        { label: "Primary", val: Colours.palette.m3primary, textVal: Colours.palette.m3onPrimary },
+                        { label: "On Primary", val: Colours.palette.m3onPrimary, textVal: Colours.palette.m3primary },
+                        { label: "Primary Container", val: Colours.palette.m3primaryContainer, textVal: Colours.palette.m3onPrimaryContainer },
+                        { label: "On Primary Container", val: Colours.palette.m3onPrimaryContainer, textVal: Colours.palette.m3primaryContainer },
+                        { label: "Secondary", val: Colours.palette.m3secondary, textVal: Colours.palette.m3onSecondary },
+
+                        { label: "On Secondary", val: Colours.palette.m3onSecondary, textVal: Colours.palette.m3secondary },
+                        { label: "Secondary Container", val: Colours.palette.m3secondaryContainer, textVal: Colours.palette.m3onSecondaryContainer },
+                        { label: "On Secondary Container", val: Colours.palette.m3onSecondaryContainer, textVal: Colours.palette.m3secondaryContainer },
+                        { label: "Tertiary", val: Colours.palette.m3tertiary, textVal: Colours.palette.m3onTertiary },
+                        { label: "On Tertiary", val: Colours.palette.m3onTertiary, textVal: Colours.palette.m3tertiary },
+
+                        { label: "Surface", val: Colours.palette.m3surface, textVal: Colours.palette.m3onSurface },
+                        { label: "On Surface", val: Colours.palette.m3onSurface, textVal: Colours.palette.m3surface },
+                        { label: "Surface Variant", val: Colours.palette.m3surfaceVariant, textVal: Colours.palette.m3onSurfaceVariant },
+                        { label: "On Surface Variant", val: Colours.palette.m3onSurfaceVariant, textVal: Colours.palette.m3surfaceVariant },
+                        { label: "Outline", val: Colours.palette.m3outline, textVal: Colours.palette.m3onSurface }
                     ]
 
                     Rectangle {
+                        required property var modelData
+                        required property int index
+
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 40
+                        Layout.preferredHeight: 48
                         color: modelData.val
                         radius: Tokens.rounding.extraSmall
 
                         StyledText {
-                            anchors.centerIn: parent
+                            anchors.fill: parent
+                            anchors.margins: 4
                             text: modelData.label
-                            color: modelData.label.includes("On") ? Colours.palette.m3onSurface : Colours.palette.m3onPrimary
+                            color: modelData.textVal
                             font: Tokens.font.label.small
-                        }
-                    }
-                }
-
-                Repeater {
-                    model: [
-                        { label: "On Secondary", val: Colours.palette.m3onSecondary },
-                        { label: "Secondary Container", val: Colours.palette.m3secondaryContainer },
-                        { label: "On Secondary Container", val: Colours.palette.m3onSecondaryContainer },
-                        { label: "Tertiary", val: Colours.palette.m3tertiary },
-                        { label: "On Tertiary", val: Colours.palette.m3onTertiary }
-                    ]
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 40
-                        color: modelData.val
-                        radius: Tokens.rounding.extraSmall
-
-                        StyledText {
-                            anchors.centerIn: parent
-                            text: modelData.label
-                            color: modelData.label.includes("On") ? Colours.palette.m3onSurface : Colours.palette.m3onPrimary
-                            font: Tokens.font.label.small
-                        }
-                    }
-                }
-
-                Repeater {
-                    model: [
-                        { label: "Surface", val: Colours.palette.m3surface },
-                        { label: "On Surface", val: Colours.palette.m3onSurface },
-                        { label: "Surface Variant", val: Colours.palette.m3surfaceVariant },
-                        { label: "On Surface Variant", val: Colours.palette.m3onSurfaceVariant },
-                        { label: "Outline", val: Colours.palette.m3outline }
-                    ]
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 40
-                        color: modelData.val
-                        radius: Tokens.rounding.extraSmall
-
-                        StyledText {
-                            anchors.centerIn: parent
-                            text: modelData.label
-                            color: modelData.label.includes("On") ? Colours.palette.m3onSurface : Colours.palette.m3onPrimary
-                            font: Tokens.font.label.small
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            wrapMode: Text.WordWrap
+                            elide: Text.ElideRight
                         }
                     }
                 }

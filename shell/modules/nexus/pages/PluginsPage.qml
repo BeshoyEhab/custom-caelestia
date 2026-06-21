@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Io
 import Caelestia.Config
 import qs.components
 import qs.components.controls
@@ -13,63 +14,112 @@ PageBase {
 
     title: qsTr("Plugins")
 
+    property var pluginStates: ({})
+
     readonly property list<var> plugins: [
         {
             name: "CopyQ",
             description: qsTr("Clipboard history manager"),
             icon: "content_paste",
-            processName: "copyq",
-            installed: true
+            binaryName: "copyq",
+            processName: "copyq"
         },
         {
             name: "Emote",
             description: qsTr("Emoji picker"),
             icon: "mood",
-            processName: "emote",
-            installed: true
+            binaryName: "emote",
+            processName: "emote"
         },
         {
             name: "Pyprland",
             description: qsTr("Scratchpads, magnifier, corner helpers"),
             icon: "widgets",
-            processName: "pypr",
-            installed: true
+            binaryName: "pypr",
+            processName: "pypr"
         },
         {
             name: "Wayscriber",
             description: qsTr("Screen laser annotation tool"),
             icon: "draw",
-            processName: "wayscriber",
-            installed: true
+            binaryName: "wayscriber",
+            processName: "wayscriber"
         },
         {
             name: "Hyprland Per-Window Layout",
             description: qsTr("Automatic keyboard layout per window"),
             icon: "keyboard",
-            processName: "hycov",
-            installed: true
+            binaryName: "hyprland-per-window-layout",
+            processName: "hyprland-per-window-layout"
         },
         {
             name: "EasyEffects",
             description: qsTr("Audio effects and equalizer"),
             icon: "graphic_eq",
-            processName: "easyeffects",
-            installed: false
+            binaryName: "easyeffects",
+            processName: "easyeffects"
         },
         {
             name: "Tesseract OCR",
             description: qsTr("Optical character recognition from screenshots"),
             icon: "document_scanner",
-            processName: "tesseract",
-            installed: true
+            binaryName: "tesseract",
+            processName: "tesseract"
         }
     ]
+
+    function getStatusCheckCommand() {
+        let cmd = "";
+        for (let i = 0; i < plugins.length; i++) {
+            let p = plugins[i];
+            let bin = p.binaryName;
+            let proc = p.processName;
+            let procTrunc = proc.substring(0, 15);
+            cmd += `${bin}:${procTrunc} `;
+        }
+        return `for pair in ${cmd.trim()}; do
+            bin="\${pair%%:*}"
+            proc="\${pair#*:}"
+            if which "$bin" >/dev/null 2>&1; then
+                if [ "$bin" = "tesseract" ]; then
+                    echo "$bin:installed"
+                elif pgrep -x "$proc" >/dev/null 2>&1; then
+                    echo "$bin:activated"
+                else
+                    echo "$bin:installed"
+                fi
+            else
+                echo "$bin:not_found"
+            fi
+        done`;
+    }
 
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         width: root.cappedWidth
         spacing: Tokens.spacing.extraSmall / 2
+
+        Process {
+            id: checker
+            running: true
+            command: ["sh", "-c", root.getStatusCheckCommand()]
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    let lines = text.split("\n");
+                    let newStates = {};
+                    for (let i = 0; i < lines.length; i++) {
+                        let line = lines[i].trim();
+                        if (!line) continue;
+                        let parts = line.split(":");
+                        if (parts.length === 2) {
+                            newStates[parts[0]] = parts[1];
+                        }
+                    }
+                    root.pluginStates = newStates;
+                }
+            }
+        }
 
         SectionHeader {
             first: true
@@ -80,6 +130,7 @@ PageBase {
             model: root.plugins
 
             ConnectedRect {
+                id: pluginRow
                 Layout.fillWidth: true
                 implicitHeight: pluginLayout.implicitHeight + pluginLayout.anchors.margins * 2
                 first: index === 0
@@ -87,6 +138,14 @@ PageBase {
 
                 required property var modelData
                 required property int index
+
+                readonly property string state: {
+                    if (Object.keys(root.pluginStates).length === 0)
+                        return "installed";
+                    return root.pluginStates[modelData.binaryName] || "not_found";
+                }
+                readonly property bool isNotFound: state === "not_found"
+                readonly property bool isActivated: state === "activated"
 
                 RowLayout {
                     id: pluginLayout
@@ -99,7 +158,7 @@ PageBase {
 
                     MaterialIcon {
                         text: modelData.icon
-                        color: modelData.installed ? Colours.palette.m3onSurfaceVariant : Colours.palette.m3outline
+                        color: !pluginRow.isNotFound ? Colours.palette.m3onSurfaceVariant : Colours.palette.m3outline
                         fontStyle: Tokens.font.icon.medium
                     }
 
@@ -111,30 +170,22 @@ PageBase {
                             Layout.fillWidth: true
                             text: modelData.name
                             font: Tokens.font.body.small
-                            color: modelData.installed ? Colours.palette.m3onSurface : Colours.palette.m3outline
+                            color: !pluginRow.isNotFound ? Colours.palette.m3onSurface : Colours.palette.m3outline
                             elide: Text.ElideRight
                         }
 
                         StyledText {
                             Layout.fillWidth: true
-                            text: modelData.installed ? modelData.description : qsTr("Not installed")
-                            color: modelData.installed ? Colours.palette.m3outline : Colours.palette.m3error
+                            text: pluginRow.isNotFound ? qsTr("Not installed") : modelData.description
+                            color: pluginRow.isNotFound ? Colours.palette.m3error : Colours.palette.m3outline
                             font: Tokens.font.label.small
                             elide: Text.ElideRight
                         }
                     }
 
                     MaterialIcon {
-                        visible: modelData.installed
-                        text: "check_circle"
-                        color: Colours.palette.m3primary
-                        fontStyle: Tokens.font.icon.medium
-                    }
-
-                    MaterialIcon {
-                        visible: !modelData.installed
-                        text: "info"
-                        color: Colours.palette.m3error
+                        text: pluginRow.isNotFound ? "info" : (pluginRow.isActivated ? "check_circle" : "check_circle_outline")
+                        color: pluginRow.isNotFound ? Colours.palette.m3error : (pluginRow.isActivated ? Colours.palette.m3primary : Colours.palette.m3outline)
                         fontStyle: Tokens.font.icon.medium
                     }
                 }

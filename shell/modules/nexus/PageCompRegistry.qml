@@ -45,6 +45,12 @@ QtObject {
                 Component {
                     NetworkPage {}
                 }
+                Component {
+                    NetworkDetails {}
+                }
+                Component {
+                    AddNetwork {}
+                }
             }
         },
         Component {

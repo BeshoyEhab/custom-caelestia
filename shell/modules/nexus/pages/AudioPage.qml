@@ -26,6 +26,7 @@ PageBase {
         }
 
         SliderRow {
+            first: true
             icon: Icons.getVolumeIcon(Audio.volume, Audio.muted)
             label: qsTr("Output")
             valueLabel: Math.round(value * 100) + "%"
