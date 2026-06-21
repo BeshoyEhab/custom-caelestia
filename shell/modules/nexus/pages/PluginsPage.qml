@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
-import Quickshell.Io
 import Caelestia.Config
 import qs.components
 import qs.components.controls
@@ -65,26 +64,6 @@ PageBase {
             installed: true
         }
     ]
-
-    // Check if a process is running
-    function checkProcess(name: string, callback: function): void {
-        checkProc.command = ["sh", "-c", `pgrep -x "${name}" > /dev/null 2>&1 && echo "running" || echo "stopped"`]
-        checkProc.stdout回调 = callback
-        checkProc.running = true
-    }
-
-    Process {
-        id: checkProc
-
-        property var stdoutCallback
-
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (checkProc.stdoutCallback)
-                    checkProc.stdoutCallback(text.trim() === "running")
-            }
-        }
-    }
 
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
