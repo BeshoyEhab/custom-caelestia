@@ -53,7 +53,7 @@ PageBase {
 
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.leftMargin: Tokens.padding.large
+                anchors.leftMargin: Tokens.padding.largeIncreased
                 anchors.verticalCenterOffset: Math.round(fontInfo.pointSize * 0.2)
 
                 text: qsTr("Available devices")

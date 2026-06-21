@@ -19,7 +19,7 @@ PageBase {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         width: root.cappedWidth
-        spacing: Tokens.spacing.large
+        spacing: Tokens.spacing.extraSmall / 2
 
         StyledClippingRect {
             id: wallWrapper
@@ -178,8 +178,6 @@ PageBase {
         }
 
         ToggleRow {
-            Layout.topMargin: Tokens.spacing.extraSmall / 2 - parent.spacing
-
             text: qsTr("Transparency")
             subtext: qsTr("Base %1, layers %2").arg(Colours.transparency.base).arg(Colours.transparency.layers)
             checked: Colours.transparency.enabled
@@ -187,8 +185,6 @@ PageBase {
         }
 
         ToggleRow {
-            Layout.topMargin: Tokens.spacing.extraSmall / 2 - parent.spacing
-
             last: true
             text: qsTr("Dark theme")
             checked: !Colours.light

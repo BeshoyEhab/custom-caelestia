@@ -20,8 +20,12 @@ PageBase {
         spacing: Tokens.spacing.extraSmall / 2
 
         // Output
-        SliderRow {
+        SectionHeader {
             first: true
+            text: qsTr("Output")
+        }
+
+        SliderRow {
             icon: Icons.getVolumeIcon(Audio.volume, Audio.muted)
             label: qsTr("Output")
             valueLabel: Math.round(value * 100) + "%"
@@ -46,8 +50,11 @@ PageBase {
         }
 
         // Input
+        SectionHeader {
+            text: qsTr("Input")
+        }
+
         SliderRow {
-            Layout.topMargin: Tokens.spacing.large - parent.spacing
             first: true
             icon: Icons.getMicVolumeIcon(Audio.sourceVolume, Audio.sourceMuted)
             label: qsTr("Input")
@@ -73,9 +80,12 @@ PageBase {
         }
 
         // Per-app volumes
+        SectionHeader {
+            text: qsTr("Per-app volumes")
+        }
+
         ConnectedRect {
             Layout.fillWidth: true
-            Layout.topMargin: Tokens.spacing.large - parent.spacing
             implicitHeight: appLayout.implicitHeight + appLayout.anchors.margins * 2
             first: true
             last: true

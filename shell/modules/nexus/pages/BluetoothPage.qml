@@ -206,9 +206,11 @@ PageBase {
             }
         }
 
-        ToggleRow {
-            Layout.topMargin: Tokens.spacing.large - parent.spacing
+        SectionHeader {
+            text: qsTr("Visibility")
+        }
 
+        ToggleRow {
             first: true
             text: qsTr("Discoverable")
             subtext: qsTr("Allow nearby devices to find this one")

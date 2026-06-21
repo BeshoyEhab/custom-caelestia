@@ -54,19 +54,7 @@ hl.config { plugin = { dynamic_cursors = {
 --   hyprctl keyword plugin:dynamic-cursors:shake:threshold 4.0
 -- and add the persistent form once an hl.plugin_config() API lands upstream.
 
--- ── Misc ──────────────────────────────────────────────────────────────
--- NOTE: focus_on_activate overrides hyprland/general.lua (which sets it true).
---       This custom file is sourced after, so false wins.
-hl.config({
-  misc = {
-    focus_on_activate            = false,
-    animate_manual_resizes       = true,
-    animate_mouse_windowdragging = true,
-  }
-})
-
-hl.config({
-  debug = {
+-- ── Debug ─────────────────────────────────────────────────────────────
     vfr = false
   }
 })
@@ -80,32 +68,6 @@ hl.config({
     touchpad   = {
       disable_while_typing = false, -- overrides hyprland/general.lua (true → false)
     }
-  }
-})
-
--- ── Decoration ────────────────────────────────────────────────────────
-hl.config({
-  decoration = {
-    -- Transparency
-    active_opacity     = 1.0,
-    inactive_opacity   = 0.95,
-    fullscreen_opacity = 1.0,
-
-    -- Blur — overrides hyprland/general.lua values
-    blur               = {
-      enabled           = true,
-      size              = 6,
-      passes            = 2,
-      new_optimizations = true,
-      xray              = false,
-      noise             = 0.02,
-      contrast          = 0.9,
-      brightness        = 0.8,
-    },
-
-    -- Dim
-    dim_special        = 0.4,
-    dim_strength       = 0.10,
   }
 })
 

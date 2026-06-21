@@ -66,7 +66,7 @@ PageBase {
 
         SectionHeader {
             first: true
-            text: qsTr("Installed plugins")
+            text: qsTr("Plugins")
         }
 
         Repeater {

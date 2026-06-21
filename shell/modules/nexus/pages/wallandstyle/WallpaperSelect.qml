@@ -28,7 +28,7 @@ PageBase {
         ButtonRow {
             Layout.bottomMargin: Tokens.spacing.medium
             Layout.alignment: Qt.AlignHCenter
-            spacing: Tokens.spacing.small
+        spacing: Tokens.spacing.extraSmall / 2
 
             IconTextButton {
                 icon: "photo_library"
