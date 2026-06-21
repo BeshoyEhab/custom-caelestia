@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Io
 import Caelestia.Config
 import qs.components
 import qs.components.controls
@@ -13,6 +14,36 @@ PageBase {
 
     title: qsTr("Colours")
     isSubPage: true
+
+    readonly property list<string> schemeNames: [
+        "dynamic", "catppuccin", "dracula", "everforest", "gruvbox",
+        "nord", "oldworld", "onedark", "rosepine", "solarized",
+        "tokyonight", "caelestia"
+    ]
+
+    readonly property list<string> variantNames: [
+        "tonalspot", "vibrant", "expressive", "fidelity",
+        "fruitsalad", "monochrome", "neutral", "rainbow", "content"
+    ]
+
+    property string currentScheme: Colours.scheme || "dynamic"
+    property string currentVariant: "tonalspot"
+
+    Process {
+        id: schemeSetProc
+
+        property string pendingScheme
+        property string pendingMode
+
+        command: ["sh", "-c"]
+        onRunningChanged: {
+            if (!running && exitCode === 0) {
+                root.currentScheme = pendingScheme;
+                if (pendingMode)
+                    root.currentMode = pendingMode;
+            }
+        }
+    }
 
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
@@ -31,6 +62,53 @@ PageBase {
             text: qsTr("Dark mode")
             checked: !Colours.light
             onToggled: Colours.setMode(checked ? "dark" : "light")
+        }
+
+        // Scheme selection
+        SectionHeader {
+            text: qsTr("Colour scheme")
+        }
+
+        SelectRow {
+            first: true
+            label: qsTr("Scheme")
+            subtext: qsTr("Base colour palette")
+            menuItems: Variants {
+                model: root.schemeNames
+                MenuItem {
+                    required property string modelData
+                    text: modelData.charAt(0).toUpperCase() + modelData.slice(1)
+                    icon: modelData === root.currentScheme ? "check" : ""
+                }
+            }
+            active: menuItems.find(i => i.text.toLowerCase() === root.currentScheme) ?? null
+            onSelected: item => {
+                const scheme = item.text.toLowerCase();
+                schemeSetProc.command = ["sh", "-c", `caelestia scheme set -n ${scheme} --notify`];
+                schemeSetProc.pendingScheme = scheme;
+                schemeSetProc.running = true;
+            }
+        }
+
+        SelectRow {
+            last: true
+            label: qsTr("Variant")
+            subtext: qsTr("Colour expression style")
+            menuItems: Variants {
+                model: root.variantNames
+                MenuItem {
+                    required property string modelData
+                    text: modelData.charAt(0).toUpperCase() + modelData.slice(1)
+                    icon: modelData === root.currentVariant ? "check" : ""
+                }
+            }
+            active: menuItems.find(i => i.text.toLowerCase() === root.currentVariant) ?? null
+            onSelected: item => {
+                const variant = item.text.toLowerCase();
+                schemeSetProc.command = ["sh", "-c", `caelestia scheme set -v ${variant} --notify`];
+                schemeSetProc.pendingScheme = root.currentScheme;
+                schemeSetProc.running = true;
+            }
         }
 
         // Transparency
@@ -67,7 +145,6 @@ PageBase {
                 rowSpacing: Tokens.spacing.small
                 columnSpacing: Tokens.spacing.small
 
-                // Primary colours
                 Repeater {
                     model: [
                         { name: "Primary", color: Colours.palette.m3primary },
@@ -92,7 +169,6 @@ PageBase {
                     }
                 }
 
-                // Secondary colours
                 Repeater {
                     model: [
                         { name: "On Secondary", color: Colours.palette.m3onSecondary },
@@ -117,7 +193,6 @@ PageBase {
                     }
                 }
 
-                // Surface colours
                 Repeater {
                     model: [
                         { name: "Surface", color: Colours.palette.m3surface },
