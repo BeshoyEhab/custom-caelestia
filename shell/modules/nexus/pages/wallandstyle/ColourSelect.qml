@@ -17,18 +17,18 @@ PageBase {
     isSubPage: true
 
     readonly property list<var> schemes: [
-        { name: "Dynamic", primary: "#b4c7ed", secondary: "#bdc7dc", tertiary: "#eaddff", surface: "#0c0e12" },
-        { name: "Catppuccin", primary: "#cba6f7", secondary: "#f5c2e7", tertiary: "#94e2d5", surface: "#1e1e2e" },
-        { name: "Dracula", primary: "#bd93f9", secondary: "#50fa7b", tertiary: "#ff79c6", surface: "#282a36" },
-        { name: "Everforest", primary: "#a7c080", secondary: "#dbbc7f", tertiary: "#e67e80", surface: "#2d353b" },
-        { name: "Gruvbox", primary: "#d79921", secondary: "#b8bb26", tertiary: "#d3869b", surface: "#282828" },
-        { name: "Nord", primary: "#88c0d0", secondary: "#a3be8c", tertiary: "#b48ead", surface: "#2e3440" },
-        { name: "Old World", primary: "#d0b48c", secondary: "#8cb89a", tertiary: "#c4927a", surface: "#1a1614" },
-        { name: "One Dark", primary: "#61afef", secondary: "#98c379", tertiary: "#c678dd", surface: "#282c34" },
-        { name: "Rose Pine", primary: "#c4a7e7", secondary: "#3182ce", tertiary: "#eb6f92", surface: "#191724" },
-        { name: "Solarized", primary: "#268bd2", secondary: "#2aa198", tertiary: "#6c71c4", surface: "#002b36" },
-        { name: "Tokyo Night", primary: "#7aa2f7", secondary: "#9ece6a", tertiary: "#bb9af7", surface: "#1a1b26" },
-        { name: "Caelestia", primary: "#b4c7ed", secondary: "#bdc7dc", tertiary: "#eaddff", surface: "#0c0e12" }
+        { name: "Dynamic", primary: Qt.rgba(0.706, 0.780, 0.929, 1), secondary: Qt.rgba(0.741, 0.780, 0.875, 1), tertiary: Qt.rgba(0.918, 0.867, 1.0, 1), surface: Qt.rgba(0.047, 0.055, 0.071, 1) },
+        { name: "Catppuccin", primary: Qt.rgba(0.800, 0.651, 0.969, 1), secondary: Qt.rgba(0.961, 0.761, 0.914, 1), tertiary: Qt.rgba(0.580, 0.886, 0.835, 1), surface: Qt.rgba(0.118, 0.118, 0.180, 1) },
+        { name: "Dracula", primary: Qt.rgba(0.741, 0.576, 0.976, 1), secondary: Qt.rgba(0.314, 0.980, 0.482, 1), tertiary: Qt.rgba(1.0, 0.475, 0.776, 1), surface: Qt.rgba(0.157, 0.165, 0.212, 1) },
+        { name: "Everforest", primary: Qt.rgba(0.655, 0.753, 0.502, 1), secondary: Qt.rgba(0.859, 0.733, 0.498, 1), tertiary: Qt.rgba(0.902, 0.494, 0.502, 1), surface: Qt.rgba(0.176, 0.208, 0.231, 1) },
+        { name: "Gruvbox", primary: Qt.rgba(0.843, 0.600, 0.129, 1), secondary: Qt.rgba(0.722, 0.733, 0.149, 1), tertiary: Qt.rgba(0.827, 0.525, 0.608, 1), surface: Qt.rgba(0.157, 0.157, 0.157, 1) },
+        { name: "Nord", primary: Qt.rgba(0.533, 0.753, 0.816, 1), secondary: Qt.rgba(0.639, 0.745, 0.549, 1), tertiary: Qt.rgba(0.706, 0.553, 0.678, 1), surface: Qt.rgba(0.180, 0.204, 0.251, 1) },
+        { name: "Old World", primary: Qt.rgba(0.816, 0.706, 0.549, 1), secondary: Qt.rgba(0.549, 0.722, 0.604, 1), tertiary: Qt.rgba(0.769, 0.573, 0.478, 1), surface: Qt.rgba(0.102, 0.086, 0.078, 1) },
+        { name: "One Dark", primary: Qt.rgba(0.380, 0.686, 0.937, 1), secondary: Qt.rgba(0.596, 0.765, 0.482, 1), tertiary: Qt.rgba(0.776, 0.471, 0.867, 1), surface: Qt.rgba(0.157, 0.173, 0.204, 1) },
+        { name: "Rose Pine", primary: Qt.rgba(0.769, 0.655, 0.906, 1), secondary: Qt.rgba(0.192, 0.510, 0.804, 1), tertiary: Qt.rgba(0.922, 0.435, 0.573, 1), surface: Qt.rgba(0.098, 0.090, 0.141, 1) },
+        { name: "Solarized", primary: Qt.rgba(0.149, 0.545, 0.824, 1), secondary: Qt.rgba(0.165, 0.631, 0.596, 1), tertiary: Qt.rgba(0.424, 0.443, 0.765, 1), surface: Qt.rgba(0.0, 0.169, 0.212, 1) },
+        { name: "Tokyo Night", primary: Qt.rgba(0.478, 0.635, 0.969, 1), secondary: Qt.rgba(0.612, 0.800, 0.416, 1), tertiary: Qt.rgba(0.714, 0.604, 0.969, 1), surface: Qt.rgba(0.102, 0.106, 0.149, 1) },
+        { name: "Caelestia", primary: Qt.rgba(0.706, 0.780, 0.929, 1), secondary: Qt.rgba(0.741, 0.780, 0.875, 1), tertiary: Qt.rgba(0.918, 0.867, 1.0, 1), surface: Qt.rgba(0.047, 0.055, 0.071, 1) }
     ]
 
     readonly property list<string> variantNames: [
@@ -39,23 +39,23 @@ PageBase {
     property string currentScheme: Colours.scheme || "dynamic"
     property string currentVariant: "tonalspot"
 
+    Process {
+        id: schemeSetProc
+
+        property string pendingScheme
+
+        command: ["sh", "-c"]
+        onRunningChanged: {
+            if (!running && exitCode === 0)
+                root.currentScheme = pendingScheme;
+        }
+    }
+
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         width: root.cappedWidth
         spacing: Tokens.spacing.extraSmall / 2
-
-        Process {
-            id: schemeSetProc
-
-            property string pendingScheme
-
-            command: ["sh", "-c"]
-            onRunningChanged: {
-                if (!running && exitCode === 0)
-                    root.currentScheme = pendingScheme;
-            }
-        }
 
         // Theme mode
         SectionHeader {
