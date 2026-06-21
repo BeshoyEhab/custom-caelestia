@@ -259,6 +259,49 @@ Process {
 
 ---
 
+#### Part F: Colour Settings Page [NEW]
+
+> **Files:** `shell/modules/nexus/pages/wallandstyle/ColourSelect.qml`
+
+##### F1. Theme mode toggle
+- [x] Dark/light mode toggle using `Colours.setMode()`
+- [x] Reflect current state from `Colours.light`
+
+##### F2. Transparency toggle
+- [x] Enable/disable transparency using `GlobalConfig.appearance.transparency.enabled`
+- [x] Show current base/layers values
+
+##### F3. Colour palette preview
+- [x] Show current Material 3 palette colours (primary, secondary, tertiary, surface)
+- [x] Update live when wallpaper changes
+
+##### F4. Wallpaper controls
+- [x] Toggle wallpaper display on/off
+- [ ] Link to WallpaperSelect sub-page for browsing
+
+---
+
+#### Part G: Plugin Management [NEW]
+
+> **Files:** `shell/modules/nexus/pages/PluginsPage.qml`
+
+##### G1. Plugin status detection
+- [x] Show installed vs not-installed status
+- [x] Show "Not installed" notice with error colour for missing plugins
+- [x] Use `pgrep` to check if plugin process is running
+
+##### G2. Plugin enable/disable
+- [ ] Add toggle to start/stop plugin processes
+- [ ] Store enabled/disabled state in config
+- [ ] Auto-start enabled plugins on shell restart
+
+##### G3. Plugin installation
+- [ ] "Install" button that runs `./install.sh` with plugin name
+- [ ] Show installation progress
+- [ ] Handle sudo requirement
+
+---
+
 #### Implementation Order
 
 1. **Part A** (scripts) — do first, everything depends on it
@@ -266,6 +309,8 @@ Process {
 3. **Part C** (consistency fixes) — independent, can be done in parallel
 4. **Part D** (UI/UX) — independent, can be done in parallel
 5. **Part E** (functional plugins) — depends on Parts A, B, C
+6. **Part F** (colour settings) — independent, can be done in parallel
+7. **Part G** (plugin management) — depends on Part A
 
 Each Part can be a separate commit/PR. Parts C and D can be split into individual
 checkboxes and done by different people.

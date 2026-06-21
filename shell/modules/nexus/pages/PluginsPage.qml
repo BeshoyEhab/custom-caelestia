@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Io
 import Caelestia.Config
 import qs.components
 import qs.components.controls
@@ -18,45 +19,72 @@ PageBase {
             name: "CopyQ",
             description: qsTr("Clipboard history manager"),
             icon: "content_paste",
+            processName: "copyq",
             installed: true
         },
         {
             name: "Emote",
             description: qsTr("Emoji picker"),
             icon: "mood",
+            processName: "emote",
             installed: true
         },
         {
             name: "Pyprland",
             description: qsTr("Scratchpads, magnifier, corner helpers"),
             icon: "widgets",
+            processName: "pypr",
             installed: true
         },
         {
             name: "Wayscriber",
             description: qsTr("Screen laser annotation tool"),
             icon: "draw",
+            processName: "wayscriber",
             installed: true
         },
         {
             name: "Hyprland Per-Window Layout",
             description: qsTr("Automatic keyboard layout per window"),
             icon: "keyboard",
+            processName: "hycov",
             installed: true
         },
         {
             name: "EasyEffects",
             description: qsTr("Audio effects and equalizer"),
             icon: "graphic_eq",
+            processName: "easyeffects",
             installed: false
         },
         {
             name: "Tesseract OCR",
             description: qsTr("Optical character recognition from screenshots"),
             icon: "document_scanner",
+            processName: "tesseract",
             installed: true
         }
     ]
+
+    // Check if a process is running
+    function checkProcess(name: string, callback: function): void {
+        checkProc.command = ["sh", "-c", `pgrep -x "${name}" > /dev/null 2>&1 && echo "running" || echo "stopped"`]
+        checkProc.stdout回调 = callback
+        checkProc.running = true
+    }
+
+    Process {
+        id: checkProc
+
+        property var stdoutCallback
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (checkProc.stdoutCallback)
+                    checkProc.stdoutCallback(text.trim() === "running")
+            }
+        }
+    }
 
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
@@ -92,7 +120,7 @@ PageBase {
 
                     MaterialIcon {
                         text: modelData.icon
-                        color: Colours.palette.m3onSurfaceVariant
+                        color: modelData.installed ? Colours.palette.m3onSurfaceVariant : Colours.palette.m3outline
                         fontStyle: Tokens.font.icon.medium
                     }
 
@@ -104,21 +132,30 @@ PageBase {
                             Layout.fillWidth: true
                             text: modelData.name
                             font: Tokens.font.body.small
+                            color: modelData.installed ? Colours.palette.m3onSurface : Colours.palette.m3outline
                             elide: Text.ElideRight
                         }
 
                         StyledText {
                             Layout.fillWidth: true
-                            text: modelData.description
-                            color: Colours.palette.m3outline
+                            text: modelData.installed ? modelData.description : qsTr("Not installed")
+                            color: modelData.installed ? Colours.palette.m3outline : Colours.palette.m3error
                             font: Tokens.font.label.small
                             elide: Text.ElideRight
                         }
                     }
 
                     MaterialIcon {
-                        text: modelData.installed ? "check_circle" : "cancel"
-                        color: Colours.palette.m3onSurfaceVariant
+                        visible: modelData.installed
+                        text: "check_circle"
+                        color: Colours.palette.m3primary
+                        fontStyle: Tokens.font.icon.medium
+                    }
+
+                    MaterialIcon {
+                        visible: !modelData.installed
+                        text: "info"
+                        color: Colours.palette.m3error
                         fontStyle: Tokens.font.icon.medium
                     }
                 }
