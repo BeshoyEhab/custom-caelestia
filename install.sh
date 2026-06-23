@@ -2,7 +2,9 @@
 # custom-caelestia Installer
 # Interactive installer with component selection
 
-set -e
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Colors
 RED='\033[0;31m'
@@ -143,7 +145,7 @@ install_components() {
 build_and_install_plugin() {
     echo -e "${CYAN}Building C++ plugin from custom-caelestia source...${NC}"
 
-    local SCRIPT_DIR="$MERGED_DIR"
+    local SCRIPT_DIR="$REPO_DIR"
     local BUILD_DIR="$SCRIPT_DIR/build"
 
     mkdir -p "$BUILD_DIR"
@@ -303,8 +305,8 @@ deploy_configs() {
     # 6. Symlink install/update scripts so the settings app can find them
     log "Linking install/update scripts for settings app..."
     mkdir -p "$HOME/.config/quickshell/caelestia/scripts"
-    ln -sf "$MERGED_DIR/update.sh" "$HOME/.config/quickshell/caelestia/scripts/update.sh"
-    ln -sf "$MERGED_DIR/install.sh" "$HOME/.config/quickshell/caelestia/scripts/install.sh"
+    ln -sf "$REPO_DIR/update.sh" "$HOME/.config/quickshell/caelestia/scripts/update.sh"
+    ln -sf "$REPO_DIR/install.sh" "$HOME/.config/quickshell/caelestia/scripts/install.sh"
 
     # Disable trap since deployment finished successfully
     trap - EXIT INT TERM
@@ -375,10 +377,10 @@ while true; do
     
     case "$choice" in
         [1-8])
-            local keys=($(echo "${!COMPONENTS[@]}" | tr ' ' '\n' | sort))
-            local idx=$((choice - 1))
+            keys=($(echo "${!COMPONENTS[@]}" | tr ' ' '\n' | sort))
+            idx=$((choice - 1))
             if [[ $idx -lt ${#keys[@]} ]]; then
-                local key="${keys[$idx]}"
+                key="${keys[$idx]}"
                 if [[ "$key" != "core" ]]; then
                     if [[ "${INSTALLED[$key]}" == "true" ]]; then
                         INSTALLED[$key]="false"

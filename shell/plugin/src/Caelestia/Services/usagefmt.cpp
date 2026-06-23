@@ -19,15 +19,15 @@ FormatResult UsageFmt::formatKib(qreal kib, qreal total) const {
         return { 0.0, 0.0, "KiB" };
     }
     if (total >= kGib) {
-        return { kib / kGib, total / kGib, "TiB" };
+        return { kib / kGib, total / kGib, "GiB" };
     }
     if (total >= kMib) {
-        return { kib / kMib, total / kMib, "GiB" };
+        return { kib / kMib, total / kMib, "MiB" };
     }
     if (total >= kKib) {
-        return { kib / kKib, total / kKib, "MiB" };
+        return { kib / kKib, total / kKib, "KiB" };
     }
-    return { kib, total, "KiB" };
+    return { kib * kKib, total * kKib, "B" };
 }
 
 } // namespace caelestia::services::usagefmt

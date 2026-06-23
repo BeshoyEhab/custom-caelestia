@@ -48,8 +48,8 @@ Searcher {
             keys = ["keywords", "name"];
             weights = [0.9, 0.1];
         } else {
-            keys = ["name"];
-            weights = [1];
+            keys = ["name", "genericName", "keywords", "comment"];
+            weights = [0.5, 0.2, 0.2, 0.1];
 
             if (!search.startsWith(`${prefix}t `))
                 return query(search).map(e => e.entry);

@@ -72,7 +72,7 @@ function rm --wraps rm --description "trash instead of delete"
     if test (id -u) -eq 0
         command rm $argv
     else
-        /home/Bisho/.local/share/bin/rem $argv
+        $HOME/.local/share/bin/rem $argv
     end
 end
 function chown --wraps chown --description "chown (safe, preserve-root)"; command chown --preserve-root $argv; end

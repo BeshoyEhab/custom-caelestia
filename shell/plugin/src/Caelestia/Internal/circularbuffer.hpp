@@ -36,6 +36,8 @@ signals:
 
 private:
     QVector<qreal> m_data;
+    mutable QList<qreal> m_cachedValues;
+    mutable bool m_valuesDirty = true;
     int m_head = 0;
     int m_count = 0;
     int m_capacity = 0;

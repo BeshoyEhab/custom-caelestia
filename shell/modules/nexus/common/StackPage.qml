@@ -111,7 +111,7 @@ StackView {
 
         function onSubPageClosed(): void {
             if (root.depth < root.nState.subPageIdxStack.length) {
-                console.log(logCat, "Attempted to close page while depth < stack depth. Ignoring.");
+                console.warn(logCat, "Attempted to close page while depth < stack depth. Ignoring.");
                 return;
             }
             root.pop();

@@ -27,6 +27,8 @@ Variants {
         anchors.bottom: true
         anchors.left: true
         anchors.right: true
+        implicitWidth: modelData?.width ?? 1920
+        implicitHeight: modelData?.height ?? 1080
 
         Item {
             id: behindClock

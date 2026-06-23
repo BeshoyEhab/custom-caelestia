@@ -74,6 +74,8 @@ StyledWindow {
     anchors.bottom: true
     anchors.left: true
     anchors.right: true
+    implicitWidth: screen?.width ?? 1920
+    implicitHeight: screen?.height ?? 1080
 
     Behavior on fsTransitionProg {
         Anim {}

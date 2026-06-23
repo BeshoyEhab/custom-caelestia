@@ -8,6 +8,7 @@ import Caelestia
 import qs.components
 import qs.components.effects
 import qs.services
+import qs.utils
 
 MouseArea {
     id: root
@@ -72,7 +73,7 @@ MouseArea {
     }
 
     function save(): void {
-        const tmpfile = Qt.resolvedUrl(`/tmp/caelestia-picker-${Quickshell.processId}-${Date.now()}.png`);
+        const tmpfile = Qt.resolvedUrl(`${Paths.tmp}/caelestia-picker-${Quickshell.processId}-${Date.now()}.png`);
         CUtils.saveItem(screencopy, tmpfile, Qt.rect(Math.ceil(rsx), Math.ceil(rsy), Math.floor(sw), Math.floor(sh)), path => {
             if (root.loader.clipboardOnly) {
                 Quickshell.execDetached(["sh", "-c", "wl-copy --type image/png < " + path]);
@@ -196,8 +197,12 @@ MouseArea {
         command: ["hyprctl", "cursorpos", "-j"]
         stdout: StdioCollector {
             onStreamFinished: {
-                const pos = JSON.parse(text);
-                root.checkClientRects(pos.x - root.screen.x, pos.y - root.screen.y);
+                try {
+                    const pos = JSON.parse(text);
+                    root.checkClientRects(pos.x - root.screen.x, pos.y - root.screen.y);
+                } catch (e) {
+                    console.warn("Failed to parse cursor position:", e);
+                }
             }
         }
     }

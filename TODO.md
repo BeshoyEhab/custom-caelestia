@@ -60,7 +60,7 @@ Add `--check` to `update.sh` that outputs machine-readable status:
 
 Output format (one per line):
 ```
-REPO_DIR=/home/Bisho/custom-caelestia
+REPO_DIR=/path/to/custom-caelestia
 BRANCH=master
 AHEAD=0
 BEHIND=2          # commits behind origin

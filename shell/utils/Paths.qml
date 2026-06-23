@@ -11,6 +11,7 @@ Singleton {
     readonly property string home: Quickshell.env("HOME")
     readonly property string pictures: Quickshell.env("XDG_PICTURES_DIR") || `${home}/Pictures`
     readonly property string videos: Quickshell.env("XDG_VIDEOS_DIR") || `${home}/Videos`
+    readonly property string tmp: `${Quickshell.env("XDG_RUNTIME_DIR") || `/tmp`}/caelestia`
 
     readonly property string data: `${Quickshell.env("XDG_DATA_HOME") || `${home}/.local/share`}/caelestia`
     readonly property string state: `${Quickshell.env("XDG_STATE_HOME") || `${home}/.local/state`}/caelestia`

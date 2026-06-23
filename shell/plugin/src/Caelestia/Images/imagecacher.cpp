@@ -4,6 +4,7 @@
 #include <qdir.h>
 #include <qfile.h>
 #include <qfileinfo.h>
+#include <qhash.h>
 #include <qimage.h>
 #include <qloggingcategory.h>
 #include <qmutex.h>
@@ -18,6 +19,10 @@ namespace caelestia::images {
 namespace {
 
 QString sha256sum(const QString& path) {
+    static QHash<QString, QString> s_cache;
+    if (const auto it = s_cache.constFind(path); it != s_cache.constEnd())
+        return *it;
+
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
         qCWarning(lcCacher).noquote() << "sha256sum: failed to open" << path;
@@ -28,7 +33,9 @@ QString sha256sum(const QString& path) {
     hash.addData(&file);
     file.close();
 
-    return hash.result().toHex();
+    const QString result = hash.result().toHex();
+    s_cache.insert(path, result);
+    return result;
 }
 
 QString fillSuffix(ImageCacher::FillMode fillMode) {

@@ -46,44 +46,46 @@ Singleton {
         return (item.frequency || 0) / maxFreq;
     }
 
-    // Match score: first letter match bonus, substring match bonus, partial penalty
-    function getMatchScore(nameLower: string, searchLower: string): real {
-        if (!nameLower || !searchLower) return 0;
+    // Match score for a single field
+    function getSingleMatchScore(textLower: string, searchLower: string): real {
+        if (!textLower || !searchLower) return 0;
 
         let score = 0;
 
-        // First letter match: huge bonus (decisive for 1-2 char queries)
-        if (nameLower[0] === searchLower[0]) {
+        if (textLower[0] === searchLower[0]) {
             score += 0.8;
         } else {
-            // First letter mismatch: strong penalty
             score -= 0.5;
         }
 
-        // Starts with search: strong bonus
-        if (nameLower.startsWith(searchLower)) {
+        if (textLower.startsWith(searchLower)) {
             score += 0.3;
-        }
-        // Contains search as substring: moderate bonus
-        else if (nameLower.includes(searchLower)) {
+        } else if (textLower.includes(searchLower)) {
             score += 0.15;
-        }
-        // Subsequence match (fuzzy): smaller bonus
-        else {
+        } else {
             let si = 0;
-            for (let ni = 0; ni < nameLower.length && si < searchLower.length; ni++) {
-                if (nameLower[ni] === searchLower[si]) si++;
+            for (let ni = 0; ni < textLower.length && si < searchLower.length; ni++) {
+                if (textLower[ni] === searchLower[si]) si++;
             }
-            // Full subsequence found
             if (si === searchLower.length) {
                 score += 0.05;
             } else {
-                // Partial match: penalty based on how few chars matched
                 score -= 0.15 * (1 - si / searchLower.length);
             }
         }
 
         return score;
+    }
+
+    // Best match score across all configured keys
+    function getMatchScore(item: var, searchLower: string): real {
+        let best = -1;
+        for (const k of keys) {
+            const textLower = (item[k] || "").toLowerCase();
+            const score = getSingleMatchScore(textLower, searchLower);
+            if (score > best) best = score;
+        }
+        return best;
     }
 
     function query(search: string): list<var> {
@@ -113,10 +115,7 @@ Singleton {
         // Short queries (≤3): match scoring + frequency
         if (searchLen <= 3) {
             const results = list.map(item => {
-                const nameLower = (item.name || "").toLowerCase();
-
-                // First-letter / substring match score
-                const letterScore = getMatchScore(nameLower, searchLower);
+                const letterScore = getMatchScore(item, searchLower);
 
                 // Normalize to 0-1 range (getMatchScore ranges from ~-0.5 to ~1.1)
                 const matchScore = Math.min(1.0, Math.max(0, (letterScore + 0.5) / 1.6));
@@ -133,10 +132,14 @@ Singleton {
 
         // Longer queries (>3): levenshtein + frequency
         if (searchLen > 3) {
-            const results = list.map(item => ({
-                item,
-                score: Lev.computeScore((item.name || "").toLowerCase(), searchLower)
-            }))
+            const results = list.map(item => {
+                let bestScore = 0;
+                for (const k of keys) {
+                    const s = Lev.computeScore((item[k] || "").toLowerCase(), searchLower);
+                    if (s > bestScore) bestScore = s;
+                }
+                return { item, score: bestScore };
+            })
             .filter(r => r.score > scoreThreshold);
 
             const combined = results.map(r => {

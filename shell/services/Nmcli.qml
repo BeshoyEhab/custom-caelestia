@@ -58,6 +58,7 @@ Singleton {
     readonly property string connectionParamBssid: "802-11-wireless.bssid"
 
     signal connectionFailed(string ssid)
+    signal connectionChanged()
 
     function detectPasswordRequired(error: string): bool {
         if (!error || error.length === 0) {
@@ -1034,6 +1035,7 @@ Singleton {
     }
 
     function refreshOnConnectionChange(): void {
+        root.connectionChanged();
         getNetworks(networks => {
             const newActive = root.active;
 

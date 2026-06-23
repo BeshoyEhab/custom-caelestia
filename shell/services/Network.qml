@@ -248,16 +248,7 @@ Singleton {
     }
 
     function cidrToSubnetMask(cidr: string): string {
-        // Convert CIDR notation (e.g., "24") to subnet mask (e.g., "255.255.255.0")
-        const cidrNum = parseInt(cidr);
-        if (isNaN(cidrNum) || cidrNum < 0 || cidrNum > 32) {
-            return "";
-        }
-
-        const mask = (0xffffffff << (32 - cidrNum)) >>> 0;
-        const octets = [(mask >>> 24) & 0xff, (mask >>> 16) & 0xff, (mask >>> 8) & 0xff, mask & 0xff];
-
-        return octets.join(".");
+        return Nmcli.cidrToSubnetMask(cidr);
     }
 
     Component.onCompleted: {
@@ -305,12 +296,12 @@ Singleton {
         }
     }
 
-    Process {
-        running: true
-        command: ["nmcli", "m"]
-        stdout: SplitParser {
-            onRead: monitorDebounce.start()
+    Connections {
+        function onConnectionChanged(): void {
+            monitorDebounce.start();
         }
+
+        target: Nmcli
     }
 
     Component {

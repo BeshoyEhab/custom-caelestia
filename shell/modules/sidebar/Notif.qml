@@ -6,6 +6,7 @@ import Quickshell
 import Caelestia.Config
 import qs.components
 import qs.services
+import qs.utils
 
 StyledRect {
     id: root
@@ -62,11 +63,12 @@ StyledRect {
         anchors.left: parent.left
 
         width: parent.width
-        text: root.modelData?.summary ?? ""
+        text: Strings.directionalText(root.modelData?.summary ?? "")
         color: root.modelData?.urgency === "critical" ? Colours.palette.m3onSecondaryContainer : Colours.palette.m3onSurface
         elide: Text.ElideRight
         wrapMode: Text.WordWrap
         maximumLineCount: 1
+        horizontalAlignment: Strings.textDirection(root.modelData?.summary ?? "") === Qt.RightToLeft ? Text.AlignRight : Text.AlignLeft
     }
 
     StyledText {
@@ -89,7 +91,7 @@ StyledRect {
         anchors.leftMargin: Tokens.spacing.small
 
         sourceComponent: StyledText {
-            text: String(root.modelData?.body ?? "").replace(/\n/g, " ")
+            text: Strings.directionalText(String(root.modelData?.body ?? "").replace(/\n/g, " "))
             color: root.modelData?.urgency === "critical" ? Colours.palette.m3secondary : Colours.palette.m3outline
             elide: Text.ElideRight
         }
@@ -136,7 +138,7 @@ StyledRect {
 
             Layout.fillWidth: true
             textFormat: Text.MarkdownText
-            text: String(root.modelData?.body ?? "").replace(/(.)\n(?!\n)/g, "$1\n\n") || qsTr("No body here! :/")
+            text: Strings.directionalText(String(root.modelData?.body ?? "").replace(/(.)\n(?!\n)/g, "$1\n\n") || qsTr("No body here! :/"))
             color: root.modelData?.urgency === "critical" ? Colours.palette.m3secondary : Colours.palette.m3outline
             wrapMode: Text.WordWrap
 

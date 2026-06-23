@@ -264,6 +264,7 @@ StyledRect {
                 text: summaryMetrics.elidedText
                 maximumLineCount: 1
                 height: implicitHeight
+                horizontalAlignment: Strings.textDirection(root.modelData.summary) === Qt.RightToLeft ? Text.AlignRight : Text.AlignLeft
 
                 states: State {
                     name: "expanded"
@@ -301,7 +302,7 @@ StyledRect {
             TextMetrics {
                 id: summaryMetrics
 
-                text: root.modelData.summary
+                text: Strings.directionalText(root.modelData.summary)
                 font: summary.font
                 elide: Text.ElideRight
                 elideWidth: expandBtn.x - time.width - timeSep.width - summary.x - root.Tokens.spacing.small * 3
@@ -395,6 +396,7 @@ StyledRect {
                 text: bodyPreviewMetrics.elidedText
                 color: Colours.palette.m3onSurfaceVariant
                 font: Tokens.font.body.small
+                horizontalAlignment: Strings.textDirection(root.modelData.body) === Qt.RightToLeft ? Text.AlignRight : Text.AlignLeft
 
                 opacity: root.expanded ? 0 : 1
 
@@ -408,7 +410,7 @@ StyledRect {
             TextMetrics {
                 id: bodyPreviewMetrics
 
-                text: root.modelData.body
+                text: Strings.directionalText(root.modelData.body)
                 font: bodyPreview.font
                 elide: Text.ElideRight
                 elideWidth: bodyPreview.width
@@ -424,11 +426,12 @@ StyledRect {
 
                 animate: true
                 textFormat: root.bodyTextFormat
-                text: root.modelData.body
+                text: Strings.directionalText(root.modelData.body)
                 color: Colours.palette.m3onSurfaceVariant
                 font: Tokens.font.body.small
                 wrapMode: Text.WrapAtWordBoundaryOrAnywhere
                 height: text ? implicitHeight : 0
+                horizontalAlignment: Strings.textDirection(root.modelData.body) === Qt.RightToLeft ? Text.AlignRight : Text.AlignLeft
 
                 onLinkActivated: link => {
                     if (!root.expanded)

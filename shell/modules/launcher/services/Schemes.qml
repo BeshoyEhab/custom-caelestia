@@ -43,19 +43,23 @@ Searcher {
         command: ["caelestia", "scheme", "list"]
         stdout: StdioCollector {
             onStreamFinished: {
-                const schemeData = JSON.parse(text);
-                const list = Object.entries(schemeData).map(([name, f]) => Object.entries(f).map(([flavour, colours]) => ({
-                                name,
-                                flavour,
-                                colours
-                            })));
+                try {
+                    const schemeData = JSON.parse(text);
+                    const list = Object.entries(schemeData).map(([name, f]) => Object.entries(f).map(([flavour, colours]) => ({
+                                    name,
+                                    flavour,
+                                    colours
+                                })));
 
-                const flat = [];
-                for (const s of list)
-                    for (const f of s)
-                        flat.push(f);
+                    const flat = [];
+                    for (const s of list)
+                        for (const f of s)
+                            flat.push(f);
 
-                schemes.model = flat.sort((a, b) => String(a.name + a.flavour).localeCompare((b.name + b.flavour)));
+                    schemes.model = flat.sort((a, b) => String(a.name + a.flavour).localeCompare((b.name + b.flavour)));
+                } catch (e) {
+                    console.warn("Failed to parse scheme list:", e);
+                }
             }
         }
     }
@@ -67,9 +71,13 @@ Searcher {
         command: ["caelestia", "scheme", "get", "-nfv"]
         stdout: StdioCollector {
             onStreamFinished: {
-                const [name, flavour, variant] = text.trim().split("\n");
-                root.currentScheme = `${name} ${flavour}`;
-                root.currentVariant = variant;
+                try {
+                    const [name, flavour, variant] = text.trim().split("\n");
+                    root.currentScheme = `${name} ${flavour}`;
+                    root.currentVariant = variant;
+                } catch (e) {
+                    console.warn("Failed to parse current scheme:", e);
+                }
             }
         }
     }

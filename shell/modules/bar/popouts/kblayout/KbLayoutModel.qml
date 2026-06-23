@@ -162,10 +162,12 @@ Item {
                     const raw = (j?.str || j?.value || "").toString().trim();
                     if (raw.length) {
                         model._setLayouts(raw);
-                        fetchActiveLayouts.running = true;
+                        fetchDevicesForActive.running = true;
                         return;
                     }
-                } catch (e) {}
+                } catch (e) {
+                    console.warn("KbLayoutModel: failed to parse getoption output:", e.message);
+                }
                 fetchLayoutsFromDevices.running = true;
             }
         }
@@ -183,14 +185,23 @@ Item {
                     const raw = (kb?.layout || "").trim();
                     if (raw.length)
                         model._setLayouts(raw);
-                } catch (e) {}
-                fetchActiveLayouts.running = true;
+
+                    const idx = kb?.active_layout_index ?? -1;
+                    model.activeIndex = idx >= 0 ? idx : -1;
+                    model.activeLabel = (idx >= 0 && idx < layoutsModel.count) ? layoutsModel.get(idx).label : "";
+                } catch (e) {
+                    console.warn("KbLayoutModel: failed to parse devices output:", e.message);
+                    model.activeIndex = -1;
+                    model.activeLabel = "";
+                }
+
+                model._rebuildVisible();
             }
         }
     }
 
     Process {
-        id: fetchActiveLayouts
+        id: fetchDevicesForActive
 
         command: ["hyprctl", "-j", "devices"]
         stdout: StdioCollector {
@@ -203,6 +214,7 @@ Item {
                     model.activeIndex = idx >= 0 ? idx : -1;
                     model.activeLabel = (idx >= 0 && idx < layoutsModel.count) ? layoutsModel.get(idx).label : "";
                 } catch (e) {
+                    console.warn("KbLayoutModel: failed to parse devices for active layout:", e.message);
                     model.activeIndex = -1;
                     model.activeLabel = "";
                 }
