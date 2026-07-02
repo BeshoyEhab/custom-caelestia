@@ -188,11 +188,11 @@ Process {
 - [x] Add `SectionHeader { text: "Discoverable" }` before discoverable toggles
 - [x] Remove `Layout.topMargin` hack
 
-##### C6. NetworkPage.qml — Fix padding
-- [ ] Align network list delegate margins with standard row padding pattern
+##### C6. NetworkPage.qml — Fix padding [DONE]
+- [x] Align network list delegate margins with standard row padding pattern
 
-##### C7. AppsPage.qml — Fix first/last
-- [ ] Add `first: true` to first DefaultRow in each group
+##### C7. AppsPage.qml — Fix first/last [DONE]
+- [x] Add `first: true` to first DefaultRow in each group
 
 ---
 
@@ -440,3 +440,4 @@ Key files: `~/.config/caelestia/cli.json`, `Colours.qml`, `Wallpapers.qml`
 | `SUPER+Return` | Terminal (kitty) |
 | `SUPER+Q` | Close window |
 | `SUPER+Shift+S` | Screenshot |
+| `SHIFT+F7` | Toggle presentation mode (disable hover-to-open) |
