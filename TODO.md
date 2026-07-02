@@ -109,7 +109,7 @@ Recommendation: Option 1 (polkit) — it's the standard Linux way and secure.
 
 **Files:** `shell/modules/nexus/pages/UpdatesPage.qml`
 
-##### B1. Replace fake Timers with real Process calls
+##### B1. Replace fake Timers with real Process calls [DONE]
 
 ```qml
 import qs.services
@@ -126,14 +126,14 @@ Process {
 }
 ```
 
-##### B2. Update button states based on --check result
+##### B2. Update button states based on --check result [DONE]
 
 - "Check for updates" → runs `--check`, shows result
 - "Update repository" → runs `update.sh --non-interactive`, shows progress
 - "Deploy configurations" → runs `install.sh --non-interactive --no-install`
 - "Reload shell" → runs `pkill quickshell && qs -c caelestia &`
 
-##### B3. Handle script not found
+##### B3. Handle script not found [DONE]
 
 ```qml
 // Before running, check if symlink exists
