@@ -23,7 +23,7 @@ declare -a IGNORE_PATTERNS=()
 
 load_ignore_patterns() {
     # Default ignored files (always stashed or hardware specific)
-    IGNORE_PATTERNS=("custom/" "monitors.lua" "monitors.conf" "shell.json" "shell.json.bak" "custom")
+    IGNORE_PATTERNS=("custom/" "monitors.lua" "monitors.conf" "shell.json" "shell.json.bak" "custom" "build/")
     
     local ignore_files=("./.updateignore" "$HOME/.updateignore" "$HOME/.config/hypr/.updateignore")
     for f in "${ignore_files[@]}"; do
@@ -152,18 +152,19 @@ deploy_active_updates() {
     if [[ -d "$HOME/.config/hypr" ]]; then
         local backup_dir="$HOME/.config/hypr.bak.$(date +%Y%m%d%H%M%S)"
         log "Creating safety backup of ~/.config/hypr to $(basename "$backup_dir")..."
-        cp -r "$HOME/.config/hypr" "$backup_dir"
+        cp -r "$HOME/.config/hypr" "$backup_dir" 2>/dev/null || warn "Could not backup ~/.config/hypr (permission denied on some files)"
     fi
     if [[ -d "$HOME/.config/quickshell/caelestia" ]]; then
         local backup_dir="$HOME/.config/quickshell/caelestia.bak.$(date +%Y%m%d%H%M%S)"
         log "Creating safety backup of ~/.config/quickshell/caelestia to $(basename "$backup_dir")..."
-        cp -r "$HOME/.config/quickshell/caelestia" "$backup_dir"
+        # Exclude build/ dir which may contain root-owned files from plugin builds
+        rsync -a --exclude='build/' "$HOME/.config/quickshell/caelestia/" "$backup_dir/" 2>/dev/null || warn "Could not backup ~/.config/quickshell/caelestia (permission denied on some files)"
     fi
 
     # 2. Deploy Hyprland configs file by file
     log "Processing Hyprland configurations..."
     mkdir -p "$HOME/.config/hypr"
-    find ./hyprland/.config/hypr/ -type f | while read -r repo_file; do
+    find ./hyprland/.config/hypr/ -type f 2>/dev/null | while read -r repo_file; do
         local rel_path="${repo_file#./hyprland/.config/hypr/}"
         local home_file="$HOME/.config/hypr/$rel_path"
         
@@ -184,7 +185,7 @@ deploy_active_updates() {
     # 3. Deploy Quickshell caelestia configs file by file
     log "Processing Quickshell configurations..."
     mkdir -p "$HOME/.config/quickshell/caelestia"
-    find ./shell/ -type f -not -path "*/build/*" -not -path "*/.git/*" | while read -r repo_file; do
+    find ./shell/ -type f -not -path "*/build/*" -not -path "*/.git/*" -not -path "*/nix/*" 2>/dev/null | while read -r repo_file; do
         local rel_path="${repo_file#./shell/}"
         local home_file="$HOME/.config/quickshell/caelestia/$rel_path"
         
@@ -198,7 +199,7 @@ deploy_active_updates() {
                 handle_file_conflict "$repo_file" "$home_file"
             fi
         else
-            cp -p "$repo_file" "$home_file"
+            cp -p "$repo_file" "$home_file" 2>/dev/null || warn "Could not copy $repo_file (permission denied)"
         fi
     done
 
@@ -252,7 +253,8 @@ deploy_active_updates() {
         cmake --build "$BUILD_DIR" --target caelestia-configplugin -j"$NPROC" 2>&1 | tail -5
 
         local INSTALL_DIR="/usr/lib/qt6/qml"
-        find "$BUILD_DIR" -name "libcaelestia-*.so" -type f | while read -r lib; do
+        local installed=0
+        find "$BUILD_DIR" -name "libcaelestia-*.so" -type f 2>/dev/null | while read -r lib; do
             local modname=$(basename "$lib")
             local subdir
             if [[ "$modname" == *"plugin.so" ]]; then
@@ -261,13 +263,20 @@ deploy_active_updates() {
                 subdir=$(echo "$modname" | sed 's/^libcaelestia-//;s/\.so$//' | sed 's/\b\(.\)/\U\1/')
             fi
             local target_dir="$INSTALL_DIR/Caelestia/$subdir"
-            sudo mkdir -p "$target_dir"
-            sudo cp -p "$lib" "$target_dir/$modname"
-            echo "  Installed: $modname -> $target_dir/"
+            if sudo mkdir -p "$target_dir" 2>/dev/null && sudo cp -p "$lib" "$target_dir/$modname" 2>/dev/null; then
+                echo "  Installed: $modname -> $target_dir/"
+                installed=1
+            else
+                warn "Could not install $modname (permission denied). Run with sudo or manually: sudo cp $lib $target_dir/"
+            fi
         done
 
         touch "$stamp_file"
-        log "Plugin rebuilt and installed."
+        if [[ "$installed" == "1" ]]; then
+            log "Plugin rebuilt and installed."
+        else
+            warn "Plugin rebuilt but could not install (sudo required). Run: sudo cp $BUILD_DIR/lib/caelestia-*.so /usr/lib/qt6/qml/Caelestia/*/"
+        fi
     else
         log "Plugin source unchanged — skipping rebuild."
     fi
@@ -297,7 +306,8 @@ main() {
 
     # Fetch origin
     git fetch origin 2>/dev/null || {
-        err "Failed to fetch from origin."
+        warn "Failed to fetch from origin. Check your network and remote URL."
+        warn "Continuing with configuration deployment..."
     }
 
     # Stash any local changes
@@ -312,7 +322,13 @@ main() {
     current_branch=$(git branch --show-current)
     
     log "Pulling latest changes on branch '$current_branch'..."
-    git pull origin "$current_branch" --no-rebase 2>/dev/null || warn "Failed to pull updates automatically."
+    git pull origin "$current_branch" --no-rebase 2>&1 || {
+        warn "Failed to pull updates automatically. Possible reasons:"
+        warn "  - Branch has diverged (run: git pull --rebase)"
+        warn "  - Network issue"
+        warn "  - No upstream branch set"
+        warn "Continuing with configuration deployment..."
+    }
 
     # Restore stash
     if [ "$stash" = true ]; then

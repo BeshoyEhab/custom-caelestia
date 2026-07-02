@@ -158,6 +158,7 @@ build_and_install_plugin() {
 
     echo -e "${CYAN}Installing C++ plugin (requires sudo)...${NC}"
     local INSTALL_DIR="/usr/lib/qt6/qml"
+    local installed=0
     find "$BUILD_DIR" -name "libcaelestia-*.so" -type f | while read -r lib; do
         local modname=$(basename "$lib")
         local subdir
@@ -167,12 +168,20 @@ build_and_install_plugin() {
             subdir=$(echo "$modname" | sed 's/^libcaelestia-//;s/\.so$//' | sed 's/\b\(.\)/\U\1/')
         fi
         local target_dir="$INSTALL_DIR/Caelestia/$subdir"
-        sudo mkdir -p "$target_dir"
-        sudo cp -p "$lib" "$target_dir/$modname"
-        echo -e "  ${GREEN}Installed: $modname -> $target_dir/${NC}"
+        if sudo mkdir -p "$target_dir" 2>/dev/null && sudo cp -p "$lib" "$target_dir/$modname" 2>/dev/null; then
+            echo -e "  ${GREEN}Installed: $modname -> $target_dir/${NC}"
+            installed=1
+        else
+            echo -e "  ${YELLOW}Warning: Could not install $modname (permission denied)${NC}"
+        fi
     done
 
-    echo -e "${GREEN}Plugin built and installed successfully!${NC}"
+    if [[ "$installed" == "1" ]]; then
+        echo -e "${GREEN}Plugin built and installed successfully!${NC}"
+    else
+        echo -e "${YELLOW}Plugin built but could not install (sudo required).${NC}"
+        echo -e "${YELLOW}Run manually: sudo cp $BUILD_DIR/lib/caelestia-*.so /usr/lib/qt6/qml/Caelestia/*/${NC}"
+    fi
 }
 
 deploy_configs() {
@@ -221,12 +230,16 @@ deploy_configs() {
     if [[ -d "$HOME/.config/hypr" ]]; then
         echo -e "${YELLOW}Backing up existing Hyprland config folder to ~/.config/hypr.bak...${NC}"
         rm -rf "$HOME/.config/hypr.bak"
-        mv "$HOME/.config/hypr" "$HOME/.config/hypr.bak.$(date +%Y%m%d%H%M%S)"
+        mv "$HOME/.config/hypr" "$HOME/.config/hypr.bak.$(date +%Y%m%d%H%M%S)" 2>/dev/null || echo -e "${YELLOW}Warning: Could not backup ~/.config/hypr (permission denied)${NC}"
     fi
     if [[ -d "$HOME/.config/quickshell/caelestia" ]]; then
         echo -e "${YELLOW}Backing up existing Quickshell caelestia folder to ~/.config/quickshell/caelestia.bak...${NC}"
         rm -rf "$HOME/.config/quickshell/caelestia.bak"
-        mv "$HOME/.config/quickshell/caelestia" "$HOME/.config/quickshell/caelestia.bak.$(date +%Y%m%d%H%M%S)"
+        # Exclude build/ which may have root-owned files from previous plugin installs
+        rsync -a --exclude='build/' "$HOME/.config/quickshell/caelestia/" "/tmp/caelestia_backup/" 2>/dev/null && \
+            mv "/tmp/caelestia_backup" "$HOME/.config/quickshell/caelestia.bak.$(date +%Y%m%d%H%M%S)" 2>/dev/null || \
+            echo -e "${YELLOW}Warning: Could not backup ~/.config/quickshell/caelestia (permission denied on some files)${NC}"
+        rm -rf "/tmp/caelestia_backup" 2>/dev/null
     fi
 
     # 3. Deploy new global configs from repository
@@ -234,7 +247,7 @@ deploy_configs() {
     rsync -a --exclude=".git*" ./hyprland/.config/hypr/ "$HOME/.config/hypr/"
 
     mkdir -p "$HOME/.config/quickshell/caelestia"
-    rsync -a --exclude=".git*" ./shell/ "$HOME/.config/quickshell/caelestia/"
+    rsync -a --exclude='.git*' --exclude='build/' ./shell/ "$HOME/.config/quickshell/caelestia/"
 
     # Deploy systemd user services (portal fix etc.)
     if [[ -d ./hyprland/.config/systemd ]]; then
