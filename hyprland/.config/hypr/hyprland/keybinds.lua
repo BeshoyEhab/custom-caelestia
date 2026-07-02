@@ -60,8 +60,8 @@ hl.bind("SUPER + SHIFT + A", hl.dsp.exec_cmd(hyprScripts .. "/snip_to_search.sh"
     { description = "Utilities: Google Lens" })
 
 -- OCR (tesseract)
-hl.bind("SUPER + SHIFT + X", hl.dsp.exec_cmd("hyprshot -m region -z -o /tmp -f ocr_image.png && tesseract /tmp/ocr_image.png stdout -l eng+ara | wl-copy && rm /tmp/ocr_image.png"),
-    { description = "OCR: Freeze screenshot to clipboard" })
+hl.bind("SUPER + SHIFT + X", hl.dsp.exec_cmd("hyprshot -m region -z -o /tmp -f ocr_image.png && wl-copy --clear 2>/dev/null; tesseract /tmp/ocr_image.png stdout -l eng+ara | wl-copy && rm -f /tmp/ocr_image.png"),
+    { description = "OCR: Freeze screenshot, copy only text to clipboard" })
 
 -- Color picker
 hl.bind("SUPER + SHIFT + C", hl.dsp.exec_cmd("hyprpicker -a"),
