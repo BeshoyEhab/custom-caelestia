@@ -50,7 +50,7 @@ Apply "hover to open" pattern to any widget (Launcher, Sidebar, Dashboard, OSD, 
 
 **Files:** `update.sh`, `install.sh`
 
-##### A1. `--check` flag (read-only, no side effects)
+##### A1. `--check` flag (read-only, no side effects) [DONE]
 
 Add `--check` to `update.sh` that outputs machine-readable status:
 
@@ -74,7 +74,7 @@ Implementation:
 - `find plugin/src -newer build/.plugin_build_stamp` for plugin stale check
 - Exit code: 0 = up to date, 1 = updates available, 2 = error
 
-##### A2. `--non-interactive` flag
+##### A2. `--non-interactive` flag [DONE]
 
 Add `--non-interactive` to both scripts that:
 - Skips all `read -p` prompts
@@ -173,20 +173,20 @@ Process {
 - [x] Fix icon colors: use `Colours.palette.m3primary` for installed, `Colours.palette.m3outline` for not installed
 - [x] Fix status indicator: use proper M3 tertiary/error colors
 
-##### C3. WallpaperAndStyle.qml — Fix spacing
-- [ ] Change ColumnLayout spacing from `Tokens.spacing.large` to `Tokens.spacing.extraSmall / 2`
-- [ ] Remove manual `Layout.topMargin` hacks
-- [ ] Add `SectionHeader` for each logical group
+##### C3. WallpaperAndStyle.qml — Fix spacing [DONE]
+- [x] Change ColumnLayout spacing from `Tokens.spacing.large` to `Tokens.spacing.extraSmall / 2`
+- [x] Remove manual `Layout.topMargin` hacks
+- [x] Add `SectionHeader` for each logical group
 
-##### C4. AudioPage.qml — Add SectionHeaders
-- [ ] Add `SectionHeader { text: "Output" }` before output section
-- [ ] Add `SectionHeader { text: "Input" }` before input section
-- [ ] Remove `Layout.topMargin` hack
+##### C4. AudioPage.qml — Add SectionHeaders [DONE]
+- [x] Add `SectionHeader { text: "Output" }` before output section
+- [x] Add `SectionHeader { text: "Input" }` before input section
+- [x] Remove `Layout.topMargin` hack
 
-##### C5. BluetoothPage.qml — Add SectionHeaders
-- [ ] Add `SectionHeader { text: "Saved devices" }` before device list
-- [ ] Add `SectionHeader { text: "Discoverable" }` before discoverable toggles
-- [ ] Remove `Layout.topMargin` hack
+##### C5. BluetoothPage.qml — Add SectionHeaders [DONE]
+- [x] Add `SectionHeader { text: "Saved devices" }` before device list
+- [x] Add `SectionHeader { text: "Discoverable" }` before discoverable toggles
+- [x] Remove `Layout.topMargin` hack
 
 ##### C6. NetworkPage.qml — Fix padding
 - [ ] Align network list delegate margins with standard row padding pattern

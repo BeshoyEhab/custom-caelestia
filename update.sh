@@ -76,6 +76,13 @@ handle_file_conflict() {
     local dirname=$(dirname "$home_file")
     local choice=""
 
+    # Non-interactive: auto-backup and replace
+    if [[ "$non_interactive" == "true" ]]; then
+        mv "$home_file" "${dirname}/${filename}.old" 2>/dev/null || true
+        cp -p "$repo_file" "$home_file"
+        return
+    fi
+
     echo -e "\n${YELLOW}[!] Conflict detected in:${NC} $home_file"
     echo -e "Repository version differs from your active version."
     echo ""
@@ -288,21 +295,82 @@ deploy_active_updates() {
     fi
 }
 
-main() {
-    echo "═══════════════════════════════════════════════════════════════"
-    echo "  Updating custom-caelestia Repository"
-    echo "═══════════════════════════════════════════════════════════════"
-    echo ""
+check_mode=false
+non_interactive=false
 
+for arg in "$@"; do
+    case "$arg" in
+        --check) check_mode=true ;;
+        --non-interactive) non_interactive=true ;;
+    esac
+done
+
+main() {
     if [ ! -d "$MERGED_DIR/.git" ]; then
+        if [[ "$check_mode" == "true" ]]; then
+            echo "REPO_DIR=$MERGED_DIR"
+            echo "BRANCH=unknown"
+            echo "AHEAD=0"
+            echo "BEHIND=0"
+            echo "DIRTY=false"
+            echo "PLUGINS_STALE=false"
+            exit 0
+        fi
         warn "Not a git repository: $MERGED_DIR"
         warn "Proceeding with configuration deployment directly."
         deploy_active_updates
         exit 0
     fi
 
-    log "Updating repository at $MERGED_DIR..."
     cd "$MERGED_DIR"
+
+    local current_branch
+    current_branch=$(git branch --show-current)
+
+    # --check: machine-readable status output
+    if [[ "$check_mode" == "true" ]]; then
+        git fetch --dry-run 2>/dev/null || true
+        local behind=0 ahead=0
+        local fetch_output
+        fetch_output=$(git fetch --dry-run 2>&1 || true)
+        behind=$(echo "$fetch_output" | grep -oP 'behind \K[0-9]+' || echo 0)
+        ahead=$(echo "$fetch_output" | grep -oP 'ahead \K[0-9]+' || echo 0)
+        local dirty=false
+        if ! git diff --quiet || ! git diff --cached --quiet; then
+            dirty=true
+        fi
+        local plugin_stale=false
+        local plugin_src="$MERGED_DIR/shell/plugin/src"
+        local stamp_file="$MERGED_DIR/build/.plugin_build_stamp"
+        if [[ -d "$plugin_src" ]]; then
+            if [[ ! -f "$stamp_file" ]] || find "$plugin_src" -type f \( -name "*.hpp" -o -name "*.cpp" \) -newer "$stamp_file" 2>/dev/null | grep -q .; then
+                plugin_stale=true
+            fi
+        fi
+        local updates_available=false
+        if [[ "$behind" -gt 0 || "$plugin_stale" == "true" ]]; then
+            updates_available=true
+        fi
+        echo "REPO_DIR=$MERGED_DIR"
+        echo "BRANCH=$current_branch"
+        echo "AHEAD=$ahead"
+        echo "BEHIND=$behind"
+        echo "DIRTY=$dirty"
+        echo "PLUGINS_STALE=$plugin_stale"
+        echo "UPDATES_AVAILABLE=$updates_available"
+        if [[ "$updates_available" == "true" ]]; then
+            exit 1
+        else
+            exit 0
+        fi
+    fi
+
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "  Updating custom-caelestia Repository"
+    echo "═══════════════════════════════════════════════════════════════"
+    echo ""
+
+    log "Updating repository at $MERGED_DIR..."
 
     # Fetch origin
     git fetch origin 2>/dev/null || {
@@ -313,14 +381,17 @@ main() {
     # Stash any local changes
     local stash=false
     if ! git diff --quiet || ! git diff --cached --quiet; then
-        log "Stashing local changes..."
-        git stash push -m "auto-stash before update" &>/dev/null
-        stash=true
+        if [[ "$non_interactive" == "true" ]]; then
+            log "Stashing local changes..."
+            git stash push -m "auto-stash before update" &>/dev/null
+            stash=true
+        else
+            log "Stashing local changes..."
+            git stash push -m "auto-stash before update" &>/dev/null
+            stash=true
+        fi
     fi
 
-    local current_branch
-    current_branch=$(git branch --show-current)
-    
     log "Pulling latest changes on branch '$current_branch'..."
     git pull origin "$current_branch" --no-rebase 2>&1 || {
         warn "Failed to pull updates automatically. Possible reasons:"

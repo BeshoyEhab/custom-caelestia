@@ -6,6 +6,16 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Parse flags
+non_interactive=false
+no_install=false
+for arg in "$@"; do
+    case "$arg" in
+        --non-interactive) non_interactive=true ;;
+        --no-install) no_install=true ;;
+    esac
+done
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -264,19 +274,23 @@ deploy_configs() {
 
     # 3b. Deploy extra dotfiles (fish, kitty, foot, etc.)
     if [[ -d ./configs/.config ]]; then
-        echo ""
-        echo -e "${YELLOW}Deploy extra dotfiles? (fish, kitty, foot, fuzzel, btop, cava, starship, wlogout)${NC}"
-        echo -e "  ${CYAN}[y]${NC} Yes - overwrite existing   ${CYAN}[n]${NC} No - skip   ${CYAN}[m]${NC} Merge (keep existing, add new)"
-        read -p "Choice [y/n/m]: " cfg_choice
-        case "$cfg_choice" in
-            [Yy])
-                rsync -a --exclude=".git*" ./configs/.config/ "$HOME/.config/"
-                echo -e "${GREEN}Extra dotfiles deployed.${NC}"
-                ;;
-            [Mm])
-                rsync -a --ignore-existing --exclude=".git*" ./configs/.config/ "$HOME/.config/"
-                echo -e "${GREEN}Extra dotfiles merged (existing files kept).${NC}"
-                ;;
+        if [[ "$non_interactive" == "true" ]]; then
+            # Non-interactive: skip extra dotfiles
+            echo -e "${YELLOW}Skipping extra dotfiles (non-interactive mode).${NC}"
+        else
+            echo ""
+            echo -e "${YELLOW}Deploy extra dotfiles? (fish, kitty, foot, fuzzel, btop, cava, starship, wlogout)${NC}"
+            echo -e "  ${CYAN}[y]${NC} Yes - overwrite existing   ${CYAN}[n]${NC} No - skip   ${CYAN}[m]${NC} Merge (keep existing, add new)"
+            read -p "Choice [y/n/m]: " cfg_choice
+            case "$cfg_choice" in
+                [Yy])
+                    rsync -a --exclude=".git*" ./configs/.config/ "$HOME/.config/"
+                    echo -e "${GREEN}Extra dotfiles deployed.${NC}"
+                    ;;
+                [Mm])
+                    rsync -a --ignore-existing --exclude=".git*" ./configs/.config/ "$HOME/.config/"
+                    echo -e "${GREEN}Extra dotfiles merged (existing files kept).${NC}"
+                    ;;
             *)
                 echo -e "${YELLOW}Skipping extra dotfiles.${NC}"
                 ;;
@@ -374,6 +388,21 @@ show_summary() {
 }
 
 # Main
+
+# Non-interactive mode: skip component selection, install everything
+if [[ "$non_interactive" == "true" ]]; then
+    for key in "${!COMPONENTS[@]}"; do
+        INSTALLED[$key]="true"
+    done
+    install_components
+    if [[ "$no_install" != "true" ]]; then
+        deploy_configs
+        build_and_install_plugin
+    fi
+    show_summary
+    exit 0
+fi
+
 print_header
 
 # Initialize all components as selected except core

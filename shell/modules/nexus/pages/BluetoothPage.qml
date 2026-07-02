@@ -37,6 +37,10 @@ PageBase {
             }
         }
 
+        SectionHeader {
+            text: qsTr("Saved devices")
+        }
+
         ItemList {
             id: savedList
 
