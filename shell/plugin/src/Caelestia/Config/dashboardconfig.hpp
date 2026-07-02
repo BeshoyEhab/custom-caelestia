@@ -40,6 +40,11 @@ class DashboardConfig : public ConfigObject {
     CONFIG_GLOBAL_PROPERTY(int, hoverHeight, 20)
     CONFIG_GLOBAL_PROPERTY(bool, showHoverIndicator, true)
     CONFIG_SUBOBJECT(DashboardPerformance, performance)
+    CONFIG_GLOBAL_PROPERTY(int, positioningEdge, 2)
+    CONFIG_GLOBAL_PROPERTY(qreal, positioningOffset, 0.5)
+    CONFIG_GLOBAL_PROPERTY(bool, positioningPixel, false)
+    CONFIG_GLOBAL_PROPERTY(int, positioningX, 0)
+    CONFIG_GLOBAL_PROPERTY(int, positioningY, 0)
 
 public:
     explicit DashboardConfig(QObject* parent = nullptr)

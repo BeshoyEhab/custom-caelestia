@@ -12,6 +12,14 @@ Region {
     required property Panels panels
     required property var win
 
+    function edgeToString(edge: int): string {
+        if (edge === 0) return "left";
+        if (edge === 1) return "right";
+        if (edge === 2) return "top";
+        if (edge === 3) return "bottom";
+        return "top";
+    }
+
     function hoverGeom(edge: string, hw: real, hh: real): rect {
         const w = win.width;
         const h = win.height;
@@ -86,7 +94,7 @@ Region {
         width: panel.width * (1 - root.panels.popoutsWrapper.offsetScale)
     }
 
-    // Hover areas — always accept input so hover detection works
+    // Hover areas — always accept input so hover detection works.
     Region {
         property var geom: root.hoverGeom(GlobalConfig.launcher.hoverEdge, GlobalConfig.launcher.hoverWidth, GlobalConfig.launcher.hoverHeight)
         x: geom.x
@@ -109,6 +117,14 @@ Region {
         y: geom.y
         width: geom.width
         height: geom.height
+        intersection: Intersection.Subtract
+    }
+    // ponytail: bar hover zone — only as wide as the bar itself so input doesn't leak to windows below
+    Region {
+        x: 0
+        y: 0
+        width: bar.clampedWidth
+        height: win.height
         intersection: Intersection.Subtract
     }
 

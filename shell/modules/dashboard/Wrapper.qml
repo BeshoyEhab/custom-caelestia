@@ -29,12 +29,14 @@ Item {
 
     readonly property real nonAnimHeight: (content.item as Content)?.nonAnimHeight ?? 0
     readonly property bool shouldBeActive: visibilities.dashboard && Config.dashboard.enabled
+
     property real offsetScale: shouldBeActive ? 0 : 1
 
     visible: offsetScale < 1
     anchors.topMargin: (-implicitHeight - 5) * offsetScale
+    anchors.bottomMargin: (-implicitHeight - 5) * offsetScale
     implicitHeight: content.implicitHeight
-    implicitWidth: content.implicitWidth || 854 // Hard coded fallback for first open
+    implicitWidth: content.implicitWidth || 854
     opacity: 1 - offsetScale
 
     Behavior on offsetScale {
