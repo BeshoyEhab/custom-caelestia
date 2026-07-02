@@ -16,6 +16,9 @@ PageBase {
     property bool checking: false
     property string lastCheck: ""
     property string statusText: ""
+    property bool scriptAvailable: false
+
+    Component.onCompleted: scriptCheckProc.running = true
 
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
@@ -23,45 +26,68 @@ PageBase {
         width: root.cappedWidth
         spacing: Tokens.spacing.extraSmall / 2
 
-        Timer {
-            id: updateChecker
-
-            interval: 2000
-            onTriggered: {
-                root.checking = false;
-                root.lastCheck = new Date().toLocaleDateString();
-                root.statusText = qsTr("Up to date");
+        Process {
+            id: scriptCheckProc
+            command: ["test", "-x", "~/.config/quickshell/caelestia/scripts/update.sh"]
+            onRunningChanged: {
+                if (!running)
+                    root.scriptAvailable = exitCode === 0;
             }
         }
 
-        Timer {
-            id: updateRunner
-
-            interval: 3000
-            onTriggered: {
-                root.checking = false;
-                root.lastCheck = new Date().toLocaleDateString();
-                root.statusText = qsTr("Update complete");
+        Process {
+            id: updateCheckProc
+            command: ["sh", "-c", "~/.config/quickshell/caelestia/scripts/update.sh --check"]
+            onRunningChanged: {
+                if (!running) {
+                    root.checking = false;
+                    root.lastCheck = new Date().toLocaleDateString();
+                    if (exitCode === 0) {
+                        root.statusText = qsTr("Up to date");
+                    } else {
+                        const lines = text.trim().split("\n");
+                        const behind = lines.find(l => l.startsWith("BEHIND="))?.split("=")[1] ?? "0";
+                        const stale = lines.find(l => l.startsWith("PLUGINS_STALE="))?.split("=")[1] ?? "false";
+                        let parts = [];
+                        if (parseInt(behind) > 0) parts.push(qsTr("%1 commits behind").arg(behind));
+                        if (stale === "true") parts.push(qsTr("plugin source changed"));
+                        root.statusText = parts.length > 0 ? parts.join(", ") : qsTr("Updates available");
+                    }
+                }
             }
         }
 
-        Timer {
-            id: deployRunner
-
-            interval: 2000
-            onTriggered: {
-                root.checking = false;
-                root.statusText = qsTr("Deployment complete");
+        Process {
+            id: updateRunProc
+            command: ["sh", "-c", "~/.config/quickshell/caelestia/scripts/update.sh --non-interactive 2>&1 | tail -5"]
+            onRunningChanged: {
+                if (!running) {
+                    root.checking = false;
+                    root.lastCheck = new Date().toLocaleDateString();
+                    root.statusText = exitCode === 0 ? qsTr("Update complete") : qsTr("Update failed");
+                }
             }
         }
 
-        Timer {
-            id: reloadRunner
+        Process {
+            id: deployRunProc
+            command: ["sh", "-c", "~/.config/quickshell/caelestia/scripts/install.sh --non-interactive --no-install 2>&1 | tail -5"]
+            onRunningChanged: {
+                if (!running) {
+                    root.checking = false;
+                    root.statusText = exitCode === 0 ? qsTr("Deployment complete") : qsTr("Deployment failed");
+                }
+            }
+        }
 
-            interval: 1000
-            onTriggered: {
-                root.checking = false;
-                root.statusText = qsTr("Shell reloaded");
+        Process {
+            id: reloadRunProc
+            command: ["sh", "-c", "pkill quickshell; sleep 0.5; qs -c caelestia &"]
+            onRunningChanged: {
+                if (!running) {
+                    root.checking = false;
+                    root.statusText = qsTr("Shell reloaded");
+                }
             }
         }
 
@@ -72,9 +98,40 @@ PageBase {
 
         InfoRow {
             first: true
+            last: !root.scriptAvailable
+            label: root.scriptAvailable ? (root.statusText || qsTr("custom-caelestia")) : qsTr("Repository not configured")
+            value: root.scriptAvailable ? (root.lastCheck !== "" ? qsTr("Last checked: %1").arg(root.lastCheck) : "") : qsTr("Run install.sh first")
+        }
+
+        ConnectedRect {
+            visible: !root.scriptAvailable
+            Layout.fillWidth: true
             last: true
-            label: root.statusText || qsTr("custom-caelestia")
-            value: root.lastCheck !== "" ? qsTr("Last checked: %1").arg(root.lastCheck) : ""
+            implicitHeight: notConfiguredLayout.implicitHeight + notConfiguredLayout.anchors.margins * 2
+
+            RowLayout {
+                id: notConfiguredLayout
+
+                anchors.fill: parent
+                anchors.margins: Tokens.padding.medium
+                anchors.leftMargin: Tokens.padding.largeIncreased
+                anchors.rightMargin: Tokens.padding.largeIncreased
+                spacing: Tokens.spacing.medium
+
+                MaterialIcon {
+                    text: "info"
+                    color: Colours.palette.m3error
+                    fontStyle: Tokens.font.icon.medium
+                }
+
+                StyledText {
+                    Layout.fillWidth: true
+                    text: qsTr("The update scripts are not available. Please run install.sh from the repository to set up the configuration.")
+                    color: Colours.palette.m3onSurfaceVariant
+                    font: Tokens.font.body.small
+                    wrapMode: Text.WordWrap
+                }
+            }
         }
 
         SectionHeader {
@@ -91,7 +148,7 @@ PageBase {
                 onClicked: {
                     root.checking = true;
                     root.statusText = qsTr("Checking...");
-                    updateChecker.start();
+                    updateCheckProc.running = true;
                 }
             }
 
@@ -143,7 +200,7 @@ PageBase {
                 onClicked: {
                     root.checking = true;
                     root.statusText = qsTr("Updating...");
-                    updateRunner.start();
+                    updateRunProc.running = true;
                 }
             }
 
@@ -195,7 +252,7 @@ PageBase {
                 onClicked: {
                     root.checking = true;
                     root.statusText = qsTr("Deploying...");
-                    deployRunner.start();
+                    deployRunProc.running = true;
                 }
             }
 
@@ -248,7 +305,7 @@ PageBase {
                 onClicked: {
                     root.checking = true;
                     root.statusText = qsTr("Reloading...");
-                    reloadRunner.start();
+                    reloadRunProc.running = true;
                 }
             }
 
