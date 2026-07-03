@@ -16,6 +16,22 @@ StyledListView {
     required property StyledTextField search
     required property DrawerVisibilities visibilities
 
+    property string debouncedText: ""
+
+    Timer {
+        id: debounceTimer
+        interval: 150
+        repeat: false
+        onTriggered: root.debouncedText = root.search.text
+    }
+
+    Connections {
+        target: root.search
+        function onTextChanged() {
+            debounceTimer.restart();
+        }
+    }
+
     model: ScriptModel {
         id: model
 
@@ -46,7 +62,7 @@ StyledListView {
     }
 
     state: {
-        const text = search.text;
+        const text = debouncedText;
         const prefix = GlobalConfig.launcher.actionPrefix;
         if (text.startsWith(prefix)) {
             for (const action of ["calc", "scheme", "variant"])
@@ -76,7 +92,7 @@ StyledListView {
             name: "apps"
 
             PropertyChanges {
-                model.values: Apps.search(search.text)
+                model.values: Apps.search(debouncedText)
                 root.delegate: appItem
             }
         },
@@ -84,7 +100,7 @@ StyledListView {
             name: "actions"
 
             PropertyChanges {
-                model.values: Actions.query(search.text)
+                model.values: Actions.query(debouncedText)
                 root.delegate: actionItem
             }
         },
@@ -100,7 +116,7 @@ StyledListView {
             name: "scheme"
 
             PropertyChanges {
-                model.values: Schemes.query(search.text)
+                model.values: Schemes.query(debouncedText)
                 root.delegate: schemeItem
             }
         },
@@ -108,7 +124,7 @@ StyledListView {
             name: "variant"
 
             PropertyChanges {
-                model.values: M3Variants.query(search.text)
+                model.values: M3Variants.query(debouncedText)
                 root.delegate: variantItem
             }
         }
