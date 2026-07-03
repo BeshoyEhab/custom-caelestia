@@ -20,7 +20,7 @@ StyledListView {
 
     Timer {
         id: debounceTimer
-        interval: 100
+        interval: 120
         repeat: false
         onTriggered: root.debouncedText = root.search.text
     }
