@@ -15,7 +15,7 @@ Singleton {
     property list<var> forecast
     property list<var> hourlyForecast
 
-    readonly property string icon: cc ? Icons.getWeatherIcon(cc.weatherCode) : "cloud_alert"
+    readonly property string icon: cc ? Icons.getWeatherIcon(cc.weatherCode) : "cloud"
     readonly property string description: cc?.weatherDesc ?? qsTr("No weather")
     readonly property string temp: formatTemp(cc?.tempC)
     readonly property string feelsLike: formatTemp(cc?.feelsLikeC)
