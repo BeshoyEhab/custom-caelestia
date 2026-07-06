@@ -1,6 +1,5 @@
 import "scripts/fzf.js" as Fzf
 import "scripts/fuzzysort.js" as Fuzzy
-import "scripts/levendist.js" as Lev
 import QtQuick
 import Quickshell
 
@@ -96,6 +95,12 @@ Singleton {
         const searchLen = search.length;
         const searchLower = search.toLowerCase();
 
+        let maxFreq = 0;
+        for (const entry of list) {
+            const freq = entry.frequency || 0;
+            if (freq > maxFreq) maxFreq = freq;
+        }
+
         // Dynamic weights: 1 char = 60% freq, 2 = 50%, 3 = 40%, 4+ = 30%
         let matchWeight, usageWeight;
         if (searchLen === 1) {
@@ -120,7 +125,7 @@ Singleton {
                 // Normalize to 0-1 range (getMatchScore ranges from ~-0.5 to ~1.1)
                 const matchScore = Math.min(1.0, Math.max(0, (letterScore + 0.5) / 1.6));
 
-                const usageScore = getFreqScore(item);
+                const usageScore = maxFreq > 0 ? (item.frequency || 0) / maxFreq : 0;
                 const combinedScore = matchScore * matchWeight + usageScore * usageWeight;
                 return { item, combinedScore };
             });
@@ -130,20 +135,34 @@ Singleton {
                 .map(r => r.item);
         }
 
-        // Longer queries (>3): levenshtein + frequency
-        if (searchLen > 3) {
+        // Longer queries (>3): fast scoring + frequency
+        if (searchLen > 2) {
             const results = list.map(item => {
                 let bestScore = 0;
                 for (const k of keys) {
-                    const s = Lev.computeScore((item[k] || "").toLowerCase(), searchLower);
-                    if (s > bestScore) bestScore = s;
+                    const t = (item[k] || "").toLowerCase();
+                    if (t === searchLower) { bestScore = 1.0; break; }
+                    if (t.startsWith(searchLower)) { bestScore = Math.max(bestScore, 0.95); continue; }
+                    if (t.includes(searchLower)) { bestScore = Math.max(bestScore, 0.7 + 0.25 * searchLen / t.length); continue; }
+                    // Substring match: best contiguous overlap
+                    let best = 0;
+                    for (let i = 0; i < t.length; i++) {
+                        let match = 0;
+                        while (i + match < t.length && match < searchLen && t[i + match] === searchLower[match])
+                            match++;
+                        if (match > best) best = match;
+                    }
+                    if (best >= 3) {
+                        const s = 0.3 * best / searchLen;
+                        if (s > bestScore) bestScore = s;
+                    }
                 }
                 return { item, score: bestScore };
             })
             .filter(r => r.score > scoreThreshold);
 
             const combined = results.map(r => {
-                const usageScore = getFreqScore(r.item);
+                const usageScore = maxFreq > 0 ? (r.item.frequency || 0) / maxFreq : 0;
                 const combinedScore = r.score * matchWeight + usageScore * usageWeight;
                 return { item: r.item, combinedScore };
             });

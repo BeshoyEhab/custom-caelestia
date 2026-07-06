@@ -190,14 +190,23 @@ Item {
 
             Component.onCompleted: {
                 const file = item.modelData;
-                if (file.isImage)
-                    source = Qt.resolvedUrl(file.path);
-                else if (!file.isDir)
+                if (!file.isDir)
                     source = Quickshell.iconPath(file.mimeType.replace("/", "-"), "application-x-zerosize");
                 else if (root.dialog.cwd.length === 1 && ["Desktop", "Documents", "Downloads", "Music", "Pictures", "Public", "Templates", "Videos"].includes(file.name))
                     source = Quickshell.iconPath(`folder-${file.name.toLowerCase()}`);
                 else
                     source = Quickshell.iconPath("inode-directory");
+            }
+
+            Timer {
+                id: imgLoadTimer
+                interval: 50 + item.index * 10
+                running: true
+                repeat: false
+                onTriggered: {
+                    if (item.modelData.isImage)
+                        icon.source = Qt.resolvedUrl(item.modelData.path);
+                }
             }
         }
 

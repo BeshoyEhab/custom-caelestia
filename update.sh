@@ -15,9 +15,48 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
+# Options
+SKIP_BACKUP=false
+
 log() { echo -e "${GREEN}[+]${NC} $1"; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 err() { echo -e "${RED}[x]${NC} $1"; exit 1; }
+
+usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  --no-backup    Skip creating backup folders"
+    echo "  --non-interactive  Skip all prompts (use defaults)"
+    echo "  --check        Check for updates without applying"
+    echo "  -h, --help     Show this help"
+    exit 0
+}
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --no-backup)
+                SKIP_BACKUP=true
+                shift
+                ;;
+            --non-interactive)
+                # Handled by install.sh compatibility
+                shift
+                ;;
+            --check)
+                # Handled by install.sh compatibility
+                shift
+                ;;
+            -h|--help)
+                usage
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+}
 
 declare -a IGNORE_PATTERNS=()
 
@@ -149,15 +188,19 @@ deploy_active_updates() {
     load_ignore_patterns
 
     # 1. Safety Backup of existing active configurations (copy-based so active files remain for comparison)
-    if [[ -d "$HOME/.config/hypr" ]]; then
-        local backup_dir="$HOME/.config/hypr.bak.$(date +%Y%m%d%H%M%S)"
-        log "Creating safety backup of ~/.config/hypr to $(basename "$backup_dir")..."
-        cp -r "$HOME/.config/hypr" "$backup_dir"
-    fi
-    if [[ -d "$HOME/.config/quickshell/caelestia" ]]; then
-        local backup_dir="$HOME/.config/quickshell/caelestia.bak.$(date +%Y%m%d%H%M%S)"
-        log "Creating safety backup of ~/.config/quickshell/caelestia to $(basename "$backup_dir")..."
-        cp -r "$HOME/.config/quickshell/caelestia" "$backup_dir"
+    if [[ "$SKIP_BACKUP" == "false" ]]; then
+        if [[ -d "$HOME/.config/hypr" ]]; then
+            local backup_dir="$HOME/.config/hypr.bak.$(date +%Y%m%d%H%M%S)"
+            log "Creating safety backup of ~/.config/hypr to $(basename "$backup_dir")..."
+            cp -r "$HOME/.config/hypr" "$backup_dir"
+        fi
+        if [[ -d "$HOME/.config/quickshell/caelestia" ]]; then
+            local backup_dir="$HOME/.config/quickshell/caelestia.bak.$(date +%Y%m%d%H%M%S)"
+            log "Creating safety backup of ~/.config/quickshell/caelestia to $(basename "$backup_dir")..."
+            rsync -a --exclude='build/' --exclude='.git/' "$HOME/.config/quickshell/caelestia/" "$backup_dir/"
+        fi
+    else
+        log "Skipping backup (--no-backup specified)..."
     fi
 
     # 2. Deploy Hyprland configs file by file
@@ -184,7 +227,7 @@ deploy_active_updates() {
     # 3. Deploy Quickshell caelestia configs file by file
     log "Processing Quickshell configurations..."
     mkdir -p "$HOME/.config/quickshell/caelestia"
-    find ./shell/ -type f -not -path "*/build/*" -not -path "*/.git/*" | while read -r repo_file; do
+    find ./shell/ -type f -not -path "*/build/*" -not -path "*/.git/*" -not -path "*/upstream/*" | while read -r repo_file; do
         local rel_path="${repo_file#./shell/}"
         local home_file="$HOME/.config/quickshell/caelestia/$rel_path"
         
@@ -280,6 +323,8 @@ deploy_active_updates() {
 }
 
 main() {
+    parse_args "$@"
+    
     echo "═══════════════════════════════════════════════════════════════"
     echo "  Updating custom-caelestia Repository"
     echo "═══════════════════════════════════════════════════════════════"
