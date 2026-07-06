@@ -22,6 +22,7 @@ qml_module(caelestia-config
         nexusconfig.hpp
         notifsconfig.hpp
         osdconfig.hpp
+        positioning.hpp
         serviceconfig.hpp
         sessionconfig.hpp
         sidebarconfig.hpp
