@@ -289,10 +289,10 @@ deploy_active_updates() {
         mkdir -p "$BUILD_DIR"
         cmake -B "$BUILD_DIR" -S "$MERGED_DIR" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DENABLE_MODULES="plugin" 2>&1 | tail -3
+            -DENABLE_MODULES="plugin" 2>&1 | tail -3 || true
 
         local NPROC=$(nproc 2>/dev/null || echo 4)
-        cmake --build "$BUILD_DIR" --target caelestia-configplugin -j"$NPROC" 2>&1 | tail -5
+        cmake --build "$BUILD_DIR" --target caelestia-configplugin -j"$NPROC" 2>&1 | tail -5 || true
 
         local INSTALL_DIR="/usr/lib/qt6/qml"
         find "$BUILD_DIR" -name "libcaelestia-*.so" -type f 2>/dev/null | while read -r lib; do
@@ -373,3 +373,4 @@ main() {
 }
 
 main "$@"
+exit 0
