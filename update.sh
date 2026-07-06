@@ -295,7 +295,7 @@ deploy_active_updates() {
         cmake --build "$BUILD_DIR" --target caelestia-configplugin -j"$NPROC" 2>&1 | tail -5
 
         local INSTALL_DIR="/usr/lib/qt6/qml"
-        find "$BUILD_DIR" -name "libcaelestia-*.so" -type f | while read -r lib; do
+        find "$BUILD_DIR" -name "libcaelestia-*.so" -type f 2>/dev/null | while read -r lib; do
             local modname=$(basename "$lib")
             local subdir
             if [[ "$modname" == *"plugin.so" ]]; then
