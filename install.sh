@@ -108,6 +108,7 @@ show_menu() {
     c_yellow "  [S] Summary  - show what's selected"
     c_yellow "  [I] Install  - start installation"
     c_yellow "  [Q] Quit"
+    c_cyan "  Tip: Enter multiple numbers at once, e.g. '1 3 5' or '1,3,5'"
     echo ""
 }
 
@@ -257,13 +258,14 @@ install_component() {
             cmake --build "$build_dir" -j"$(nproc 2>/dev/null || echo 4)" 2>&1 | tail -10
 
             c_green "Installing plugin (qmldir, .so, .qmltypes)..."
-            sudo cmake --install "$build_dir" --component qml_runtime 2>&1 | tail -10 || {
+            sudo cmake --install "$build_dir" --prefix / 2>&1 | tail -10 || {
                 # Fallback: manually copy full module directories
                 c_yellow "cmake --install failed, falling back to manual copy..."
                 local install_dir="/usr/lib/qt6/qml"
-                find "$build_dir/qml" -type d -name "Caelestia" | head -1 | while read -r qml_root; do
-                    sudo cp -r "$qml_root"/* "$install_dir/Caelestia/"
-                done
+                if [[ -d "$build_dir/qml/Caelestia" ]]; then
+                    sudo mkdir -p "$install_dir/Caelestia"
+                    sudo cp -r "$build_dir/qml/Caelestia/"* "$install_dir/Caelestia/"
+                fi
             }
             ;;
         yay)
@@ -305,73 +307,75 @@ print_header
 
 while true; do
     show_menu
-    read -p "Enter choice: " choice
+    read -p "Enter choice(s) (e.g. 1 3 5 or 1,3,5): " input
 
-    case "$choice" in
-        [1-9]|1[0-6])
-            idx=$((choice - 1))
-            if [[ $idx -lt ${#COMP_ORDER[@]} ]]; then
-                k="${COMP_ORDER[$idx]}"
-                if [[ "$k" != "core" ]]; then
-                    SEL[$k]=$(( 1 - SEL[$k] ))
+    # Parse space-separated or comma-separated numbers
+    IFS=', ' read -ra choices <<< "$input"
+    for choice in "${choices[@]}"; do
+        case "$choice" in
+            [1-9]|1[0-6])
+                idx=$((choice - 1))
+                if [[ $idx -lt ${#COMP_ORDER[@]} ]]; then
+                    k="${COMP_ORDER[$idx]}"
+                    if [[ "$k" != "core" ]]; then
+                        SEL[$k]=$(( 1 - SEL[$k] ))
+                    fi
                 fi
-            fi
-            ;;
-        [Ss])
-            show_summary
-            read -p "Press Enter to continue..." _
-            ;;
-        [Ii])
-            show_summary
-            read -p "Proceed with installation? [Y/n]: " confirm
-            [[ "${confirm,,}" == "n" ]] && continue
+                ;;
+            [Ss])
+                show_summary
+                read -p "Press Enter to continue..." _
+                break
+                ;;
+            [Ii])
+                show_summary
+                read -p "Proceed with installation? [Y/n]: " confirm
+                [[ "${confirm,,}" == "n" ]] && break
 
-            echo ""
-            c_cyan "Starting installation..."
-            echo ""
+                echo ""
+                c_cyan "Starting installation..."
+                echo ""
 
-            # Install yay first if needed and selected
-            [[ "${SEL[yay]}" == "1" ]] && install_component yay
+                # Install yay first if needed and selected
+                [[ "${SEL[yay]}" == "1" ]] && install_component yay
 
-            # Install all selected components
-            for k in "${COMP_ORDER[@]}"; do
-                [[ "${SEL[$k]}" == "1" ]] && install_component "$k"
-            done
+                # Install all selected components
+                for k in "${COMP_ORDER[@]}"; do
+                    [[ "${SEL[$k]}" == "1" ]] && install_component "$k"
+                done
 
-            # Restore user-specific files
-            restore_user_files
+                # Restore user-specific files
+                restore_user_files
 
-            # Symlink scripts for settings app
-            mkdir -p "$HOME/.config/quickshell/caelestia/scripts"
-            ln -sf "$REPO_DIR/update.sh" "$HOME/.config/quickshell/caelestia/scripts/update.sh"
-            ln -sf "$REPO_DIR/install.sh" "$HOME/.config/quickshell/caelestia/scripts/install.sh"
+                # Symlink scripts for settings app
+                mkdir -p "$HOME/.config/quickshell/caelestia/scripts"
+                ln -sf "$REPO_DIR/update.sh" "$HOME/.config/quickshell/caelestia/scripts/update.sh"
+                ln -sf "$REPO_DIR/install.sh" "$HOME/.config/quickshell/caelestia/scripts/install.sh"
 
-            trap - EXIT INT TERM
+                trap - EXIT INT TERM
 
-            echo ""
-            c_green "═══════════════════════════════════════════════"
-            c_green "Installation complete!"
-            c_green "═══════════════════════════════════════════════"
-            echo ""
-            echo "  Keybinds:"
-            echo "    Super            - Launcher"
-            echo "    Super + I        - Settings (Nexus)"
-            echo "    Super + D        - Dashboard"
-            echo "    Super + A        - Sidebar"
-            echo "    Ctrl + Alt + Del - Session menu"
-            echo "    Super + V        - Clipboard"
-            echo "    Super + Period   - Emoji picker"
-            echo ""
-            echo "  Start: Log out and back in, or run: hyprctl reload"
-            echo ""
-            exit 0
-            ;;
-        [Qq])
-            c_yellow "Installation cancelled."
-            exit 0
-            ;;
-        *)
-            c_red "Invalid choice"
-            ;;
-    esac
+                echo ""
+                c_green "═══════════════════════════════════════════════"
+                c_green "Installation complete!"
+                c_green "═══════════════════════════════════════════════"
+                echo ""
+                echo "  Keybinds:"
+                echo "    Super            - Launcher"
+                echo "    Super + I        - Settings (Nexus)"
+                echo "    Super + D        - Dashboard"
+                echo "    Super + A        - Sidebar"
+                echo "    Ctrl + Alt + Del - Session menu"
+                echo "    Super + V        - Clipboard"
+                echo "    Super + Period   - Emoji picker"
+                echo ""
+                echo "  Start: Log out and back in, or run: hyprctl reload"
+                echo ""
+                exit 0
+                ;;
+            [Qq])
+                c_yellow "Installation cancelled."
+                exit 0
+                ;;
+        esac
+    done
 done

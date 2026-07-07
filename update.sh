@@ -436,7 +436,7 @@ deploy_active_updates() {
         cmake --build "$BUILD_DIR" -j"$NPROC" 2>&1 | tail -5 || true
 
         log "Installing plugin (qmldir, .so, .qmltypes)..."
-        sudo cmake --install "$BUILD_DIR" --prefix /usr 2>&1 | tail -10 || {
+        sudo cmake --install "$BUILD_DIR" --prefix / 2>&1 | tail -10 || {
             # Fallback: manually copy full module directories
             warn "cmake --install failed, falling back to manual copy..."
             local INSTALL_DIR="/usr/lib/qt6/qml"
