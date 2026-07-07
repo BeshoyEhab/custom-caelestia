@@ -55,8 +55,8 @@ hl.config { plugin = { dynamic_cursors = {
 -- and add the persistent form once an hl.plugin_config() API lands upstream.
 
 -- ── Debug ─────────────────────────────────────────────────────────────
-    vfr = false
-  }
+hl.config({
+  vfr = false,
 })
 
 -- ── Input ─────────────────────────────────────────────────────────────
