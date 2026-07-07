@@ -40,3 +40,21 @@ endif()
 if("plugin" IN_LIST ENABLE_MODULES)
     add_subdirectory(shell/plugin)
 endif()
+
+if("m3shapes" IN_LIST ENABLE_MODULES)
+    message(STATUS "Fetching M3Shapes module")
+    include(FetchContent)
+    set(M3SHAPES_REV bdc327b29f95394a732baf3c9b19658ba23755b6)
+    FetchContent_Declare(
+        m3shapes_external
+        GIT_REPOSITORY https://github.com/soramanew/m3shapes.git
+        GIT_TAG        ${M3SHAPES_REV}
+        SOURCE_DIR     "${CMAKE_BINARY_DIR}/_deps/m3shapes-${M3SHAPES_REV}"
+    )
+    FetchContent_MakeAvailable(m3shapes_external)
+    message(STATUS "Done fetching M3Shapes module")
+
+    if(TARGET m3shapesplugin)
+        set_target_properties(m3shapesplugin PROPERTIES INSTALL_RPATH "$ORIGIN")
+    endif()
+endif()

@@ -81,10 +81,6 @@ hl.bind("XF86WebCam", hl.dsp.exec_cmd(SCRIPTS .. "/camera"))
 hl.unbind("SUPER + P")
 hl.bind("SUPER + P", hl.dsp.exec_cmd(SCRIPTS .. "/toggle-mirror.sh"))
 
--- Shutdown shortcut (SUPER+U → shutcut menu)
-hl.unbind("SUPER + U")
-hl.bind("SUPER + U", hl.dsp.exec_cmd(SCRIPTS .. "/shutcut"))
-
 -- Reboot shortcut
 hl.unbind("SUPER + SHIFT + CTRL + R")
 hl.bind("SUPER + SHIFT + CTRL + R", hl.dsp.exec_cmd("reboot"))

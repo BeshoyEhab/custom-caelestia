@@ -18,16 +18,6 @@
 
 ---
 
-## 📦 Custom Tools
-
-| Alias | Command              |
-| ----- | -------------------- |
-| `dm`  | dot-man              |
-| `dms` | dot-man status       |
-| `dmt` | dot-man tui          |
-| `pm`  | pro-mgr              |
-| `pml` | pro-mgr project list |
-
 ---
 
 ## 🔀 Git
@@ -121,7 +111,7 @@
 | ----- | -------------------- |
 | `cp`  | cp -ri (safe copy)   |
 | `mv`  | mv -iv (safe move)   |
-| `rm`  | rem (moves to trash) |
+| `rm`  | rm -i (safe remove)  |
 | `md`  | mkdir -p             |
 
 ---

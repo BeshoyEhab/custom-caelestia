@@ -68,13 +68,7 @@ function tre --wraps eza --description "tree view with hidden"; eza --tree --hid
 function cp --wraps cp --description "copy (interactive, recursive)"; command cp -ri $argv; end
 function mv --wraps mv --description "move (interactive, verbose)"; command mv -iv $argv; end
 function ln --wraps ln --description "link (interactive, verbose)"; command ln -iv $argv; end
-function rm --wraps rm --description "trash instead of delete"
-    if test (id -u) -eq 0
-        command rm $argv
-    else
-        $HOME/.local/share/bin/rem $argv
-    end
-end
+function rm --wraps rm --description "remove (interactive)"; command rm -i $argv; end
 function chown --wraps chown --description "chown (safe, preserve-root)"; command chown --preserve-root $argv; end
 function chmod --wraps chmod --description "chmod (safe, preserve-root)"; command chmod --preserve-root $argv; end
 
@@ -306,18 +300,9 @@ function docker --wraps podman --description "docker via podman"; podman $argv; 
 # 8. CUSTOM TOOLS
 # ═══════════════════════════════════════════════════════════════════════════
 
-# dot-man (dotfile manager)
-alias dm='dot-man'  # dotfile manager
-alias dms='dot-man status'  # dotfiles status
-alias dmt='dot-man tui'  # dotfiles TUI
-
-# pro-mgr (project manager)
-alias pm='pro-mgr'  # project manager
-alias pml='pro-mgr project list'  # list projects
-
 # ═══════════════════════════════════════════════════════════════════════════
 # 9. UTILITY FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 # FZF-powered
 function fe --description "Fuzzy find and edit file"
