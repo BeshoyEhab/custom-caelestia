@@ -13,62 +13,100 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+BOLD='\033[1m'
 NC='\033[0m'
 
 # Options
-SKIP_BACKUP=false
+BACKUP=false
+ON_CONFLICT="ask"
 
 log() { echo -e "${GREEN}[+]${NC} $1"; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 err() { echo -e "${RED}[x]${NC} $1"; exit 1; }
 
 usage() {
-    echo "Usage: $0 [OPTIONS]"
-    echo ""
-    echo "Options:"
-    echo "  --no-backup    Skip creating backup folders"
-    echo "  --non-interactive  Skip all prompts (use defaults)"
-    echo "  --check        Check for updates without applying"
-    echo "  -h, --help     Show this help"
+    cat <<EOF
+${BOLD}Usage:${NC} $0 [OPTIONS]
+
+Update the custom-caelestia repository and deploy config changes.
+
+${BOLD}Options:${NC}
+  ${CYAN}--backup${NC}           Create safety backups before deploying
+  ${CYAN}--on-conflict${NC} <m>  How to handle file conflicts (default: ask)
+                          ${GREEN}ask${NC}      - Prompt for each conflict
+                          ${GREEN}replace${NC}  - Always replace with repo version
+                          ${GREEN}keep${NC}     - Always keep your local version
+                          ${GREEN}backup${NC}   - Backup local file, then replace
+                          ${GREEN}new${NC}      - Save repo version as .new, keep local
+  ${CYAN}--non-interactive${NC}  Skip prompts, use defaults (replace on conflict)
+  ${CYAN}--check${NC}           Check for updates without applying
+  ${CYAN}-h, --help${NC}        Show this help
+
+${BOLD}Examples:${NC}
+  $0                          Interactive update (prompts on conflicts)
+  $0 --backup                 Update with backups enabled
+  $0 --on-conflict=replace    Update, replacing all changed files
+  $0 --on-conflict=keep       Update, keeping all your local changes
+  $0 --on-conflict=backup     Update, backing up each local file first
+  $0 --non-interactive        Non-interactive: no prompts, replaces files
+
+${BOLD}Conflict resolution:${NC}
+  When the repo has a newer version of a file you also modified,
+  you'll be asked what to do (unless --on-conflict or --non-interactive
+  is set). Options: replace, keep, backup, new, diff, skip, ignore.
+EOF
     exit 0
 }
 
 parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --no-backup)
-                SKIP_BACKUP=true
+            --backup)
+                BACKUP=true
+                shift
+                ;;
+            --on-conflict)
+                [[ -z "${2:-}" ]] && err "--on-conflict requires a value: ask, replace, keep, backup, new"
+                ON_CONFLICT="$2"
+                shift 2
+                ;;
+            --on-conflict=*)
+                ON_CONFLICT="${1#*=}"
                 shift
                 ;;
             --non-interactive)
-                # Handled by install.sh compatibility
+                ON_CONFLICT="replace"
                 shift
                 ;;
             --check)
-                # Handled by install.sh compatibility
                 shift
                 ;;
             -h|--help)
                 usage
                 ;;
             *)
+                warn "Unknown option: $1 (use -h for help)"
                 shift
                 ;;
         esac
     done
+
+    # Validate conflict mode
+    case "$ON_CONFLICT" in
+        ask|replace|keep|backup|new) ;;
+        *) err "Invalid --on-conflict value: $ON_CONFLICT (use: ask, replace, keep, backup, new)" ;;
+    esac
 }
 
 declare -a IGNORE_PATTERNS=()
 
 load_ignore_patterns() {
-    # Default ignored files (always stashed or hardware specific)
     IGNORE_PATTERNS=("custom/" "monitors.lua" "monitors.conf" "shell.json" "shell.json.bak" "custom")
-    
+
     local ignore_files=("./.updateignore" "$HOME/.updateignore" "$HOME/.config/hypr/.updateignore")
     for f in "${ignore_files[@]}"; do
         if [[ -f "$f" ]]; then
             while IFS= read -r line || [[ -n "$line" ]]; do
-                # Trim whitespace, skip comments and empty lines
                 line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                 [[ -z "$line" || "$line" =~ ^# ]] && continue
                 IGNORE_PATTERNS+=("$line")
@@ -89,79 +127,96 @@ should_ignore() {
     fi
 
     for pattern in "${IGNORE_PATTERNS[@]}"; do
-        # Exact match
-        if [[ "$rel_path" == "$pattern" ]]; then
-            return 0
-        fi
-        # Glob match
-        if [[ "$rel_path" == $pattern ]]; then
-            return 0
-        fi
-        # Directory pattern (ends in /)
+        if [[ "$rel_path" == "$pattern" ]]; then return 0; fi
+        if [[ "$rel_path" == $pattern ]]; then return 0; fi
         if [[ "$pattern" == */ ]]; then
             local dir_pattern="${pattern%/}"
-            if [[ "$rel_path" == "$dir_pattern"/* ]]; then
-                return 0
-            fi
+            if [[ "$rel_path" == "$dir_pattern"/* ]]; then return 0; fi
         fi
     done
     return 1
 }
 
+# Apply a conflict resolution action
+# Usage: apply_conflict_action <repo_file> <home_file> <action>
+apply_conflict_action() {
+    local repo_file="$1"
+    local home_file="$2"
+    local action="$3"
+    local filename
+    filename=$(basename "$home_file")
+    local dirname
+    dirname=$(dirname "$home_file")
+
+    case "$action" in
+        replace)
+            cp -p "$repo_file" "$home_file"
+            log "Replaced: $filename"
+            ;;
+        keep)
+            echo -e "  ${BLUE}Kept:${NC} $filename (unchanged)"
+            ;;
+        backup)
+            mv "$home_file" "${dirname}/${filename}.old"
+            cp -p "$repo_file" "$home_file"
+            log "Backed up to ${filename}.old, replaced with repo version"
+            ;;
+        new)
+            cp -p "$repo_file" "${dirname}/${filename}.new"
+            echo -e "  ${YELLOW}Saved:${NC} repo version as ${filename}.new"
+            ;;
+    esac
+}
+
 handle_file_conflict() {
     local repo_file="$1"
     local home_file="$2"
-    local filename=$(basename "$home_file")
-    local dirname=$(dirname "$home_file")
-    local choice=""
+    local filename
+    filename=$(basename "$home_file")
+    local dirname
+    dirname=$(dirname "$home_file")
 
-    echo -e "\n${YELLOW}[!] Conflict detected in:${NC} $home_file"
-    echo -e "Repository version differs from your active version."
+    # If not asking, apply the pre-set action
+    if [[ "$ON_CONFLICT" != "ask" ]]; then
+        apply_conflict_action "$repo_file" "$home_file" "$ON_CONFLICT"
+        return
+    fi
+
+    # Interactive prompt
     echo ""
-    echo "Choose an action:"
-    echo "1) Replace local file with repository version"
-    echo "2) Keep local file unchanged"
-    echo "3) Backup local as ${filename}.old and use repository version"
-    echo "4) Save repository version as ${filename}.new and keep local"
-    echo "5) Show diff and decide"
-    echo "6) Skip this file"
-    echo "7) Add to .updateignore and skip"
-    echo ""
+    echo -e "${YELLOW}┌─ Conflict:${NC} ${BOLD}$filename${NC}"
+    echo -e "${YELLOW}│${NC}  Repository version differs from your local file."
 
     while true; do
-        read -p "Enter choice (1-7): " choice < /dev/tty
-        case "$choice" in
-            1)
-                cp -p "$repo_file" "$home_file"
-                echo -e "${GREEN}Replaced with repository version.${NC}"
-                break
-                ;;
-            2)
-                echo -e "${BLUE}Kept local version unchanged.${NC}"
-                break
-                ;;
-            3)
-                mv "$home_file" "${dirname}/${filename}.old"
-                cp -p "$repo_file" "$home_file"
-                echo -e "${GREEN}Backed up to ${filename}.old and replaced.${NC}"
-                break
-                ;;
-            4)
-                cp -p "$repo_file" "${dirname}/${filename}.new"
-                echo -e "${GREEN}Saved repository version as ${filename}.new.${NC}"
-                break
-                ;;
-            5)
-                echo -e "\n${CYAN}--- Differences in $filename ---${NC}"
+        echo -e "${YELLOW}└─${NC} Choose an action:"
+        echo "  ${GREEN}r${NC}) Replace local with repo version"
+        echo "  ${GREEN}k${NC}) Keep local file unchanged"
+        echo "  ${GREEN}b${NC}) Backup local → .old, then replace"
+        echo "  ${GREEN}n${NC}) Save repo version as .new, keep local"
+        echo "  ${GREEN}d${NC}) Show diff"
+        echo "  ${GREEN}s${NC}) Skip this file"
+        echo "  ${GREEN}i${NC}) Add to .updateignore and skip"
+
+        local choice
+        read -p "  → " choice < /dev/tty
+
+        case "${choice,,}" in
+            r) apply_conflict_action "$repo_file" "$home_file" "replace"; break ;;
+            k) apply_conflict_action "$repo_file" "$home_file" "keep"; break ;;
+            b) apply_conflict_action "$repo_file" "$home_file" "backup"; break ;;
+            n) apply_conflict_action "$repo_file" "$home_file" "new"; break ;;
+            d)
+                echo ""
+                echo -e "${CYAN}--- Diff: $filename ---${NC}"
                 diff -u "$home_file" "$repo_file" || true
-                echo -e "${CYAN}----------------------------------${NC}\n"
-                # Prompt again
+                echo -e "${CYAN}--- End diff ---${NC}"
+                echo ""
                 ;;
-            6)
-                echo -e "${BLUE}Skipped.${NC}"
+            s)
+                echo -e "  ${BLUE}Skipped:${NC} $filename"
                 break
                 ;;
-            7)
+            i)
                 local rel_path=""
                 if [[ "$home_file" == "$HOME/.config/hypr/"* ]]; then
                     rel_path="${home_file#$HOME/.config/hypr/}"
@@ -173,13 +228,42 @@ handle_file_conflict() {
                 mkdir -p "$HOME/.config/hypr"
                 echo "$rel_path" >> "$HOME/.config/hypr/.updateignore"
                 IGNORE_PATTERNS+=("$rel_path")
-                echo -e "${GREEN}Added '$rel_path' to ~/.config/hypr/.updateignore and skipped.${NC}"
+                echo -e "  ${GREEN}Ignored:${NC} added '$rel_path' to .updateignore"
                 break
                 ;;
             *)
-                echo -e "${RED}Invalid choice.${NC}"
+                echo -e "  ${RED}Invalid choice. Enter r, k, b, n, d, s, or i.${NC}"
                 ;;
         esac
+    done
+}
+
+# Deploy files from a repo directory to a home directory, file by file.
+# Handles conflicts via handle_file_conflict.
+# Usage: deploy_dir <repo_dir> <home_dir> [find_excludes...]
+deploy_dir() {
+    local repo_dir="$1"
+    local home_dir="$2"
+    shift 2
+    local find_args=("$@")
+
+    mkdir -p "$home_dir"
+    find "$repo_dir" -type f "${find_args[@]}" | while read -r repo_file; do
+        local rel_path="${repo_file#$repo_dir/}"
+        local home_file="$home_dir/$rel_path"
+
+        if should_ignore "$home_file"; then
+            continue
+        fi
+
+        mkdir -p "$(dirname "$home_file")"
+        if [[ -f "$home_file" ]]; then
+            if ! cmp -s "$repo_file" "$home_file"; then
+                handle_file_conflict "$repo_file" "$home_file"
+            fi
+        else
+            cp -p "$repo_file" "$home_file"
+        fi
     done
 }
 
@@ -187,65 +271,124 @@ deploy_active_updates() {
     log "Deploying configuration updates..."
     load_ignore_patterns
 
-    # 1. Safety Backup of existing active configurations (copy-based so active files remain for comparison)
-    if [[ "$SKIP_BACKUP" == "false" ]]; then
-        if [[ -d "$HOME/.config/hypr" ]]; then
-            local backup_dir="$HOME/.config/hypr.bak.$(date +%Y%m%d%H%M%S)"
-            log "Creating safety backup of ~/.config/hypr to $(basename "$backup_dir")..."
-            cp -r "$HOME/.config/hypr" "$backup_dir"
-        fi
-        if [[ -d "$HOME/.config/quickshell/caelestia" ]]; then
-            local backup_dir="$HOME/.config/quickshell/caelestia.bak.$(date +%Y%m%d%H%M%S)"
-            log "Creating safety backup of ~/.config/quickshell/caelestia to $(basename "$backup_dir")..."
-            rsync -a --exclude='build/' --exclude='.git/' "$HOME/.config/quickshell/caelestia/" "$backup_dir/"
-        fi
-    else
-        log "Skipping backup (--no-backup specified)..."
+    if [[ "$ON_CONFLICT" != "ask" ]]; then
+        echo -e "  Conflict mode: ${BOLD}$ON_CONFLICT${NC}"
     fi
 
-    # 2. Deploy Hyprland configs file by file
+    # ── Safety Backup (only if --backup) ──────────────────────────────────
+    if [[ "$BACKUP" == "true" ]]; then
+        local ts
+        ts=$(date +%Y%m%d%H%M%S)
+        local dirs_to_backup=(
+            "$HOME/.config/hypr"
+            "$HOME/.config/quickshell/caelestia"
+            "$HOME/.config/fish"
+            "$HOME/.config/btop"
+            "$HOME/.config/cava"
+            "$HOME/.config/kitty"
+            "$HOME/.config/foot"
+            "$HOME/.config/fuzzel"
+            "$HOME/.config/wlogout"
+            "$HOME/.config/fontconfig"
+            "$HOME/.config/xdg-desktop-portal"
+            "$HOME/.config/systemd"
+            "$HOME/.local/share/bin"
+        )
+        for d in "${dirs_to_backup[@]}"; do
+            if [[ -d "$d" ]]; then
+                local backup_dir="${d}.bak.${ts}"
+                log "Backing up $(basename "$d") → $(basename "$backup_dir")"
+                cp -r "$d" "$backup_dir"
+            fi
+        done
+    fi
+
+    # ── Hyprland configs ──────────────────────────────────────────────────
     log "Processing Hyprland configurations..."
-    mkdir -p "$HOME/.config/hypr"
-    find ./hyprland/.config/hypr/ -type f | while read -r repo_file; do
-        local rel_path="${repo_file#./hyprland/.config/hypr/}"
-        local home_file="$HOME/.config/hypr/$rel_path"
-        
-        if should_ignore "$home_file"; then
-            continue
-        fi
-        
-        mkdir -p "$(dirname "$home_file")"
-        if [[ -f "$home_file" ]]; then
-            if ! cmp -s "$repo_file" "$home_file"; then
-                handle_file_conflict "$repo_file" "$home_file"
-            fi
-        else
-            cp -p "$repo_file" "$home_file"
-        fi
-    done
+    deploy_dir "./hyprland/.config/hypr" "$HOME/.config/hypr"
 
-    # 3. Deploy Quickshell caelestia configs file by file
+    # ── Caelestia config (skip shell.json — user-specific) ────────────────
+    if [[ -d "./hyprland/.config/caelestia" ]]; then
+        log "Processing Caelestia config..."
+        mkdir -p "$HOME/.config/caelestia"
+        find ./hyprland/.config/caelestia/ -type f | while read -r repo_file; do
+            local rel_path="${repo_file#./hyprland/.config/caelestia/}"
+            local home_file="$HOME/.config/caelestia/$rel_path"
+            # Skip shell.json — it's user-specific (monitors, theme, etc.)
+            [[ "$rel_path" == "shell.json" ]] && continue
+            if should_ignore "$home_file"; then continue; fi
+            mkdir -p "$(dirname "$home_file")"
+            if [[ -f "$home_file" ]]; then
+                if ! cmp -s "$repo_file" "$home_file"; then
+                    handle_file_conflict "$repo_file" "$home_file"
+                fi
+            else
+                cp -p "$repo_file" "$home_file"
+            fi
+        done
+    fi
+
+    # ── Systemd services ──────────────────────────────────────────────────
+    if [[ -d "./hyprland/.config/systemd" ]]; then
+        log "Processing systemd services..."
+        deploy_dir "./hyprland/.config/systemd/user" "$HOME/.config/systemd/user"
+        systemctl --user daemon-reload 2>/dev/null || true
+    fi
+
+    # ── XDG Desktop Portal config ─────────────────────────────────────────
+    if [[ -d "./hyprland/.config/xdg-desktop-portal" ]]; then
+        log "Processing XDG portal config..."
+        deploy_dir "./hyprland/.config/xdg-desktop-portal" "$HOME/.config/xdg-desktop-portal"
+    fi
+
+    # ── Quickshell caelestia configs ──────────────────────────────────────
     log "Processing Quickshell configurations..."
-    mkdir -p "$HOME/.config/quickshell/caelestia"
-    find ./shell/ -type f -not -path "*/build/*" -not -path "*/.git/*" -not -path "*/upstream/*" | while read -r repo_file; do
-        local rel_path="${repo_file#./shell/}"
-        local home_file="$HOME/.config/quickshell/caelestia/$rel_path"
-        
-        if should_ignore "$home_file"; then
-            continue
-        fi
-        
-        mkdir -p "$(dirname "$home_file")"
-        if [[ -f "$home_file" ]]; then
-            if ! cmp -s "$repo_file" "$home_file"; then
-                handle_file_conflict "$repo_file" "$home_file"
-            fi
-        else
-            cp -p "$repo_file" "$home_file"
+    deploy_dir "./shell" "$HOME/.config/quickshell/caelestia" \
+        -not -path "*/build/*" -not -path "*/.git/*" -not -path "*/upstream/*"
+
+    # ── Fish shell config ─────────────────────────────────────────────────
+    log "Processing Fish shell configurations..."
+    deploy_dir "./configs/.config/fish" "$HOME/.config/fish"
+
+    # ── Other app configs ─────────────────────────────────────────────────
+    local app_configs=(
+        "btop"
+        "cava"
+        "kitty"
+        "foot"
+        "fuzzel"
+        "wlogout"
+        "fontconfig"
+    )
+    for app in "${app_configs[@]}"; do
+        if [[ -d "./configs/.config/$app" ]]; then
+            log "Processing $app configuration..."
+            deploy_dir "./configs/.config/$app" "$HOME/.config/$app"
         fi
     done
 
-    # 4. Set executable permissions on scripts
+    # Starship config (single file)
+    if [[ -f "./configs/.config/starship.toml" ]]; then
+        log "Processing Starship prompt config..."
+        local starship_home="$HOME/.config/starship.toml"
+        if [[ -f "$starship_home" ]]; then
+            if ! cmp -s "./configs/.config/starship.toml" "$starship_home"; then
+                handle_file_conflict "./configs/.config/starship.toml" "$starship_home"
+            fi
+        else
+            cp -p "./configs/.config/starship.toml" "$starship_home"
+        fi
+    fi
+
+    # ── Fish-guide binary ─────────────────────────────────────────────────
+    if [[ -f "./configs/.local/share/bin/fish-guide" ]]; then
+        log "Installing fish-guide..."
+        mkdir -p "$HOME/.local/share/bin"
+        cp -p "./configs/.local/share/bin/fish-guide" "$HOME/.local/share/bin/fish-guide"
+        chmod +x "$HOME/.local/share/bin/fish-guide"
+    fi
+
+    # ── Set executable permissions ────────────────────────────────────────
     chmod +x "$HOME/.config/hypr/hyprland/scripts/"* &>/dev/null || true
     chmod +x "$HOME/.config/hypr/hyprland/scripts/ai/"* &>/dev/null || true
     chmod +x "$HOME/.config/quickshell/caelestia/scripts/"* &>/dev/null || true
@@ -254,29 +397,27 @@ deploy_active_updates() {
     chmod +x "$HOME/.config/quickshell/caelestia/scripts/colors/random/"* &>/dev/null || true
     chmod +x "$HOME/.config/quickshell/caelestia/scripts/thumbnails/"* &>/dev/null || true
     chmod +x "$HOME/.config/quickshell/caelestia/scripts/videos/"* &>/dev/null || true
+    chmod +x "$HOME/.local/share/bin/fish-guide" &>/dev/null || true
 
-    # 5. Ensure install/update script symlinks exist for settings app
+    # ── Ensure install/update script symlinks for settings app ────────────
     mkdir -p "$HOME/.config/quickshell/caelestia/scripts"
     ln -sf "$MERGED_DIR/update.sh" "$HOME/.config/quickshell/caelestia/scripts/update.sh"
     ln -sf "$MERGED_DIR/install.sh" "$HOME/.config/quickshell/caelestia/scripts/install.sh"
 
     log "Configuration deployed successfully!"
 
-    # 5. Detect plugin source changes and rebuild if needed
+    # ── C++ plugin rebuild if needed ──────────────────────────────────────
     log "Checking for C++ plugin source changes..."
     local plugin_changed=false
     local plugin_src="$MERGED_DIR/shell/plugin/src"
     local build_dir="$MERGED_DIR/build"
 
     if [[ -d "$plugin_src" ]]; then
-        # Use a stamp file to track last build time
         local stamp_file="$build_dir/.plugin_build_stamp"
 
         if [[ ! -f "$stamp_file" ]]; then
-            # No stamp = never built, rebuild
             plugin_changed=true
         else
-            # Check if any plugin source file is newer than the stamp
             if find "$plugin_src" -type f \( -name "*.hpp" -o -name "*.cpp" \) -newer "$stamp_file" 2>/dev/null | grep -q .; then
                 plugin_changed=true
             fi
@@ -315,7 +456,7 @@ deploy_active_updates() {
         log "Plugin source unchanged — skipping rebuild."
     fi
 
-    # Automatically reload Hyprland if running
+    # ── Reload Hyprland if running ────────────────────────────────────────
     if command -v hyprctl &>/dev/null && [[ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]]; then
         log "Reloading Hyprland configuration..."
         hyprctl reload &>/dev/null || true
@@ -324,9 +465,9 @@ deploy_active_updates() {
 
 main() {
     parse_args "$@"
-    
+
     echo "═══════════════════════════════════════════════════════════════"
-    echo "  Updating custom-caelestia Repository"
+    echo "  Updating custom-caelestia"
     echo "═══════════════════════════════════════════════════════════════"
     echo ""
 
@@ -355,7 +496,7 @@ main() {
 
     local current_branch
     current_branch=$(git branch --show-current)
-    
+
     log "Pulling latest changes on branch '$current_branch'..."
     git pull origin "$current_branch" --no-rebase 2>/dev/null || warn "Failed to pull updates automatically."
 
@@ -368,7 +509,7 @@ main() {
     echo ""
     log "Repository updated successfully!"
     echo ""
-    
+
     deploy_active_updates
 }
 
