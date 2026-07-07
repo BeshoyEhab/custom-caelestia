@@ -254,7 +254,7 @@ install_component() {
             c_green "Building C++ plugin from source..."
             local build_dir="$REPO_DIR/build"
             mkdir -p "$build_dir"
-            cmake -B "$build_dir" -S "$REPO_DIR" -DCMAKE_BUILD_TYPE=Release -DENABLE_MODULES="plugin" 2>&1 | tail -5
+            cmake -B "$build_dir" -S "$REPO_DIR" -DCMAKE_BUILD_TYPE=Release -DENABLE_MODULES="plugin;m3shapes" 2>&1 | tail -5
             cmake --build "$build_dir" -j"$(nproc 2>/dev/null || echo 4)" 2>&1 | tail -10
 
             c_green "Installing plugin (qmldir, .so, .qmltypes)..."

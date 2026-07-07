@@ -430,7 +430,7 @@ deploy_active_updates() {
         mkdir -p "$BUILD_DIR"
         cmake -B "$BUILD_DIR" -S "$MERGED_DIR" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DENABLE_MODULES="plugin" 2>&1 | tail -3 || true
+            -DENABLE_MODULES="plugin;m3shapes" 2>&1 | tail -3 || true
 
         local NPROC=$(nproc 2>/dev/null || echo 4)
         cmake --build "$BUILD_DIR" -j"$NPROC" 2>&1 | tail -5 || true
