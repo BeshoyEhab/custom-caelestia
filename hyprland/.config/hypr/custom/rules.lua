@@ -24,7 +24,7 @@ hl.window_rule({
   name  = "clipboard copyq",
   match = { class = "^(com\\.github\\.hluk\\.copyq|copyq)$" },
   float = true,
-  size  = { "500", "700" },
+  size  = "500 700",
   animation = "popup",
 })
 
@@ -45,8 +45,8 @@ hl.window_rule({
   no_focus         = true,
   no_anim          = true,
   no_blur          = true,
-  max_size         = { "1", "1" },
-  opacity          = { "0.0", "0.0" },
+  max_size         = "1 1",
+  opacity          = "0.0 0.0",
 })
 
 -- --- gromit-mpx (screenshot annotation tool) ─────────────────────────
