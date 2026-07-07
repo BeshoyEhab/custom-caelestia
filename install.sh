@@ -6,13 +6,32 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Colors
+# Color detection
+if [[ -t 1 ]] && command -v tput &>/dev/null && [[ "$(tput colors 2>/dev/null)" -ge 8 ]]; then
+    HAS_COLOR=true
+else
+    HAS_COLOR=false
+fi
+
+# Colors (used only when HAS_COLOR=true)
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
+
+# Color-aware helpers
+c_red()    { if $HAS_COLOR; then echo -e "${RED}$*${NC}"; else echo "$*"; fi }
+c_green()  { if $HAS_COLOR; then echo -e "${GREEN}$*${NC}"; else echo "$*"; fi }
+c_yellow() { if $HAS_COLOR; then echo -e "${YELLOW}$*${NC}"; else echo "$*"; fi }
+c_blue()   { if $HAS_COLOR; then echo -e "${BLUE}$*${NC}"; else echo "$*"; fi }
+c_cyan()   { if $HAS_COLOR; then echo -e "${CYAN}$*${NC}"; else echo "$*"; fi }
+
+# Selection markers (visible without color)
+MARK_SEL="[*]"
+MARK_UNSEL="[ ]"
+MARK_REQUIRED="[!]"
 
 # Components array: name|description|missing后果|arch_package|aur_package
 declare -A COMPONENTS
@@ -43,7 +62,7 @@ print_header() {
 }
 
 show_component_menu() {
-    echo -e "${YELLOW}Select components to install:${NC}"
+    echo "$(c_yellow "Select components to install:")"
     echo ""
     
     local i=1
@@ -53,16 +72,16 @@ show_component_menu() {
         IFS='|' read -r name desc consequence arch aur <<< "${COMPONENTS[$key]}"
         
         if [[ "$key" == "core" ]]; then
-            echo -e "${GREEN}[$i] $name${NC} - $desc"
-            echo -e "    ${RED}(Required - cannot be skipped)${NC}"
+            echo "$(c_green "[$i] $name") - $desc"
+            echo "    $(c_red "(Required - cannot be skipped)")"
         else
-            local status="${RED}[ ]${NC}"
+            local marker="$MARK_UNSEL"
             if [[ "${INSTALLED[$key]}" == "true" ]]; then
-                status="${GREEN}[✓]${NC}"
+                marker="$MARK_SEL"
             fi
-            echo -e "$status ${BLUE}[$i] $name${NC} - $desc"
+            echo "$marker $(c_blue "[$i] $name") - $desc"
         fi
-        echo -e "    ${YELLOW}If missing: $consequence${NC}"
+        echo "    $(c_yellow "If missing: $consequence")"
         
         local pkg_info=""
         if [[ -n "$arch" ]]; then
@@ -75,16 +94,16 @@ show_component_menu() {
                 pkg_info="AUR: $aur"
             fi
         fi
-        echo -e "    ${CYAN}Package: $pkg_info${NC}"
+        echo "    $(c_cyan "Package: $pkg_info")"
         echo ""
         
         ((i++))
     done
     
-    echo -e "${YELLOW}[A] Select All${NC}"
-    echo -e "${YELLOW}[N] Select None (except core)${NC}"
-    echo -e "${YELLOW}[I] Install Selected${NC}"
-    echo -e "${YELLOW}[Q] Quit${NC}"
+    echo "$(c_yellow "[A] Select All")"
+    echo "$(c_yellow "[N] Select None (except core)")"
+    echo "$(c_yellow "[I] Install Selected")"
+    echo "$(c_yellow "[Q] Quit")"
     echo ""
 }
 
@@ -303,7 +322,7 @@ deploy_configs() {
     chmod +x "$HOME/.config/quickshell/caelestia/scripts/videos/"* &>/dev/null || true
 
     # 6. Symlink install/update scripts so the settings app can find them
-    log "Linking install/update scripts for settings app..."
+    echo -e "${BLUE}Linking install/update scripts for settings app...${NC}"
     mkdir -p "$HOME/.config/quickshell/caelestia/scripts"
     ln -sf "$REPO_DIR/update.sh" "$HOME/.config/quickshell/caelestia/scripts/update.sh"
     ln -sf "$REPO_DIR/install.sh" "$HOME/.config/quickshell/caelestia/scripts/install.sh"

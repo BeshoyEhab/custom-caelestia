@@ -40,6 +40,13 @@ StyledWindow {
     readonly property real shadowOpacity: 0.7 * (1 - fsTransitionProg)
     readonly property real borderLayoutThickness: hasFullscreen ? 0 : contentItem.Config.border.thickness
 
+    readonly property bool barIsLeft: contentItem.Config.bar.positioningEdge === 0
+    readonly property bool barIsRight: contentItem.Config.bar.positioningEdge === 1
+    readonly property bool barIsTop: contentItem.Config.bar.positioningEdge === 2
+    readonly property bool barIsBottom: contentItem.Config.bar.positioningEdge === 3
+    readonly property real barOffsetX: barIsLeft ? bar.implicitWidth : 0
+    readonly property real barOffsetY: barIsTop ? bar.implicitHeight : 0
+
     property color surfaceColour: Colours.tPalette.m3surface
 
     readonly property int dragMaskPadding: {
@@ -88,14 +95,14 @@ StyledWindow {
     Region {
         id: emptyRegion
 
-        x: panels.notifications.x + bar.implicitWidth
-        y: panels.notifications.y + root.borderThickness
+        x: panels.notifications.x + root.barOffsetX
+        y: panels.notifications.y + root.borderThickness + root.barOffsetY
         width: panels.notifications.width
         height: panels.notifications.height
 
         Region {
             x: root.width - width
-            y: panels.osdWrapper.y + root.borderThickness
+            y: panels.osdWrapper.y + root.borderThickness + root.barOffsetY
             width: panels.osdWrapper.width * (1 - panels.osd.offsetScale) + root.borderThickness
             height: panels.osd.height
         }
@@ -158,10 +165,10 @@ StyledWindow {
             anchors.margins: -50 // Make border thicker to smooth out bulge from closed drawers
             group: blobGroup
             radius: root.borderRounding
-            borderLeft: bar.implicitWidth - anchors.margins - root.sdfBorderOffset
-            borderRight: root.borderThickness - anchors.margins - root.sdfBorderOffset
-            borderTop: root.borderThickness - anchors.margins - root.sdfBorderOffset
-            borderBottom: root.borderThickness - anchors.margins - root.sdfBorderOffset
+            borderLeft: (root.barIsLeft ? bar.implicitWidth : root.borderThickness) - anchors.margins - root.sdfBorderOffset
+            borderRight: (root.barIsRight ? bar.implicitWidth : root.borderThickness) - anchors.margins - root.sdfBorderOffset
+            borderTop: (root.barIsTop ? bar.implicitHeight : root.borderThickness) - anchors.margins - root.sdfBorderOffset
+            borderBottom: (root.barIsBottom ? bar.implicitHeight : root.borderThickness) - anchors.margins - root.sdfBorderOffset
         }
 
         PanelBg {
@@ -183,7 +190,7 @@ StyledWindow {
 
             panel: panels.sessionWrapper
             deformAmount: 0.2
-            x: panels.sessionWrapper.x + panels.session.x + bar.implicitWidth
+            x: panels.sessionWrapper.x + panels.session.x + root.barOffsetX
             implicitWidth: panels.session.width
         }
 
@@ -202,7 +209,7 @@ StyledWindow {
 
             panel: panels.osdWrapper
             deformAmount: 0.25
-            x: panels.osdWrapper.x + panels.osd.x + bar.implicitWidth
+            x: panels.osdWrapper.x + panels.osd.x + root.barOffsetX
             implicitWidth: panels.osd.width
         }
 
@@ -229,7 +236,7 @@ StyledWindow {
 
             panel: panels.popoutsWrapper
             deformAmount: panels.popouts.isDetached ? 0.05 : panels.popouts.hasCurrent ? 0.15 : 0.1
-            x: panels.popoutsWrapper.x + panels.popouts.x + bar.implicitWidth - panels.popouts.width * extraWidth
+            x: panels.popoutsWrapper.x + panels.popouts.x + root.barOffsetX - panels.popouts.width * extraWidth
             implicitWidth: panels.popouts.width * (1 + extraWidth)
 
             Behavior on extraWidth {
@@ -295,8 +302,10 @@ StyledWindow {
         BarWrapper {
             id: bar
 
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
+            anchors.top: root.barIsVertical || root.barIsBottom ? undefined : parent.top
+            anchors.bottom: root.barIsVertical || !root.barIsBottom ? undefined : parent.bottom
+            anchors.left: !root.barIsVertical || root.barIsRight ? undefined : parent.left
+            anchors.right: !root.barIsVertical || !root.barIsRight ? undefined : parent.right
 
             screen: root.screen
             visibilities: visibilities
@@ -313,8 +322,8 @@ StyledWindow {
         property real deformAmount: 0.15
 
         group: blobGroup
-        x: panel.x + bar.implicitWidth
-        y: panel.y + root.borderThickness
+        x: panel.x + root.barOffsetX
+        y: panel.y + root.borderThickness + root.barOffsetY
         implicitWidth: panel.width
         implicitHeight: panel.height
         radius: Tokens.rounding.extraLarge

@@ -17,10 +17,21 @@ Item {
 
     readonly property bool disabled: Strings.testRegexList(Config.bar.excludedScreens, screen.name)
 
+    // Edge-aware: 0=Left, 1=Right (vertical bar), 2=Top, 3=Bottom (horizontal bar)
+    readonly property bool isVertical: Config.bar.positioningEdge === 0 || Config.bar.positioningEdge === 1
+    readonly property bool isRight: Config.bar.positioningEdge === 1
+    readonly property bool isBottom: Config.bar.positioningEdge === 3
+
     readonly property int clampedWidth: Math.max(Config.border.minThickness, implicitWidth)
+    readonly property int clampedHeight: Math.max(Config.border.minThickness, implicitHeight)
     readonly property int padding: Math.max(Tokens.padding.small, Config.border.thickness)
     readonly property int contentWidth: Tokens.sizes.bar.innerWidth + padding * 2
-    readonly property int exclusiveZone: !disabled && (Config.bar.persistent || visibilities.bar) ? contentWidth : Config.border.thickness
+    readonly property int contentHeight: Tokens.sizes.bar.innerWidth + padding * 2
+    readonly property int exclusiveZone: {
+        if (disabled || (!Config.bar.persistent && !visibilities.bar))
+            return Config.border.thickness;
+        return isVertical ? contentWidth : contentHeight;
+    }
     readonly property bool shouldBeVisible: !fullscreen && !disabled && (Config.bar.persistent || visibilities.bar || isHovered)
     property bool isHovered
 
@@ -31,24 +42,26 @@ Item {
         (content.item as Bar)?.closeTray();
     }
 
-    function checkPopout(y: real): void {
-        (content.item as Bar)?.checkPopout(y);
+    function checkPopout(pos: real): void {
+        (content.item as Bar)?.checkPopout(pos);
     }
 
-    function handleWheel(y: real, angleDelta: point): void {
-        (content.item as Bar)?.handleWheel(y, angleDelta);
+    function handleWheel(pos: real, angleDelta: point): void {
+        (content.item as Bar)?.handleWheel(pos, angleDelta);
     }
 
     clip: true
-    visible: width > Config.border.thickness
+    visible: isVertical ? width > Config.border.thickness : height > Config.border.thickness
     implicitWidth: fullscreen ? 0 : Config.border.thickness
+    implicitHeight: fullscreen ? 0 : Config.border.thickness
 
     states: State {
         name: "visible"
         when: root.shouldBeVisible
 
         PropertyChanges {
-            root.implicitWidth: root.contentWidth
+            root.implicitWidth: root.isVertical ? root.contentWidth : root.implicitWidth
+            root.implicitHeight: root.isVertical ? root.implicitHeight : root.contentHeight
         }
     }
 
@@ -59,22 +72,20 @@ Item {
 
             Anim {
                 target: root
-                property: "implicitWidth"
+                property: root.isVertical ? "implicitWidth" : "implicitHeight"
             }
         },
         Transition {
             from: "visible"
             to: ""
 
-            // Shrink bar width — content stays visible and gets clipped naturally
             SequentialAnimation {
                 Anim {
                     target: root
-                    property: "implicitWidth"
+                    property: root.isVertical ? "implicitWidth" : "implicitHeight"
                     type: Anim.Emphasized
                     duration: Tokens.anim.durations.normal * 1.5
                 }
-                // Deactivate loader after width animation finishes
                 ScriptAction {
                     script: root.keepActive = false
                 }
@@ -85,14 +96,16 @@ Item {
     Loader {
         id: content
 
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        anchors.right: parent.right
+        anchors.top: root.isVertical || root.isBottom ? undefined : parent.top
+        anchors.bottom: root.isVertical || !root.isBottom ? undefined : parent.bottom
+        anchors.left: !root.isVertical || !root.isRight ? undefined : parent.left
+        anchors.right: !root.isVertical || root.isRight ? undefined : parent.right
 
         active: root.shouldBeVisible || root.keepActive
 
         sourceComponent: Bar {
-            width: root.contentWidth
+            width: root.isVertical ? root.contentWidth : undefined
+            height: root.isVertical ? undefined : root.contentHeight
             screen: root.screen
             visibilities: root.visibilities
             popouts: root.popouts // qmllint disable incompatible-type

@@ -12,6 +12,13 @@ Region {
     required property Panels panels
     required property var win
 
+    readonly property bool barIsLeft: win.contentItem.Config.bar.positioningEdge === 0
+    readonly property bool barIsRight: win.contentItem.Config.bar.positioningEdge === 1
+    readonly property bool barIsTop: win.contentItem.Config.bar.positioningEdge === 2
+    readonly property bool barIsBottom: win.contentItem.Config.bar.positioningEdge === 3
+    readonly property real barOffsetX: barIsLeft ? bar.implicitWidth : 0
+    readonly property real barOffsetY: barIsTop ? bar.implicitHeight : 0
+
     function edgeToString(edge: int): string {
         if (edge === 0) return "left";
         if (edge === 1) return "right";
@@ -37,10 +44,10 @@ Region {
     readonly property real borderThickness: win.contentItem.Config.border.thickness
     readonly property real clampedThickness: win.contentItem.Config.border.clampedThickness
 
-    x: bar.clampedWidth + win.dragMaskPadding
-    y: clampedThickness + win.dragMaskPadding
-    width: win.width - bar.clampedWidth - clampedThickness - win.dragMaskPadding * 2
-    height: win.height - clampedThickness * 2 - win.dragMaskPadding * 2
+    x: (barIsLeft ? bar.clampedWidth : clampedThickness) + win.dragMaskPadding
+    y: (barIsTop ? bar.clampedHeight : clampedThickness) + win.dragMaskPadding
+    width: win.width - (barIsLeft || barIsRight ? bar.clampedWidth : 0) - clampedThickness * 2 - win.dragMaskPadding * 2
+    height: win.height - (barIsTop || barIsBottom ? bar.clampedHeight : 0) - clampedThickness * 2 - win.dragMaskPadding * 2
     intersection: Intersection.Xor
 
     R {
@@ -119,20 +126,20 @@ Region {
         height: geom.height
         intersection: Intersection.Subtract
     }
-    // ponytail: bar hover zone — only as wide as the bar itself so input doesn't leak to windows below
+    // ponytail: bar hover zone — only as wide/tall as the bar itself so input doesn't leak to windows below
     Region {
-        x: 0
-        y: 0
-        width: bar.clampedWidth
-        height: win.height
+        x: root.barIsLeft ? 0 : (root.barIsRight ? win.width - bar.clampedWidth : 0)
+        y: root.barIsTop ? 0 : (root.barIsBottom ? win.height - bar.clampedHeight : 0)
+        width: root.barIsLeft || root.barIsRight ? bar.clampedWidth : win.width
+        height: root.barIsLeft || root.barIsRight ? win.height : bar.clampedHeight
         intersection: Intersection.Subtract
     }
 
     component R: Region {
         required property Item panel
 
-        x: panel.x + root.bar.implicitWidth
-        y: panel.y + root.borderThickness
+        x: panel.x + root.barOffsetX
+        y: panel.y + root.borderThickness + root.barOffsetY
         width: panel.width
         height: panel.height
         intersection: Intersection.Subtract
