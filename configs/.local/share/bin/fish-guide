@@ -1,0 +1,488 @@
+#!/usr/bin/env python3
+"""
+fish-guide — A TUI cheatsheet + smart suggestion engine for your fish config.
+
+Usage:
+  fish-guide                     → open the TUI
+  fish-guide suggest <cmd...>    → print a suggestion for the given command (used by fish hook)
+"""
+
+import re
+import sys
+import subprocess
+from pathlib import Path
+from dataclasses import dataclass, field
+
+# ─────────────────────────────────────────────────────────────
+# CONFIG
+# ─────────────────────────────────────────────────────────────
+
+CONFIG_PATH = Path.home() / ".config/fish/config.fish"
+
+# ─────────────────────────────────────────────────────────────
+# PARSER — extract all aliases/functions from config.fish
+# ─────────────────────────────────────────────────────────────
+
+@dataclass
+class Command:
+    name: str
+    description: str
+    expands_to: str          # the underlying command it runs (for suggestion matching)
+    section: str = ""
+    kind: str = "function"   # "alias" | "function"
+
+def parse_config(path: Path) -> list[Command]:
+    """Parse config.fish and return all commands with metadata."""
+    if not path.exists():
+        return []
+
+    text = path.read_text(errors="replace")
+    lines = text.splitlines()
+    commands: list[Command] = []
+    current_section = "General"
+
+    section_re   = re.compile(r'^#\s*\d+\.\s*(.+)')
+    alias_re     = re.compile(r"^alias\s+([a-zA-Z0-9_:-]+)=['\"]?([^'\"#\n]+)['\"]?\s*(?:#\s*(.*))?")
+    fn_wrap_desc = re.compile(r"^function\s+([a-zA-Z0-9_:-]+)\s+--wraps[^-]+--description\s+['\"]([^'\"]+)['\"].*;\s*(.+?)\s*;\s*end")
+    fn_desc      = re.compile(r"^function\s+([a-zA-Z0-9_:-]+)\s+--description\s+['\"]([^'\"]+)['\"].*;\s*(.+?)\s*;\s*end")
+    fn_wrap      = re.compile(r"^function\s+([a-zA-Z0-9_:-]+)\s+--wraps[^;]+;\s*(.+?)\s*(?:\$argv)?\s*;\s*end")
+
+    for line in lines:
+        line = line.strip()
+
+        m = section_re.match(line)
+        if m:
+            current_section = m.group(1).strip()
+            continue
+
+        # alias name='cmd'  # description
+        m = alias_re.match(line)
+        if m:
+            name, cmd, desc = m.group(1), m.group(2).strip(), (m.group(3) or "").strip()
+            commands.append(Command(
+                name=name,
+                description=desc or cmd,
+                expands_to=cmd,
+                section=current_section,
+                kind="alias",
+            ))
+            continue
+
+        # function x --wraps y --description "z"; cmd $argv; end
+        m = fn_wrap_desc.match(line)
+        if m:
+            name, desc, cmd = m.group(1), m.group(2), m.group(3)
+            commands.append(Command(
+                name=name,
+                description=desc,
+                expands_to=cmd.replace("$argv", "").strip(),
+                section=current_section,
+                kind="function",
+            ))
+            continue
+
+        # function x --description "z"; cmd $argv; end
+        m = fn_desc.match(line)
+        if m:
+            name, desc, cmd = m.group(1), m.group(2), m.group(3)
+            commands.append(Command(
+                name=name,
+                description=desc,
+                expands_to=cmd.replace("$argv", "").strip(),
+                section=current_section,
+                kind="function",
+            ))
+            continue
+
+        # function x --wraps y; cmd $argv; end
+        m = fn_wrap.match(line)
+        if m:
+            name, cmd = m.group(1), m.group(2)
+            commands.append(Command(
+                name=name,
+                description=f"→ {cmd}",
+                expands_to=cmd.replace("$argv", "").strip(),
+                section=current_section,
+                kind="function",
+            ))
+            continue
+
+    return commands
+
+# ─────────────────────────────────────────────────────────────
+# SUGGESTION ENGINE
+# ─────────────────────────────────────────────────────────────
+
+def normalize(cmd: str) -> str:
+    return re.sub(r'\s+', ' ', cmd.strip().lower())
+
+def suggest(typed: list[str], commands: list[Command]) -> str | None:
+    """
+    Given what the user typed, find a shorter alias/function that does the same thing.
+    Matches only when the alias expands to something that is a prefix of what was typed
+    AND the expansion covers at least 2 tokens (to avoid spurious single-word matches).
+    Returns a suggestion string or None.
+    """
+    typed_str = normalize(" ".join(typed))
+    typed_tokens = typed_str.split()
+
+    # Skip if the first word is already a known short alias (they're using it)
+    known_names = {c.name for c in commands}
+    if typed[0] in known_names:
+        return None
+
+    best: Command | None = None
+    best_score = float("inf")  # lower = shorter alias name = better
+
+    for cmd in commands:
+        if not cmd.expands_to:
+            continue
+
+        expanded = normalize(cmd.expands_to)
+        if not expanded:
+            continue
+
+        exp_tokens = expanded.split()
+
+        # Require the expansion to cover at least 2 tokens so we don't match
+        # single-word expansions like "git add" → "ga" for ANY git command
+        if len(exp_tokens) < 2:
+            continue
+
+        # The typed command must START WITH the full expansion token-by-token
+        if typed_tokens[: len(exp_tokens)] != exp_tokens:
+            continue
+
+        score = len(cmd.name)
+        if score < best_score:
+            best = cmd
+            best_score = score
+
+    if best:
+        tip = f"\033[2m💡 tip:\033[0m \033[1;36m{best.name}\033[0m"
+        tip += f" does '\033[33m{best.expands_to or best.name}\033[0m'"
+        if best.description and best.description != f"→ {best.expands_to}":
+            tip += f" — {best.description}"
+        return tip
+
+    return None
+
+# ─────────────────────────────────────────────────────────────
+# TUI
+# ─────────────────────────────────────────────────────────────
+
+from textual.app import App, ComposeResult
+from textual.widgets import (
+    Header, Footer, TabbedContent, TabPane,
+    DataTable, Input, Label, Button, TextArea, Static
+)
+from textual.containers import Vertical, Horizontal, ScrollableContainer
+from textual.binding import Binding
+from textual import on
+from textual.screen import ModalScreen
+
+
+class EditConfigModal(ModalScreen):
+    """Modal that opens config in nvim (via subprocess)."""
+
+    BINDINGS = [("escape", "dismiss", "Close")]
+
+    def __init__(self, section_line: int = 1):
+        super().__init__()
+        self.section_line = section_line
+
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            Static("Opening config in nvim...\nPress Escape to close this dialog.", id="edit-msg"),
+            Button("Open in nvim", id="open-btn", variant="primary"),
+            Button("Cancel", id="cancel-btn"),
+            id="edit-modal",
+        )
+
+    @on(Button.Pressed, "#open-btn")
+    def open_nvim(self):
+        subprocess.run(["nvim", f"+{self.section_line}", str(CONFIG_PATH)])
+        self.dismiss()
+
+    @on(Button.Pressed, "#cancel-btn")
+    def cancel(self):
+        self.dismiss()
+
+
+class FishGuide(App):
+    """Fish config TUI — browse, search, and edit your aliases."""
+
+    CSS = """
+    Screen {
+        background: $background;
+    }
+
+    /* ── Tab content ── */
+    #browse-pane, #sections-pane, #edit-pane {
+        padding: 1 2;
+    }
+
+    /* ── Search bar ── */
+    #search {
+        margin-bottom: 1;
+        border: tall $primary;
+    }
+
+    /* ── Tables ── */
+    DataTable {
+        height: 1fr;
+        border: round $surface;
+    }
+
+    DataTable > .datatable--header {
+        background: $primary-darken-2;
+        color: $text;
+        text-style: bold;
+    }
+
+    DataTable > .datatable--cursor {
+        background: $primary;
+        color: $text;
+    }
+
+    /* ── Section list ── */
+    #section-list {
+        height: 1fr;
+        border: round $surface;
+    }
+
+    /* ── Edit pane ── */
+    #edit-info {
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    #section-buttons {
+        height: auto;
+        layout: grid;
+        grid-size: 3;
+        grid-gutter: 1;
+    }
+
+    Button {
+        width: 1fr;
+    }
+
+    /* ── Modal ── */
+    #edit-modal {
+        background: $surface;
+        border: double $primary;
+        padding: 2 4;
+        width: 50;
+        height: auto;
+        align: center middle;
+    }
+
+    EditConfigModal {
+        align: center middle;
+    }
+
+    #edit-msg {
+        margin-bottom: 2;
+        text-align: center;
+    }
+
+    /* ── Footer hint ── */
+    .hint {
+        color: $text-muted;
+        text-align: center;
+        padding: 0 0 1 0;
+    }
+    """
+
+    BINDINGS = [
+        Binding("q", "quit", "Quit"),
+        Binding("ctrl+r", "reload", "Reload config"),
+        Binding("/", "focus_search", "Search", show=True),
+        Binding("e", "open_edit", "Edit config", show=True),
+    ]
+
+    TITLE = "🐟 Fish Guide"
+    SUB_TITLE = str(CONFIG_PATH)
+
+    def __init__(self):
+        super().__init__()
+        self.all_commands: list[Command] = []
+        self.sections: list[str] = []
+        self._section_lines: dict[str, int] = {}
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with TabbedContent():
+            with TabPane("Browse  [b]", id="tab-browse"):
+                with Vertical(id="browse-pane"):
+                    yield Input(placeholder="🔍  Search commands, aliases, descriptions…", id="search")
+                    yield DataTable(id="cmd-table", cursor_type="row", zebra_stripes=True)
+
+            with TabPane("Sections  [s]", id="tab-sections"):
+                with Vertical(id="sections-pane"):
+                    yield Static("Jump to a section in your config — opens nvim at the right line.", classes="hint")
+                    yield DataTable(id="section-table", cursor_type="row", zebra_stripes=True)
+
+            with TabPane("Edit  [e]", id="tab-edit"):
+                with Vertical(id="edit-pane"):
+                    yield Static("Select a section and open it directly in nvim.", id="edit-info")
+                    yield Vertical(id="section-buttons")
+
+        yield Footer()
+
+    def on_mount(self) -> None:
+        self._load_commands()
+        self._build_browse_table(self.all_commands)
+        self._build_section_table()
+        self._build_edit_buttons()
+
+    # ── Data loading ─────────────────────────────────────────
+
+    def _load_commands(self) -> None:
+        self.all_commands = parse_config(CONFIG_PATH)
+        self._section_lines = self._find_section_lines()
+        seen = []
+        for c in self.all_commands:
+            if c.section not in seen:
+                seen.append(c.section)
+        self.sections = seen
+
+    def _find_section_lines(self) -> dict[str, int]:
+        """Map section name → line number in config."""
+        result: dict[str, int] = {}
+        section_re = re.compile(r'^#\s*\d+\.\s*(.+)')
+        if not CONFIG_PATH.exists():
+            return result
+        for i, line in enumerate(CONFIG_PATH.read_text(errors="replace").splitlines(), 1):
+            m = section_re.match(line.strip())
+            if m:
+                result[m.group(1).strip()] = i
+        return result
+
+    # ── Table builders ────────────────────────────────────────
+
+    def _build_browse_table(self, commands: list[Command]) -> None:
+        table: DataTable = self.query_one("#cmd-table")
+        table.clear(columns=True)
+        table.add_columns("Name", "Kind", "Section", "Description", "Expands to")
+        for c in commands:
+            table.add_row(
+                f"[bold cyan]{c.name}[/]",
+                f"[dim]{c.kind}[/]",
+                f"[yellow]{c.section}[/]",
+                c.description,
+                f"[dim]{c.expands_to}[/]",
+            )
+
+    def _build_section_table(self) -> None:
+        table: DataTable = self.query_one("#section-table")
+        table.clear(columns=True)
+        table.add_columns("Section", "Commands", "Line")
+        section_counts: dict[str, int] = {}
+        for c in self.all_commands:
+            section_counts[c.section] = section_counts.get(c.section, 0) + 1
+        for section in self.sections:
+            line = self._section_lines.get(section, "?")
+            count = section_counts.get(section, 0)
+            table.add_row(
+                f"[bold magenta]{section}[/]",
+                str(count),
+                str(line),
+            )
+
+    @staticmethod
+    def _section_id(section: str) -> str:
+        safe = re.sub(r'[^a-zA-Z0-9_-]', '_', section)
+        return f"edit-{safe}"
+
+    def _build_edit_buttons(self) -> None:
+        container = self.query_one("#section-buttons")
+        container.remove_children()
+        for section in self.sections:
+            btn = Button(section, id=self._section_id(section), variant="default")
+            container.mount(btn)
+
+    # ── Events ───────────────────────────────────────────────
+
+    @on(Input.Changed, "#search")
+    def filter_table(self, event: Input.Changed) -> None:
+        query = event.value.lower()
+        if query:
+            filtered = [
+                c for c in self.all_commands
+                if query in c.name.lower()
+                or query in c.description.lower()
+                or query in c.expands_to.lower()
+                or query in c.section.lower()
+            ]
+        else:
+            filtered = self.all_commands
+        self._build_browse_table(filtered)
+
+    @on(DataTable.RowSelected, "#section-table")
+    def jump_to_section(self, event: DataTable.RowSelected) -> None:
+        row_idx = event.cursor_row
+        if row_idx < len(self.sections):
+            section = self.sections[row_idx]
+            line = self._section_lines.get(section, 1)
+            self.push_screen(EditConfigModal(section_line=line))
+
+    @on(Button.Pressed)
+    def handle_edit_button(self, event: Button.Pressed) -> None:
+        btn_id = event.button.id or ""
+        if btn_id.startswith("edit-"):
+            for section in self.sections:
+                if self._section_id(section) == btn_id:
+                    line = self._section_lines.get(section, 1)
+                    self.push_screen(EditConfigModal(section_line=line))
+                    break
+
+    # ── Actions ──────────────────────────────────────────────
+
+    def action_reload(self) -> None:
+        self._load_commands()
+        self._build_browse_table(self.all_commands)
+        self._build_section_table()
+        self._build_edit_buttons()
+        self.notify("Config reloaded!", severity="information")
+
+    def action_focus_search(self) -> None:
+        self.query_one("#search").focus()
+
+    def action_open_edit(self) -> None:
+        self.push_screen(EditConfigModal(section_line=1))
+
+
+# ─────────────────────────────────────────────────────────────
+# ENTRYPOINT
+# ─────────────────────────────────────────────────────────────
+
+def main():
+    args = sys.argv[1:]
+
+    if args and args[0] == "suggest":
+        # Called from fish postexec hook: fish-guide suggest <typed command...>
+        typed = args[1:]
+        if not typed:
+            sys.exit(0)
+        commands = parse_config(CONFIG_PATH)
+        tip = suggest(typed, commands)
+        if tip:
+            print(tip)
+        sys.exit(0)
+
+    # Default: open TUI
+    # Fix: some terminals/shells leave stdin in non-blocking mode which causes
+    # Textual's input thread to crash with BlockingIOError (errno 11)
+    import fcntl, os as _os
+    _fd = sys.stdin.fileno()
+    _flags = fcntl.fcntl(_fd, fcntl.F_GETFL)
+    fcntl.fcntl(_fd, fcntl.F_SETFL, _flags & ~_os.O_NONBLOCK)
+
+    app = FishGuide()
+    app.run()
+
+
+if __name__ == "__main__":
+    main()
