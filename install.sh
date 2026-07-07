@@ -256,20 +256,15 @@ install_component() {
             cmake -B "$build_dir" -S "$REPO_DIR" -DCMAKE_BUILD_TYPE=Release -DENABLE_MODULES="plugin" 2>&1 | tail -5
             cmake --build "$build_dir" -j"$(nproc 2>/dev/null || echo 4)" 2>&1 | tail -10
 
-            local install_dir="/usr/lib/qt6/qml"
-            find "$build_dir" -name "libcaelestia-*.so" -type f | while read -r lib; do
-                local modname=$(basename "$lib")
-                local subdir
-                if [[ "$modname" == *"plugin.so" ]]; then
-                    subdir=$(echo "$modname" | sed 's/^libcaelestia-//;s/plugin\.so$//' | sed 's/\b\(.\)/\U\1/')
-                else
-                    subdir=$(echo "$modname" | sed 's/^libcaelestia-//;s/\.so$//' | sed 's/\b\(.\)/\U\1/')
-                fi
-                local target_dir="$install_dir/Caelestia/$subdir"
-                sudo mkdir -p "$target_dir"
-                sudo cp -p "$lib" "$target_dir/$modname"
-                echo "  Installed: $modname -> $target_dir/"
-            done
+            c_green "Installing plugin (qmldir, .so, .qmltypes)..."
+            sudo cmake --install "$build_dir" --component qml_runtime 2>&1 | tail -10 || {
+                # Fallback: manually copy full module directories
+                c_yellow "cmake --install failed, falling back to manual copy..."
+                local install_dir="/usr/lib/qt6/qml"
+                find "$build_dir/qml" -type d -name "Caelestia" | head -1 | while read -r qml_root; do
+                    sudo cp -r "$qml_root"/* "$install_dir/Caelestia/"
+                done
+            }
             ;;
         yay)
             if ! command -v yay &>/dev/null && ! command -v paru &>/dev/null; then

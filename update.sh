@@ -433,22 +433,18 @@ deploy_active_updates() {
             -DENABLE_MODULES="plugin" 2>&1 | tail -3 || true
 
         local NPROC=$(nproc 2>/dev/null || echo 4)
-        cmake --build "$BUILD_DIR" --target caelestia-configplugin -j"$NPROC" 2>&1 | tail -5 || true
+        cmake --build "$BUILD_DIR" -j"$NPROC" 2>&1 | tail -5 || true
 
-        local INSTALL_DIR="/usr/lib/qt6/qml"
-        find "$BUILD_DIR" -name "libcaelestia-*.so" -type f 2>/dev/null | while read -r lib; do
-            local modname=$(basename "$lib")
-            local subdir
-            if [[ "$modname" == *"plugin.so" ]]; then
-                subdir=$(echo "$modname" | sed 's/^libcaelestia-//;s/plugin\.so$//' | sed 's/\b\(.\)/\U\1/')
-            else
-                subdir=$(echo "$modname" | sed 's/^libcaelestia-//;s/\.so$//' | sed 's/\b\(.\)/\U\1/')
+        log "Installing plugin (qmldir, .so, .qmltypes)..."
+        sudo cmake --install "$BUILD_DIR" --prefix /usr 2>&1 | tail -10 || {
+            # Fallback: manually copy full module directories
+            warn "cmake --install failed, falling back to manual copy..."
+            local INSTALL_DIR="/usr/lib/qt6/qml"
+            if [[ -d "$BUILD_DIR/qml/Caelestia" ]]; then
+                sudo mkdir -p "$INSTALL_DIR/Caelestia"
+                sudo cp -r "$BUILD_DIR/qml/Caelestia/"* "$INSTALL_DIR/Caelestia/"
             fi
-            local target_dir="$INSTALL_DIR/Caelestia/$subdir"
-            sudo mkdir -p "$target_dir"
-            sudo cp -p "$lib" "$target_dir/$modname"
-            echo "  Installed: $modname -> $target_dir/"
-        done
+        }
 
         touch "$stamp_file"
         log "Plugin rebuilt and installed."
