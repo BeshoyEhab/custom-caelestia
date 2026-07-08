@@ -37,7 +37,7 @@ class DashboardConfig : public ConfigObject {
     CONFIG_PROPERTY(int, dragThreshold, 50)
     CONFIG_GLOBAL_PROPERTY(QString, hoverEdge, u"top"_s)
     CONFIG_GLOBAL_PROPERTY(int, hoverWidth, 850)
-    CONFIG_GLOBAL_PROPERTY(int, hoverHeight, 20)
+    CONFIG_GLOBAL_PROPERTY(int, hoverHeight, 10)
     CONFIG_GLOBAL_PROPERTY(bool, showHoverIndicator, true)
     CONFIG_SUBOBJECT(DashboardPerformance, performance)
     CONFIG_GLOBAL_PROPERTY(int, positioningEdge, 2)

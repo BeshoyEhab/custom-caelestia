@@ -57,7 +57,7 @@
     },
     "dashboard": {
         "hoverEdge": "top",
-        "hoverHeight": 20,
+        "hoverHeight": 10,
         "hoverWidth": 850,
         "showHoverIndicator": false,
         "showOnHover": true
@@ -81,8 +81,8 @@
     "launcher": {
         "enabled": true,
         "hoverEdge": "bottom",
-        "hoverHeight": 20,
-        "hoverWidth": 600,
+        "hoverHeight": 10,
+        "hoverWidth": 610,
         "showHoverIndicator": false,
         "showOnHover": true,
         "useFuzzy": {
@@ -108,8 +108,8 @@
     },
     "sidebar": {
         "hoverEdge": "topRight",
-        "hoverHeight": 60,
-        "hoverWidth": 20,
+        "hoverHeight": 75,
+        "hoverWidth": 10,
         "showHoverIndicator": false
     },
     "utilities": {
