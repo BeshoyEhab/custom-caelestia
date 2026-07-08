@@ -28,7 +28,7 @@ Item {
 
         const rep = activeRepeater;
         for (let i = 0; i < rep.count; i++) {
-            const loader = rep.itemAt(i) as WrappedLoader;
+            const loader = rep.itemAt(i) as Loader;
             if (loader?.enabled && loader.id === "tray") {
                 (loader.item as Tray).expanded = false;
             }
@@ -38,8 +38,8 @@ Item {
     function checkPopout(pos: real): void {
         const rep = activeRepeater;
         const ch = isVertical
-            ? rep.childAt(rep.width / 2, pos) as WrappedLoader
-            : rep.childAt(pos, rep.height / 2) as WrappedLoader;
+            ? rep.childAt(rep.width / 2, pos) as Loader
+            : rep.childAt(pos, rep.height / 2) as Loader;
 
         if (ch?.id !== "tray")
             closeTray();
