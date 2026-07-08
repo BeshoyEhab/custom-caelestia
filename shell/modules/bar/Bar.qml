@@ -29,7 +29,7 @@ Item {
         const rep = activeRepeater;
         for (let i = 0; i < rep.count; i++) {
             const loader = rep.itemAt(i) as Loader;
-            if (loader?.enabled && loader.id === "tray") {
+            if (loader?.enabled && loader.entryId === "tray") {
                 (loader.item as Tray).expanded = false;
             }
         }
@@ -41,7 +41,7 @@ Item {
             ? rep.childAt(rep.width / 2, pos) as Loader
             : rep.childAt(pos, rep.height / 2) as Loader;
 
-        if (ch?.id !== "tray")
+        if (ch?.entryId !== "tray")
             closeTray();
 
         if (!ch) {
@@ -49,7 +49,7 @@ Item {
             return;
         }
 
-        const id = ch.id;
+        const id = ch.entryId;
         const top = isVertical ? ch.y : ch.x;
 
         if (id === "statusIcons" && Config.bar.popouts.statusIcons) {
@@ -172,6 +172,7 @@ Item {
             required property int index
 
             property var repeater: root.activeRepeater
+            property string entryId: id
 
             function findFirstEnabled(): Item {
                 const rep = repeater;
@@ -205,7 +206,7 @@ Item {
             active: enabled
 
             sourceComponent: {
-                switch (id) {
+                switch (entryId) {
                 case "logo": return logoComp
                 case "workspaces": return workspacesComp
                 case "activeWindow": return activeWindowComp
