@@ -30,7 +30,7 @@ Item {
         if (!rep) return;
         for (let i = 0; i < rep.count; i++) {
             const entry = rep.itemAt(i);
-            const tray = entry?.item as Tray;
+            const tray = entry?.trayItem;
             if (tray)
                 tray.expanded = false;
         }
@@ -53,10 +53,9 @@ Item {
         }
 
         const id = ch.entryId;
-        const top = isVertical ? ch.y : ch.x;
 
         if (id === "statusIcons" && Config.bar.popouts.statusIcons) {
-            const items = (ch.item as StatusIcons).items;
+            const items = (ch.statusIconsItem).items;
             const icon = isVertical
                 ? items.childAt(items.width / 2, mapToItem(items, 0, pos).y)
                 : items.childAt(mapToItem(items, pos, 0).x, items.height / 2);
@@ -69,7 +68,7 @@ Item {
                 popouts.hasCurrent = true;
             }
         } else if (id === "tray" && Config.bar.popouts.tray) {
-            const tray = ch.item as Tray;
+            const tray = ch.trayItem;
             const trayPos = isVertical
                 ? mapToItem(ch, 0, pos).y
                 : mapToItem(ch, pos, 0).x;
@@ -93,9 +92,9 @@ Item {
         } else if (id === "activeWindow" && Config.bar.popouts.activeWindow && Config.bar.activeWindow.showOnHover) {
             popouts.currentName = id.toLowerCase();
             if (isVertical)
-                popouts.currentCenter = (ch.item as Item).mapToItem(root, 0, (ch.item as Item).implicitHeight / 2).y ?? 0;
+                popouts.currentCenter = ch.activeWindowItem.mapToItem(root, 0, ch.activeWindowItem.implicitHeight / 2).y ?? 0;
             else
-                popouts.currentCenter = (ch.item as Item).mapToItem(root, (ch.item as Item).implicitWidth / 2, 0).x ?? 0;
+                popouts.currentCenter = ch.activeWindowItem.mapToItem(root, ch.activeWindowItem.implicitWidth / 2, 0).x ?? 0;
             popouts.hasCurrent = true;
         }
     }
@@ -175,11 +174,16 @@ Item {
         }
     }
 
-    component EntryDelegate: Item {
+    component EntryDelegate: Loader {
         required property var modelData
         required property int index
-        property alias item: contentItem.children
+
         readonly property string entryId: modelData.id
+        property Item loadedItem: item
+
+        property var trayItem: (item as Tray)
+        property var statusIconsItem: (item as StatusIcons)
+        property var activeWindowItem: (item as ActiveWindow)
 
         Layout.topMargin: index === 0 ? root.vPadding : 0
         Layout.bottomMargin: index === (barContent?.repeater?.count ?? 0) - 1 ? root.vPadding : 0
@@ -187,65 +191,57 @@ Item {
         Layout.fillWidth: !root.isVertical && (entryId === "activeWindow" || entryId === "spacer")
         Layout.fillHeight: root.isVertical && entryId === "spacer"
 
-        implicitWidth: contentItem.childrenRect.width
-        implicitHeight: contentItem.childrenRect.height
+        asynchronous: true
+        active: true
+        visible: true
 
-        Item {
-            id: contentItem
-            anchors.fill: parent
+        sourceComponent: {
+            switch (entryId) {
+            case "logo": return logoComp
+            case "workspaces": return workspacesComp
+            case "activeWindow": return activeWindowComp
+            case "tray": return trayComp
+            case "clock": return clockComp
+            case "statusIcons": return statusIconsComp
+            case "power": return powerComp
+            default: return null
+            }
+        }
 
-            Component {
-                id: logoComp
-                OsIcon {}
+        Component {
+            id: logoComp
+            OsIcon {}
+        }
+        Component {
+            id: workspacesComp
+            Workspaces {
+                screen: root.screen
+                fullscreen: root.fullscreen
             }
-            Component {
-                id: workspacesComp
-                Workspaces {
-                    screen: root.screen
-                    fullscreen: root.fullscreen
-                }
+        }
+        Component {
+            id: activeWindowComp
+            ActiveWindow {
+                bar: root
+                monitor: Brightness.getMonitorForScreen(root.screen)
             }
-            Component {
-                id: activeWindowComp
-                ActiveWindow {
-                    bar: root
-                    monitor: Brightness.getMonitorForScreen(root.screen)
-                }
-            }
-            Component {
-                id: trayComp
-                Tray {}
-            }
-            Component {
-                id: clockComp
-                Clock {}
-            }
-            Component {
-                id: statusIconsComp
-                StatusIcons {}
-            }
-            Component {
-                id: powerComp
-                Power {
-                    visibilities: root.visibilities
-                }
-            }
-
-            Loader {
-                anchors.fill: parent
-                active: true
-                sourceComponent: {
-                    switch (entryId) {
-                    case "logo": return logoComp
-                    case "workspaces": return workspacesComp
-                    case "activeWindow": return activeWindowComp
-                    case "tray": return trayComp
-                    case "clock": return clockComp
-                    case "statusIcons": return statusIconsComp
-                    case "power": return powerComp
-                    default: return null
-                    }
-                }
+        }
+        Component {
+            id: trayComp
+            Tray {}
+        }
+        Component {
+            id: clockComp
+            Clock {}
+        }
+        Component {
+            id: statusIconsComp
+            StatusIcons {}
+        }
+        Component {
+            id: powerComp
+            Power {
+                visibilities: root.visibilities
             }
         }
     }
