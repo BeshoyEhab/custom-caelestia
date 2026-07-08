@@ -28,7 +28,7 @@
             "showDate": true,
             "showIcon": false
         },
-        "persistent": false,
+        "persistent": true,
         "popouts": {
             "activeWindow": false
         },
@@ -57,10 +57,10 @@
     },
     "dashboard": {
         "hoverEdge": "top",
-        "hoverHeight": 50,
-        "hoverWidth": 100,
+        "hoverHeight": 20,
+        "hoverWidth": 850,
         "showHoverIndicator": false,
-        "showOnHover": false
+        "showOnHover": true
     },
     "general": {
         "apps": {
@@ -81,8 +81,8 @@
     "launcher": {
         "enabled": true,
         "hoverEdge": "bottom",
-        "hoverHeight": 50,
-        "hoverWidth": 100,
+        "hoverHeight": 20,
+        "hoverWidth": 600,
         "showHoverIndicator": false,
         "showOnHover": true,
         "useFuzzy": {
@@ -108,8 +108,8 @@
     },
     "sidebar": {
         "hoverEdge": "topRight",
-        "hoverHeight": 100,
-        "hoverWidth": 100,
+        "hoverHeight": 60,
+        "hoverWidth": 20,
         "showHoverIndicator": false
     },
     "utilities": {

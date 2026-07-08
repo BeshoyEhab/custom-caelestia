@@ -151,10 +151,10 @@ apply_conflict_action() {
     case "$action" in
         replace)
             cp -p "$repo_file" "$home_file"
-            log "Replaced: $filename"
+            log "Replaced: $home_file"
             ;;
         keep)
-            echo -e "  ${BLUE}Kept:${NC} $filename (unchanged)"
+            echo -e "  ${BLUE}Kept:${NC} $home_file (unchanged)"
             ;;
         backup)
             mv "$home_file" "${dirname}/${filename}.old"
@@ -184,39 +184,39 @@ handle_file_conflict() {
 
     # Interactive prompt
     echo ""
-    echo -e "${YELLOW}┌─ Conflict:${NC} ${BOLD}$filename${NC}"
+    echo -e "${YELLOW}┌─ Conflict:${NC} ${BOLD}$home_file${NC}"
     echo -e "${YELLOW}│${NC}  Repository version differs from your local file."
 
     while true; do
         echo -e "${YELLOW}└─${NC} Choose an action:"
-        echo "  ${GREEN}r${NC}) Replace local with repo version"
-        echo "  ${GREEN}k${NC}) Keep local file unchanged"
-        echo "  ${GREEN}b${NC}) Backup local → .old, then replace"
-        echo "  ${GREEN}n${NC}) Save repo version as .new, keep local"
-        echo "  ${GREEN}d${NC}) Show diff"
-        echo "  ${GREEN}s${NC}) Skip this file"
-        echo "  ${GREEN}i${NC}) Add to .updateignore and skip"
+        echo "  ${GREEN}1${NC}) Replace local with repo version"
+        echo "  ${GREEN}2${NC}) Keep local file unchanged"
+        echo "  ${GREEN}3${NC}) Backup local → .old, then replace"
+        echo "  ${GREEN}4${NC}) Save repo version as .new, keep local"
+        echo "  ${GREEN}5${NC}) Show diff"
+        echo "  ${GREEN}6${NC}) Skip this file"
+        echo "  ${GREEN}7${NC}) Add to .updateignore and skip"
 
         local choice
         read -p "  → " choice < /dev/tty
 
-        case "${choice,,}" in
-            r) apply_conflict_action "$repo_file" "$home_file" "replace"; break ;;
-            k) apply_conflict_action "$repo_file" "$home_file" "keep"; break ;;
-            b) apply_conflict_action "$repo_file" "$home_file" "backup"; break ;;
-            n) apply_conflict_action "$repo_file" "$home_file" "new"; break ;;
-            d)
+        case "$choice" in
+            1) apply_conflict_action "$repo_file" "$home_file" "replace"; break ;;
+            2) apply_conflict_action "$repo_file" "$home_file" "keep"; break ;;
+            3) apply_conflict_action "$repo_file" "$home_file" "backup"; break ;;
+            4) apply_conflict_action "$repo_file" "$home_file" "new"; break ;;
+            5)
                 echo ""
-                echo -e "${CYAN}--- Diff: $filename ---${NC}"
+                echo -e "${CYAN}--- Diff: $home_file ---${NC}"
                 diff -u "$home_file" "$repo_file" || true
                 echo -e "${CYAN}--- End diff ---${NC}"
                 echo ""
                 ;;
-            s)
-                echo -e "  ${BLUE}Skipped:${NC} $filename"
+            6)
+                echo -e "  ${BLUE}Skipped:${NC} $home_file"
                 break
                 ;;
-            i)
+            7)
                 local rel_path=""
                 if [[ "$home_file" == "$HOME/.config/hypr/"* ]]; then
                     rel_path="${home_file#$HOME/.config/hypr/}"
@@ -232,7 +232,7 @@ handle_file_conflict() {
                 break
                 ;;
             *)
-                echo -e "  ${RED}Invalid choice. Enter r, k, b, n, d, s, or i.${NC}"
+                echo -e "  ${RED}Invalid choice. Enter 1-7.${NC}"
                 ;;
         esac
     done
@@ -304,12 +304,12 @@ deploy_active_updates() {
     fi
 
     # ── Hyprland configs ──────────────────────────────────────────────────
-    log "Processing Hyprland configurations..."
+    log "[1/7] Processing Hyprland configurations..."
     deploy_dir "./hyprland/.config/hypr" "$HOME/.config/hypr"
 
     # ── Caelestia config (skip shell.json — user-specific) ────────────────
+    log "[2/7] Processing Caelestia config..."
     if [[ -d "./hyprland/.config/caelestia" ]]; then
-        log "Processing Caelestia config..."
         mkdir -p "$HOME/.config/caelestia"
         find ./hyprland/.config/caelestia/ -type f | while read -r repo_file; do
             local rel_path="${repo_file#./hyprland/.config/caelestia/}"
@@ -329,28 +329,29 @@ deploy_active_updates() {
     fi
 
     # ── Systemd services ──────────────────────────────────────────────────
+    log "[3/7] Processing systemd services..."
     if [[ -d "./hyprland/.config/systemd" ]]; then
-        log "Processing systemd services..."
         deploy_dir "./hyprland/.config/systemd/user" "$HOME/.config/systemd/user"
         systemctl --user daemon-reload 2>/dev/null || true
     fi
 
     # ── XDG Desktop Portal config ─────────────────────────────────────────
+    log "[4/7] Processing XDG portal config..."
     if [[ -d "./hyprland/.config/xdg-desktop-portal" ]]; then
-        log "Processing XDG portal config..."
         deploy_dir "./hyprland/.config/xdg-desktop-portal" "$HOME/.config/xdg-desktop-portal"
     fi
 
     # ── Quickshell caelestia configs ──────────────────────────────────────
-    log "Processing Quickshell configurations..."
+    log "[5/7] Processing Quickshell configurations..."
     deploy_dir "./shell" "$HOME/.config/quickshell/caelestia" \
         -not -path "*/build/*" -not -path "*/.git/*" -not -path "*/upstream/*"
 
     # ── Fish shell config ─────────────────────────────────────────────────
-    log "Processing Fish shell configurations..."
+    log "[6/7] Processing Fish shell configurations..."
     deploy_dir "./configs/.config/fish" "$HOME/.config/fish"
 
     # ── Other app configs ─────────────────────────────────────────────────
+    log "[7/7] Processing other app configurations..."
     local app_configs=(
         "btop"
         "cava"
@@ -427,6 +428,13 @@ deploy_active_updates() {
     if [[ "$plugin_changed" == "true" ]]; then
         log "Plugin source changed — rebuilding..."
         local BUILD_DIR="$MERGED_DIR/build"
+        
+        # Clean cache before building
+        if [[ -d "$BUILD_DIR" ]]; then
+            log "Cleaning build cache..."
+            rm -rf "$BUILD_DIR"
+        fi
+        
         mkdir -p "$BUILD_DIR"
         cmake -B "$BUILD_DIR" -S "$MERGED_DIR" \
             -DCMAKE_BUILD_TYPE=Release \
