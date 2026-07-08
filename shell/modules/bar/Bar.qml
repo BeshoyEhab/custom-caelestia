@@ -20,7 +20,7 @@ Item {
 
     readonly property bool isVertical: Config.bar.positioningEdge === 0 || Config.bar.positioningEdge === 1
     readonly property int vPadding: Tokens.padding.large
-    readonly property var activeRepeater: isVertical ? repeaterV : repeaterH
+    readonly property var activeRepeater: barLoader.item ? barLoader.item.children[0] : null
 
     function closeTray(): void {
         if (!Config.bar.tray.compact)
@@ -128,6 +128,7 @@ Item {
     }
 
     Loader {
+        id: barLoader
         anchors.fill: parent
         active: true
         sourceComponent: root.isVertical ? verticalBar : horizontalBar
@@ -164,113 +165,95 @@ Item {
     Component {
         id: barDelegate
 
-        DelegateChooser {
-            role: "id"
+        Loader {
+            id: barLoader
+            required property bool enabled
+            required property string id
+            required property int index
 
-            DelegateChoice {
-                roleValue: "spacer"
-                delegate: WrappedLoader {
-                    Layout.fillHeight: root.isVertical && enabled
-                    Layout.fillWidth: !root.isVertical && enabled
+            property var repeater: root.activeRepeater
+
+            function findFirstEnabled(): Item {
+                const rep = repeater;
+                const count = rep.count;
+                for (let i = 0; i < count; i++) {
+                    const item = rep.itemAt(i);
+                    if (item?.enabled)
+                        return item;
+                }
+                return null;
+            }
+
+            function findLastEnabled(): Item {
+                const rep = repeater;
+                for (let i = rep.count - 1; i >= 0; i--) {
+                    const item = rep.itemAt(i);
+                    if (item?.enabled)
+                        return item;
+                }
+                return null;
+            }
+
+            asynchronous: true
+            Layout.alignment: root.isVertical ? Qt.AlignHCenter : Qt.AlignVCenter
+            Layout.topMargin: root.isVertical && findFirstEnabled() === this ? root.vPadding : 0
+            Layout.bottomMargin: root.isVertical && findLastEnabled() === this ? root.vPadding : 0
+            Layout.leftMargin: !root.isVertical && findFirstEnabled() === this ? root.vPadding : 0
+            Layout.rightMargin: !root.isVertical && findLastEnabled() === this ? root.vPadding : 0
+
+            visible: enabled
+            active: enabled
+
+            sourceComponent: {
+                switch (id) {
+                case "logo": return logoComp
+                case "workspaces": return workspacesComp
+                case "activeWindow": return activeWindowComp
+                case "tray": return trayComp
+                case "clock": return clockComp
+                case "statusIcons": return statusIconsComp
+                case "power": return powerComp
+                default: return null
                 }
             }
-            DelegateChoice {
-                roleValue: "logo"
-                delegate: WrappedLoader {
-                    sourceComponent: OsIcon {}
+
+            Component {
+                id: logoComp
+                OsIcon {}
+            }
+            Component {
+                id: workspacesComp
+                Workspaces {
+                    screen: root.screen
+                    fullscreen: root.fullscreen
+                    bar: root
                 }
             }
-            DelegateChoice {
-                roleValue: "workspaces"
-                delegate: WrappedLoader {
-                    sourceComponent: Workspaces {
-                        screen: root.screen
-                        fullscreen: root.fullscreen
-                        bar: root
-                    }
+            Component {
+                id: activeWindowComp
+                ActiveWindow {
+                    bar: root
+                    monitor: Brightness.getMonitorForScreen(root.screen)
                 }
             }
-            DelegateChoice {
-                roleValue: "activeWindow"
-                delegate: WrappedLoader {
-                    Layout.fillWidth: !root.isVertical
-                    Layout.fillHeight: root.isVertical
-                    visible: !root.fullscreen
-                    sourceComponent: ActiveWindow {
-                        bar: root
-                        monitor: Brightness.getMonitorForScreen(root.screen)
-                    }
-                }
+            Component {
+                id: trayComp
+                Tray {}
             }
-            DelegateChoice {
-                roleValue: "tray"
-                delegate: WrappedLoader {
-                    visible: !root.fullscreen
-                    sourceComponent: Tray {}
-                }
+            Component {
+                id: clockComp
+                Clock {}
             }
-            DelegateChoice {
-                roleValue: "clock"
-                delegate: WrappedLoader {
-                    visible: !root.fullscreen
-                    sourceComponent: Clock {}
-                }
+            Component {
+                id: statusIconsComp
+                StatusIcons {}
             }
-            DelegateChoice {
-                roleValue: "statusIcons"
-                delegate: WrappedLoader {
-                    visible: !root.fullscreen
-                    sourceComponent: StatusIcons {}
-                }
-            }
-            DelegateChoice {
-                roleValue: "power"
-                delegate: WrappedLoader {
-                    sourceComponent: Power {
-                        visibilities: root.visibilities
-                    }
+            Component {
+                id: powerComp
+                Power {
+                    visibilities: root.visibilities
                 }
             }
         }
-    }
-
-    component WrappedLoader: Loader {
-        required enabled
-        required property string id
-        required property int index
-
-        property var repeater: root.activeRepeater
-
-        function findFirstEnabled(): Item {
-            const rep = repeater;
-            const count = rep.count;
-            for (let i = 0; i < count; i++) {
-                const item = rep.itemAt(i);
-                if (item?.enabled)
-                    return item;
-            }
-            return null;
-        }
-
-        function findLastEnabled(): Item {
-            const rep = repeater;
-            for (let i = rep.count - 1; i >= 0; i--) {
-                const item = rep.itemAt(i);
-                if (item?.enabled)
-                    return item;
-            }
-            return null;
-        }
-
-        asynchronous: true
-        Layout.alignment: root.isVertical ? Qt.AlignHCenter : Qt.AlignVCenter
-
-        Layout.topMargin: root.isVertical && findFirstEnabled() === this ? root.vPadding : 0
-        Layout.bottomMargin: root.isVertical && findLastEnabled() === this ? root.vPadding : 0
-        Layout.leftMargin: !root.isVertical && findFirstEnabled() === this ? root.vPadding : 0
-        Layout.rightMargin: !root.isVertical && findLastEnabled() === this ? root.vPadding : 0
-
-        visible: enabled
-        active: enabled
     }
 }
