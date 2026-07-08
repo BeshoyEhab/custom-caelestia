@@ -20,26 +20,29 @@ Item {
 
     readonly property bool isVertical: Config.bar.positioningEdge === 0 || Config.bar.positioningEdge === 1
     readonly property int vPadding: Tokens.padding.large
-    readonly property var activeRepeater: barLoader.item ? barLoader.item.children[0] : null
+    readonly property var barContent: barLoader.item
 
     function closeTray(): void {
         if (!Config.bar.tray.compact)
             return;
 
-        const rep = activeRepeater;
+        const rep = barContent?.repeater;
+        if (!rep) return;
         for (let i = 0; i < rep.count; i++) {
-            const loader = rep.itemAt(i) as Loader;
-            if (loader?.enabled && loader.entryId === "tray") {
-                (loader.item as Tray).expanded = false;
-            }
+            const entry = rep.itemAt(i);
+            const tray = entry?.item as Tray;
+            if (tray)
+                tray.expanded = false;
         }
     }
 
     function checkPopout(pos: real): void {
-        const rep = activeRepeater;
+        const rep = barContent?.repeater;
+        if (!rep) return;
+
         const ch = isVertical
-            ? rep.childAt(rep.width / 2, pos) as Loader
-            : rep.childAt(pos, rep.height / 2) as Loader;
+            ? rep.childAt(rep.width / 2, pos)
+            : rep.childAt(pos, rep.height / 2);
 
         if (ch?.entryId !== "tray")
             closeTray();
@@ -67,7 +70,6 @@ Item {
             }
         } else if (id === "tray" && Config.bar.popouts.tray) {
             const tray = ch.item as Tray;
-            const trayExtent = isVertical ? tray.implicitHeight : tray.implicitWidth;
             const trayPos = isVertical
                 ? mapToItem(ch, 0, pos).y
                 : mapToItem(ch, pos, 0).x;
@@ -99,11 +101,14 @@ Item {
     }
 
     function handleWheel(pos: real, angleDelta: point): void {
-        const rep = activeRepeater;
+        const rep = barContent?.repeater;
+        if (!rep) return;
+
         const ch = isVertical
-            ? rep.childAt(rep.width / 2, pos) as WrappedLoader
-            : rep.childAt(pos, rep.height / 2) as WrappedLoader;
-        if (ch?.id === "workspaces" && Config.bar.scrollActions.workspaces) {
+            ? rep.childAt(rep.width / 2, pos)
+            : rep.childAt(pos, rep.height / 2);
+
+        if (ch?.entryId === "workspaces" && Config.bar.scrollActions.workspaces) {
             const mon = (GlobalConfig.bar.workspaces.perMonitorWorkspaces ? Hypr.monitorFor(screen) : Hypr.focusedMonitor);
             const specialWs = mon?.lastIpcObject.specialWorkspace.name;
             if (specialWs?.length > 0)
@@ -138,12 +143,16 @@ Item {
         id: verticalBar
 
         ColumnLayout {
+            property alias repeater: repeaterV
+
             spacing: Tokens.spacing.medium
 
             Repeater {
                 id: repeaterV
-                model: Config.bar.entries
-                delegate: barDelegate
+                model: ScriptModel {
+                    values: Config.bar.entries.filter(e => e.enabled ?? true)
+                }
+                delegate: EntryDelegate {}
             }
         }
     }
@@ -152,71 +161,38 @@ Item {
         id: horizontalBar
 
         RowLayout {
+            property alias repeater: repeaterH
+
             spacing: Tokens.spacing.medium
 
             Repeater {
                 id: repeaterH
-                model: Config.bar.entries
-                delegate: barDelegate
+                model: ScriptModel {
+                    values: Config.bar.entries.filter(e => e.enabled ?? true)
+                }
+                delegate: EntryDelegate {}
             }
         }
     }
 
-    Component {
-        id: barDelegate
+    component EntryDelegate: Item {
+        required property var modelData
+        required property int index
+        property alias item: contentItem.children
+        readonly property string entryId: modelData.id
 
-        Loader {
-            id: barLoader
-            required property bool enabled
-            required property string id
-            required property int index
+        Layout.topMargin: index === 0 ? root.vPadding : 0
+        Layout.bottomMargin: index === (barContent?.repeater?.count ?? 0) - 1 ? root.vPadding : 0
+        Layout.alignment: root.isVertical ? Qt.AlignHCenter : Qt.AlignVCenter
+        Layout.fillWidth: !root.isVertical && (entryId === "activeWindow" || entryId === "spacer")
+        Layout.fillHeight: root.isVertical && entryId === "spacer"
 
-            property var repeater: root.activeRepeater
-            property string entryId: id
+        implicitWidth: contentItem.childrenRect.width
+        implicitHeight: contentItem.childrenRect.height
 
-            function findFirstEnabled(): Item {
-                const rep = repeater;
-                const count = rep.count;
-                for (let i = 0; i < count; i++) {
-                    const item = rep.itemAt(i);
-                    if (item?.enabled)
-                        return item;
-                }
-                return null;
-            }
-
-            function findLastEnabled(): Item {
-                const rep = repeater;
-                for (let i = rep.count - 1; i >= 0; i--) {
-                    const item = rep.itemAt(i);
-                    if (item?.enabled)
-                        return item;
-                }
-                return null;
-            }
-
-            asynchronous: true
-            Layout.alignment: root.isVertical ? Qt.AlignHCenter : Qt.AlignVCenter
-            Layout.topMargin: root.isVertical && findFirstEnabled() === this ? root.vPadding : 0
-            Layout.bottomMargin: root.isVertical && findLastEnabled() === this ? root.vPadding : 0
-            Layout.leftMargin: !root.isVertical && findFirstEnabled() === this ? root.vPadding : 0
-            Layout.rightMargin: !root.isVertical && findLastEnabled() === this ? root.vPadding : 0
-
-            visible: enabled
-            active: enabled
-
-            sourceComponent: {
-                switch (entryId) {
-                case "logo": return logoComp
-                case "workspaces": return workspacesComp
-                case "activeWindow": return activeWindowComp
-                case "tray": return trayComp
-                case "clock": return clockComp
-                case "statusIcons": return statusIconsComp
-                case "power": return powerComp
-                default: return null
-                }
-            }
+        Item {
+            id: contentItem
+            anchors.fill: parent
 
             Component {
                 id: logoComp
@@ -227,7 +203,6 @@ Item {
                 Workspaces {
                     screen: root.screen
                     fullscreen: root.fullscreen
-                    bar: root
                 }
             }
             Component {
@@ -253,6 +228,23 @@ Item {
                 id: powerComp
                 Power {
                     visibilities: root.visibilities
+                }
+            }
+
+            Loader {
+                anchors.fill: parent
+                active: true
+                sourceComponent: {
+                    switch (entryId) {
+                    case "logo": return logoComp
+                    case "workspaces": return workspacesComp
+                    case "activeWindow": return activeWindowComp
+                    case "tray": return trayComp
+                    case "clock": return clockComp
+                    case "statusIcons": return statusIconsComp
+                    case "power": return powerComp
+                    default: return null
+                    }
                 }
             }
         }
