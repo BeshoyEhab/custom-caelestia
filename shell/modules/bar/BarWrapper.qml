@@ -21,6 +21,7 @@ Item {
     readonly property bool isVertical: Config.bar.positioningEdge === 0 || Config.bar.positioningEdge === 1
     readonly property bool isRight: Config.bar.positioningEdge === 1
     readonly property bool isBottom: Config.bar.positioningEdge === 3
+    readonly property string barEdge: ["left", "right", "top", "bottom"][Config.bar.positioningEdge]
 
     readonly property int clampedWidth: Math.max(Config.border.minThickness, implicitWidth)
     readonly property int clampedHeight: Math.max(Config.border.minThickness, implicitHeight)
@@ -96,16 +97,17 @@ Item {
     Loader {
         id: content
 
-        anchors.top: root.isVertical || root.isBottom ? undefined : parent.top
-        anchors.bottom: root.isVertical || !root.isBottom ? undefined : parent.bottom
-        anchors.left: !root.isVertical || !root.isRight ? undefined : parent.left
-        anchors.right: !root.isVertical || root.isRight ? undefined : parent.right
+        anchors.top: root.isVertical ? parent.top : undefined
+        anchors.bottom: root.isVertical ? parent.bottom : undefined
+        anchors.left: root.isHorizontal ? parent.left : undefined
+        anchors.right: root.isHorizontal ? parent.right : undefined
+        width: root.isVertical ? root.contentWidth : undefined
+        height: root.isHorizontal ? root.contentHeight : undefined
 
         active: root.shouldBeVisible || root.keepActive
 
         sourceComponent: Bar {
-            width: root.isVertical ? root.contentWidth : undefined
-            height: root.isVertical ? undefined : root.contentHeight
+            barEdge: root.barEdge
             screen: root.screen
             visibilities: root.visibilities
             popouts: root.popouts // qmllint disable incompatible-type
