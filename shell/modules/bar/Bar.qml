@@ -148,9 +148,7 @@ Item {
 
             Repeater {
                 id: repeaterV
-                model: ScriptModel {
-                    values: Config.bar.entries.filter(e => e.enabled ?? true)
-                }
+                model: Config.bar.entries.filter(e => e.enabled ?? true)
                 delegate: EntryDelegate {}
             }
         }
@@ -166,9 +164,7 @@ Item {
 
             Repeater {
                 id: repeaterH
-                model: ScriptModel {
-                    values: Config.bar.entries.filter(e => e.enabled ?? true)
-                }
+                model: Config.bar.entries.filter(e => e.enabled ?? true)
                 delegate: EntryDelegate {}
             }
         }
