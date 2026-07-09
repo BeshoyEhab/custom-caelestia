@@ -52,6 +52,18 @@ import qs.modules.nexus.common
 - `modules/nexus/pages/UpdatesPage.qml`
 - `modules/nexus/pages/PluginsPage.qml`
 
+### Bar Rendering (modules/bar/)
+
+The bar uses a `ColumnLayout` root with a `Repeater` + `WrappedLoader` delegate pattern (replacing upstream's `DelegateChooser`).
+
+**Critical rules:**
+1. **`pragma ComponentBehavior: Bound` must NOT be used in Bar.qml** — it prevents Repeater delegates from resolving Component IDs (`logoComp`, `workspacesComp`, etc.) defined at the ColumnLayout root level.
+2. **Components must be defined at root level** (as `Component {}` children of the ColumnLayout), not inside the delegate.
+3. **Spacer entries** (`id: "spacer"`) must be handled in the delegate switch — they return `null` sourceComponent but need `Layout.fillHeight: true` to push sections apart.
+4. **ContentWindow.qml BarWrapper anchoring**: For vertical bars, use `anchors.top/parent.top` + `anchors.bottom/parent.bottom`. For horizontal bars, use `anchors.left/parent.left` + `anchors.right/parent.right`. Never use conditional logic that removes both top AND bottom anchors for vertical bars — the BarWrapper gets 0 height and nothing renders.
+5. **BarWrapper has no `implicitHeight`** — it gets its height from parent anchors (top+bottom for vertical, left+right for horizontal).
+6. **`Tokens.sizes.bar.innerWidth`** is the content width; `contentWidth = innerWidth + padding*2`.
+
 ## Settings App ("Nexus")
 
 The settings app lives at `shell/modules/nexus/`. Key files:

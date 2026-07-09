@@ -21,17 +21,14 @@ Item {
     readonly property bool isVertical: Config.bar.positioningEdge === 0 || Config.bar.positioningEdge === 1
     readonly property bool isRight: Config.bar.positioningEdge === 1
     readonly property bool isBottom: Config.bar.positioningEdge === 3
-    readonly property string barEdge: ["left", "right", "top", "bottom"][Config.bar.positioningEdge]
 
     readonly property int clampedWidth: Math.max(Config.border.minThickness, implicitWidth)
-    readonly property int clampedHeight: Math.max(Config.border.minThickness, implicitHeight)
     readonly property int padding: Math.max(Tokens.padding.small, Config.border.thickness)
     readonly property int contentWidth: Tokens.sizes.bar.innerWidth + padding * 2
-    readonly property int contentHeight: Tokens.sizes.bar.innerWidth + padding * 2
     readonly property int exclusiveZone: {
         if (disabled || (!Config.bar.persistent && !visibilities.bar))
             return Config.border.thickness;
-        return isVertical ? contentWidth : contentHeight;
+        return isVertical ? contentWidth : contentWidth;
     }
     readonly property bool shouldBeVisible: !fullscreen && !disabled && (Config.bar.persistent || visibilities.bar || isHovered)
     property bool isHovered
@@ -54,15 +51,13 @@ Item {
     clip: true
     visible: isVertical ? width > Config.border.thickness : height > Config.border.thickness
     implicitWidth: fullscreen ? 0 : Config.border.thickness
-    implicitHeight: fullscreen ? 0 : Config.border.thickness
 
     states: State {
         name: "visible"
         when: root.shouldBeVisible
 
         PropertyChanges {
-            root.implicitWidth: root.isVertical ? root.contentWidth : root.implicitWidth
-            root.implicitHeight: root.isVertical ? root.implicitHeight : root.contentHeight
+            root.implicitWidth: root.contentWidth
         }
     }
 
@@ -73,7 +68,7 @@ Item {
 
             Anim {
                 target: root
-                property: root.isVertical ? "implicitWidth" : "implicitHeight"
+                property: "implicitWidth"
             }
         },
         Transition {
@@ -83,7 +78,7 @@ Item {
             SequentialAnimation {
                 Anim {
                     target: root
-                    property: root.isVertical ? "implicitWidth" : "implicitHeight"
+                    property: "implicitWidth"
                     type: Anim.Emphasized
                     duration: Tokens.anim.durations.normal * 1.5
                 }
@@ -97,17 +92,15 @@ Item {
     Loader {
         id: content
 
-        anchors.top: root.isVertical ? parent.top : undefined
-        anchors.bottom: root.isVertical ? parent.bottom : undefined
-        anchors.left: root.isHorizontal ? parent.left : undefined
-        anchors.right: root.isHorizontal ? parent.right : undefined
-        width: root.isVertical ? root.contentWidth : undefined
-        height: root.isHorizontal ? root.contentHeight : undefined
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: !root.isRight ? parent.left : undefined
+        anchors.right: root.isRight ? parent.right : undefined
 
         active: root.shouldBeVisible || root.keepActive
 
         sourceComponent: Bar {
-            barEdge: root.barEdge
+            width: root.contentWidth
             screen: root.screen
             visibilities: root.visibilities
             popouts: root.popouts // qmllint disable incompatible-type

@@ -26,17 +26,12 @@ Item {
         return title;
     }
 
-    readonly property int maxHeight: {
-        const otherModules = bar.children.filter(c => c.id && c.item !== this && c.id !== "spacer");
-        const otherHeight = otherModules.reduce((acc, curr) => acc + (curr.item.nonAnimHeight ?? curr.height), 0);
-        // Length - 2 cause repeater counts as a child
-        return bar.height - otherHeight - bar.spacing * (bar.children.length - 1) - bar.vPadding * 2;
-    }
+    readonly property int maxHeight: bar.height * 0.4
     property Title current: text1
 
     clip: true
     implicitWidth: Math.max(icon.implicitWidth, current.implicitHeight)
-    implicitHeight: icon.implicitHeight + current.implicitWidth + current.anchors.topMargin
+    implicitHeight: Math.min(maxHeight, icon.implicitHeight + current.implicitWidth + current.anchors.topMargin)
 
     Loader {
         asynchronous: true

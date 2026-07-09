@@ -44,6 +44,7 @@ StyledWindow {
     readonly property bool barIsRight: contentItem.Config.bar.positioningEdge === 1
     readonly property bool barIsTop: contentItem.Config.bar.positioningEdge === 2
     readonly property bool barIsBottom: contentItem.Config.bar.positioningEdge === 3
+    readonly property bool barIsVertical: barIsLeft || barIsRight
     readonly property real barOffsetX: barIsLeft ? bar.implicitWidth : 0
     readonly property real barOffsetY: barIsTop ? bar.implicitHeight : 0
 
@@ -302,10 +303,10 @@ StyledWindow {
         BarWrapper {
             id: bar
 
-            anchors.top: root.barIsVertical || root.barIsBottom ? undefined : parent.top
-            anchors.bottom: root.barIsVertical || !root.barIsBottom ? undefined : parent.bottom
-            anchors.left: !root.barIsVertical || root.barIsRight ? undefined : parent.left
-            anchors.right: !root.barIsVertical || !root.barIsRight ? undefined : parent.right
+            anchors.top: root.barIsVertical ? parent.top : undefined
+            anchors.bottom: root.barIsVertical ? parent.bottom : undefined
+            anchors.left: !root.barIsVertical ? parent.left : undefined
+            anchors.right: !root.barIsVertical ? parent.right : undefined
 
             screen: root.screen
             visibilities: visibilities
