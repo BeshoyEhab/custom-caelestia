@@ -144,6 +144,30 @@ PageBase {
 - **Nix** packages everything (`shell/nix/default.nix`)
 - Run with `qs -c caelestia` from `~/.config/quickshell/caelestia/`
 
+## Install & Update Scripts
+
+### install.sh
+Interactive installer with 3 optional config sections:
+1. **Core** (always installed): hyprland, quickshell, caelestia-cli, caelestia-shell packages
+2. **Hyprland config**: window rules, keybinds, scripts, systemd, portal config
+3. **Shell extras** (optional): fish, starship, btop, cava, kitty, foot, fuzzel, wlogout, fonts
+4. **Quickshell config**: caelestia shell theme, modules, services
+
+- **Reinstall-safe**: Uses `safe_deploy` that never destroys user files
+- Reads `.updateignore` to skip user-customized files
+- Symlink-aware: removes old symlinks before deploying
+
+### update.sh
+Auto-detects installed sections and only updates those. Options:
+- `--on-conflict ask|replace|keep|backup|new` (default: ask)
+- `--backup` - create safety backups before deploying
+- `--dry-run` - show what would change without doing it
+- `--non-interactive` - skip prompts, replace on conflict
+
+### .updateignore
+File patterns to skip during updates. Read from repo root + user config dirs.
+Defaults: `custom/`, `monitors.lua`, `monitors.conf`, `shell.json`, `shell.json.bak`
+
 ## Key Files to Know
 
 | Path | Purpose |
@@ -151,6 +175,7 @@ PageBase {
 | `shell/services/Colours.qml` | Colour palette singleton |
 | `shell/plugin/src/Caelestia/Config/` | C++ config backend (17 config classes) |
 | `shell/flake.nix` | Nix flake definition |
-| `install.sh` | Interactive installer |
-| `update.sh` | Update script |
+| `install.sh` | Interactive installer (3 sections, reinstall-safe) |
+| `update.sh` | Update script (.updateignore, auto-detect sections) |
+| `.updateignore` | Files to skip during updates |
 | `CMakeLists.txt` | Top-level CMake (project: caelestia-shell v2.0.3-custom) |
