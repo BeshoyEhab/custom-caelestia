@@ -123,6 +123,8 @@ Item {
         anchors.topMargin: root.vPadding
         anchors.horizontalCenter: parent.horizontalCenter
         width: root.width
+        height: Math.min(implicitHeight, root.height * 0.5)
+        clip: true
 
         spacing: Tokens.spacing.medium
 

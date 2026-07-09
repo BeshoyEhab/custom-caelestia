@@ -171,7 +171,7 @@ CustomMouseArea {
         }
 
         // Show bar in non-exclusive mode on hover
-        if (!visibilities.bar && Config.bar.showOnHover && inBarClampedArea(x, y))
+        if (!PresentationMode.enabled && !visibilities.bar && Config.bar.showOnHover && inBarClampedArea(x, y))
             bar.isHovered = true;
 
         // Show/hide bar on drag
@@ -185,7 +185,7 @@ CustomMouseArea {
         }
 
         // Show sidebar on hover
-        if (panels.sidebar.offsetScale === 1 && !visibilities.sidebar) {
+        if (!PresentationMode.enabled && panels.sidebar.offsetScale === 1 && !visibilities.sidebar) {
             if (inHoverArea(panels.sidebar, x, y, GlobalConfig.sidebar.hoverEdge, GlobalConfig.sidebar.hoverWidth, GlobalConfig.sidebar.hoverHeight)) {
                 visibilities.sidebar = true;
             }
@@ -193,7 +193,7 @@ CustomMouseArea {
 
         if (panels.sidebar.offsetScale === 1) {
             // Show osd on hover
-            const showOsd = inRightPanel(panels.osdWrapper, x, y);
+            const showOsd = !PresentationMode.enabled && inRightPanel(panels.osdWrapper, x, y);
 
             // Always update visibility based on hover if not in shortcut mode
             if (!osdShortcutActive) {
@@ -224,7 +224,7 @@ CustomMouseArea {
         } else {
             const outOfSidebar = x < width - panels.sidebar.width * (1 - panels.sidebar.offsetScale);
             // Show osd on hover
-            const showOsd = outOfSidebar && inRightPanel(panels.osdWrapper, x, y);
+            const showOsd = !PresentationMode.enabled && outOfSidebar && inRightPanel(panels.osdWrapper, x, y);
 
             // Always update visibility based on hover if not in shortcut mode
             if (!osdShortcutActive) {
@@ -250,7 +250,7 @@ CustomMouseArea {
         }
 
         // Show launcher on hover, or show/hide on drag if hover is disabled
-        if (Config.launcher.showOnHover) {
+        if (!PresentationMode.enabled && Config.launcher.showOnHover) {
             const inHover = inHoverArea(panels.launcher, x, y, GlobalConfig.launcher.hoverEdge, GlobalConfig.launcher.hoverWidth, GlobalConfig.launcher.hoverHeight);
             if (!visibilities.launcher && inHover) {
                 visibilities.launcher = true;
@@ -267,7 +267,7 @@ CustomMouseArea {
         }
 
         // Show dashboard on hover
-        const inDHover = Config.dashboard.showOnHover && inHoverArea(panels.dashboard, x, y, GlobalConfig.dashboard.hoverEdge, GlobalConfig.dashboard.hoverWidth, GlobalConfig.dashboard.hoverHeight);
+        const inDHover = !PresentationMode.enabled && Config.dashboard.showOnHover && inHoverArea(panels.dashboard, x, y, GlobalConfig.dashboard.hoverEdge, GlobalConfig.dashboard.hoverWidth, GlobalConfig.dashboard.hoverHeight);
         const inDPanel = inTopPanel(panels.dashboard, x, y);
 
         // Always update visibility based on hover if not in shortcut mode
@@ -291,7 +291,7 @@ CustomMouseArea {
         }
 
         // Show utilities on hover
-        const showUtilities = inBottomPanel(panels.utilities, x, y, true);
+        const showUtilities = !PresentationMode.enabled && inBottomPanel(panels.utilities, x, y, true);
 
         // Always update visibility based on hover if not in shortcut mode
         if (!utilitiesShortcutActive) {
@@ -311,7 +311,7 @@ CustomMouseArea {
         }
 
         // Close sidebar on mouse move if opened via hover and mouse is outside sidebar and utilities areas
-        if (!sidebarShortcutActive && visibilities.sidebar) {
+        if (!PresentationMode.enabled && !sidebarShortcutActive && visibilities.sidebar) {
             const inSidebarArea = inRightPanel(panels.sidebar, x, y) || inHoverArea(panels.sidebar, x, y, GlobalConfig.sidebar.hoverEdge, GlobalConfig.sidebar.hoverWidth, GlobalConfig.sidebar.hoverHeight);
             const inUtilitiesArea = inBottomPanel(panels.utilities, x, y, true);
             if (!inSidebarArea && !inUtilitiesArea) {
