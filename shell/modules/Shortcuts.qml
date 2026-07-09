@@ -112,6 +112,14 @@ Scope {
         }
     }
 
+    // qmllint disable unresolved-type
+    CustomShortcut {
+        // qmllint enable unresolved-type
+        name: "presentationMode"
+        description: "Toggle presentation mode"
+        onPressed: PresentationMode.toggle()
+    }
+
     IpcHandler {
         function toggle(drawer: string): void {
             if (list().split("\n").includes(drawer)) {

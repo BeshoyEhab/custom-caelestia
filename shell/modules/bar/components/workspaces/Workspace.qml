@@ -97,13 +97,17 @@ ColumnLayout {
                         const ws = root.ws;
                         const windows = Hypr.toplevels.values.filter(c => c.workspace?.id === ws);
                         const maxIcons = root.Config.bar.workspaces.maxWindowIcons;
-                        return maxIcons > 0 ? windows.slice(0, maxIcons) : windows;
+                        if (maxIcons <= 0)
+                            return windows;
+                        return windows.slice(0, 1);
                     }
                 }
 
                 MaterialIcon {
                     required property var modelData
 
+                    width: Tokens.sizes.bar.innerWidth
+                    horizontalAlignment: Text.AlignHCenter
                     grade: 0
                     text: Icons.getAppCategoryIcon(modelData.lastIpcObject.class, "terminal")
                     color: Colours.palette.m3onSurfaceVariant

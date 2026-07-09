@@ -162,13 +162,31 @@ install_component() {
             ;;
         shell)
             c_green "Deploying shell config from repo..."
-            mkdir -p "$HOME/.config/quickshell/caelestia"
-            rsync -a --exclude=".git*" "$REPO_DIR/shell/" "$HOME/.config/quickshell/caelestia/"
+            local target="$HOME/.config/quickshell/caelestia"
+            # Remove existing symlinks or directories
+            if [[ -L "$target" ]]; then
+                c_yellow "  Removing symlink: $target"
+                rm -f "$target"
+            elif [[ -d "$target" ]]; then
+                c_yellow "  Removing existing directory: $target"
+                rm -rf "$target"
+            fi
+            mkdir -p "$target"
+            rsync -a --exclude=".git*" "$REPO_DIR/shell/" "$target/"
             ;;
         hypr)
             c_green "Deploying Hyprland config from repo..."
-            mkdir -p "$HOME/.config/hypr"
-            rsync -a --exclude=".git*" "$REPO_DIR/hyprland/.config/hypr/" "$HOME/.config/hypr/"
+            local target="$HOME/.config/hypr"
+            # Remove existing symlinks or directories
+            if [[ -L "$target" ]]; then
+                c_yellow "  Removing symlink: $target"
+                rm -f "$target"
+            elif [[ -d "$target" ]]; then
+                c_yellow "  Removing existing directory: $target"
+                rm -rf "$target"
+            fi
+            mkdir -p "$target"
+            rsync -a --exclude=".git*" "$REPO_DIR/hyprland/.config/hypr/" "$target/"
             # Deploy caelestia config (shell.json etc.)
             if [[ -d "$REPO_DIR/hyprland/.config/caelestia" ]]; then
                 mkdir -p "$HOME/.config/caelestia"

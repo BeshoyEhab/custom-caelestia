@@ -11,6 +11,7 @@ Item {
 
     required property var bar
     required property Brightness.Monitor monitor
+    property int maxHeight: bar.height * 0.25
     property color colour: Colours.palette.m3primary
 
     readonly property string windowTitle: {
@@ -26,7 +27,6 @@ Item {
         return title;
     }
 
-    readonly property int maxHeight: bar.height * 0.4
     property Title current: text1
 
     clip: true

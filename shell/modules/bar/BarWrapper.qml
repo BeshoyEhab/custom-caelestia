@@ -31,9 +31,11 @@ Item {
         return isVertical ? contentWidth : contentWidth;
     }
     readonly property bool shouldBeVisible: !fullscreen && !disabled && (Config.bar.persistent || visibilities.bar || isHovered)
-    property bool isHovered
 
-    // Keep loader active during hide animation so content stays visible
+    // Drawer-style: content slides off while the blob frame shrinks
+    property real slideProgress: root.shouldBeVisible ? 0 : 1
+
+    property bool isHovered
     property bool keepActive: false
 
     function closeTray(): void {
@@ -48,53 +50,38 @@ Item {
         (content.item as Bar)?.handleWheel(pos, angleDelta);
     }
 
-    clip: true
     visible: isVertical ? width > Config.border.thickness : height > Config.border.thickness
-    implicitWidth: fullscreen ? 0 : Config.border.thickness
+    implicitWidth: root.shouldBeVisible ? root.contentWidth : Config.border.thickness
+    opacity: 1 - slideProgress
 
-    states: State {
-        name: "visible"
-        when: root.shouldBeVisible
+    // Slide content on/off screen (elements move with the bar)
+    x: {
+        if (!root.isVertical)
+            return 0;
+        const slide = (root.contentWidth + 5) * root.slideProgress;
+        return root.isRight ? slide : -slide;
+    }
 
-        PropertyChanges {
-            root.implicitWidth: root.contentWidth
+    Behavior on slideProgress {
+        Anim {
+            type: Anim.Emphasized
+            duration: Tokens.anim.durations.normal * 1.5
         }
     }
 
-    transitions: [
-        Transition {
-            from: ""
-            to: "visible"
-
-            Anim {
-                target: root
-                property: "implicitWidth"
-            }
-        },
-        Transition {
-            from: "visible"
-            to: ""
-
-            SequentialAnimation {
-                Anim {
-                    target: root
-                    property: "implicitWidth"
-                    type: Anim.Emphasized
-                    duration: Tokens.anim.durations.normal * 1.5
-                }
-                ScriptAction {
-                    script: root.keepActive = false
-                }
-            }
+    Behavior on implicitWidth {
+        Anim {
+            type: Anim.Emphasized
+            duration: Tokens.anim.durations.normal * 1.5
         }
-    ]
+    }
 
     Loader {
         id: content
 
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        anchors.left: !root.isRight ? parent.left : undefined
+        anchors.left: parent.left
         anchors.right: root.isRight ? parent.right : undefined
 
         active: root.shouldBeVisible || root.keepActive
@@ -108,9 +95,12 @@ Item {
         }
     }
 
-    // Activate keepActive when leaving visible state
     onShouldBeVisibleChanged: {
-        if (!shouldBeVisible && visible)
+        if (!shouldBeVisible && visible) {
             keepActive = true;
+            slideProgress = 1;
+        } else if (shouldBeVisible) {
+            slideProgress = 0;
+        }
     }
 }

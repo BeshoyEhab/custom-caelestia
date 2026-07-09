@@ -38,6 +38,17 @@ Item {
     }
 
     function findEntry(pos: real): var {
+        // Check active window first
+        const awWrapper = activeWindowLoader.item;
+        if (awWrapper) {
+            const localPos = awWrapper.mapFromItem(root, 0, pos);
+            if (localPos.y >= 0 && localPos.y < awWrapper.height) {
+                return {
+                    entryId: "activeWindow",
+                    activeWindowItem: awWrapper.activeWindowItem
+                };
+            }
+        }
         const topEntry = topLayout.childAt(topLayout.width / 2, topLayout.mapFromItem(root, 0, pos).y);
         if (topEntry?.entryId)
             return topEntry;
@@ -123,8 +134,6 @@ Item {
         anchors.topMargin: root.vPadding
         anchors.horizontalCenter: parent.horizontalCenter
         width: root.width
-        height: Math.min(implicitHeight, root.height * 0.5)
-        clip: true
 
         spacing: Tokens.spacing.medium
 
@@ -142,16 +151,34 @@ Item {
     Loader {
         id: activeWindowLoader
 
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: (topLayout.height - bottomLayout.height) / 2
+        anchors.top: topLayout.bottom
+        anchors.bottom: bottomLayout.top
         anchors.horizontalCenter: parent.horizontalCenter
         width: root.width
 
         active: true
 
-        sourceComponent: ActiveWindow {
-            bar: root
-            monitor: Brightness.getMonitorForScreen(root.screen)
+        clip: true
+
+        sourceComponent: ColumnLayout {
+            anchors.fill: parent
+            anchors.topMargin: 15
+            anchors.bottomMargin: 15
+            property alias activeWindowItem: activeWindow
+            readonly property int availableHeight: height
+
+            Item { Layout.fillHeight: true }
+
+            ActiveWindow {
+                id: activeWindow
+                bar: root
+                monitor: Brightness.getMonitorForScreen(root.screen)
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignHCenter
+                maxHeight: availableHeight
+            }
+
+            Item { Layout.fillHeight: true }
         }
     }
 
