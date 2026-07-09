@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # custom-caelestia Installer
-# Interactive installer with granular component selection
+# Interactive installer with 3 optional config sections
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Color detection
+# ── Colors ────────────────────────────────────────────────────────────────────
 if [[ -t 1 ]] && command -v tput &>/dev/null && [[ "$(tput colors 2>/dev/null)" -ge 8 ]]; then
     HAS_COLOR=true
 else
@@ -13,102 +13,198 @@ else
 fi
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-BLUE='\033[0;34m'; CYAN='\033[0;36m'; NC='\033[0m'
+BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 
 c_red()    { $HAS_COLOR && echo -e "${RED}$*${NC}" || echo "$*"; }
 c_green()  { $HAS_COLOR && echo -e "${GREEN}$*${NC}" || echo "$*"; }
 c_yellow() { $HAS_COLOR && echo -e "${YELLOW}$*${NC}" || echo "$*"; }
 c_blue()   { $HAS_COLOR && echo -e "${BLUE}$*${NC}" || echo "$*"; }
 c_cyan()   { $HAS_COLOR && echo -e "${CYAN}$*${NC}" || echo "$*"; }
+c_bold()   { $HAS_COLOR && echo -e "${BOLD}$*${NC}" || echo "$*"; }
 
-# ── Components ────────────────────────────────────────────────────────────────
-# Each component: key|label|description|what_if_skipped
-# Packages are handled in install_component(), not here.
-declare -A COMP_LABEL COMP_DESC COMP_SKIP
-register() {
-    COMP_LABEL["$1"]="$2"; COMP_DESC["$1"]="$3"; COMP_SKIP["$1"]="$4"
+# ── Logging ───────────────────────────────────────────────────────────────────
+log()   { echo -e "${GREEN}[+]${NC} $1"; }
+warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
+
+# ── Package installation ─────────────────────────────────────────────────────
+install_pkg() {
+    local pkg="$1" is_aur="${2:-false}"
+    if [[ "$is_aur" == "true" ]]; then
+        if command -v yay &>/dev/null; then
+            yay -S --noconfirm --needed "$pkg" 2>/dev/null || warn "Failed to install $pkg"
+        elif command -v paru &>/dev/null; then
+            paru -S --noconfirm --needed "$pkg" 2>/dev/null || warn "Failed to install $pkg"
+        else
+            warn "No AUR helper found. Install manually: yay -S $pkg"
+        fi
+    else
+        sudo pacman -S --noconfirm --needed "$pkg" 2>/dev/null || warn "Failed to install $pkg"
+    fi
 }
 
-# Core (always installed, shown for awareness)
-register core        "Core (required)"           "Hyprland, QuickShell, caelestia-cli & caelestia-shell" \
-                                            "System won't work - these are mandatory"
+# ── Safe deploy: merge repo into target without destroying user files ────────
+# Reads .updateignore to skip user-customized files.
+# Uses rsync --ignore-existing for first install, then --update for re-installs.
+# Files in .updateignore are never touched.
+safe_deploy() {
+    local src="$1" dst="$2"
+    shift 2
+    local find_excludes=("$@")
 
-# Configs from the repo
-register shell       "Shell config"              "QuickShell config from this repo (theme, modules, services)" \
-                                            "Default unstyled shell - you'd need to configure QuickShell yourself"
-register hypr        "Hyprland config"           "Window rules, monitors, scripts, systemd services" \
-                                            "Stock Hyprland - no custom keybinds or automation"
-register fish        "Fish shell config"         "Aliases, functions, zoxide, starship, fzf integration" \
-                                            "Plain fish shell with no shortcuts or modern CLI replacements"
-register fishguide   "Fish command guide"        "Custom fish-guide script (TUI cheatsheet + alias suggestions)" \
-                                            "No command suggestions - you won't learn shorter aliases"
-register terminals   "Terminal configs"          "Kitty & Foot terminal configs" \
-                                            "Default terminal appearance"
-register launcher    "App launcher (Fuzzel)"     "Fuzzel launcher config (appearance, matching)" \
-                                            "Stock Fuzzel - no custom styling"
-register btop        "System monitor (Btop)"     "Btop config (theme, layout)" \
-                                            "Stock Btop appearance"
-register cava        "Audio visualizer (Cava)"   "Cava config (colors, smoothing)" \
-                                            "Stock Cava appearance"
-register starship    "Prompt (Starship)"         "Starship prompt config (modules, style)" \
-                                            "Stock Starship prompt"
-register wlogout     "Session menu (Wlogout)"    "Wlogout button layout & styling" \
-                                            "Stock Wlogout - plain power menu"
-register fonts       "Font config"               "Fontconfig for icon fonts & emoji rendering" \
-                                            "Missing icons or emoji in some apps"
+    mkdir -p "$dst"
 
-# System integration
-register portal      "XDG Desktop Portal"        "Portal config for screen sharing, file picker, etc." \
-                                            "Screen sharing & file picker may not work properly"
-register plugin      "C++ plugin (build)"        "Build & install the C++ QML plugin from source" \
-                                            "Some shell modules won't load (falls back to QML-only)"
-register yay         "AUR helper (yay)"           "Install yay if not present (needed for AUR packages)" \
-                                            "You'll need to manually install AUR packages"
+    # Build rsync args: exclude git, upstream, build dirs
+    local rsync_args=(-a --exclude=".git*" --exclude="upstream/" --exclude="build/")
 
-# Component order for display
-COMP_ORDER=(
-    core shell hypr fish fishguide terminals launcher btop cava
-    starship wlogout fonts portal plugin yay
-)
+    # First pass: copy only new files (don't overwrite existing)
+    find "$src" -type f "${find_excludes[@]}" 2>/dev/null | while read -r repo_file; do
+        local rel="${repo_file#"$src"/}"
+        local target="$dst/$rel"
 
-# State: all enabled by default
+        # Skip if in .updateignore
+        if should_ignore "$rel"; then
+            continue
+        fi
+
+        # Only create if target doesn't exist
+        if [[ ! -f "$target" ]]; then
+            mkdir -p "$(dirname "$target")"
+            cp -p "$repo_file" "$target"
+        fi
+    done
+
+    # Second pass: update files that are older or identical (repo is source of truth for non-custom)
+    # But ONLY if the target file hasn't been modified by the user
+    find "$src" -type f "${find_excludes[@]}" 2>/dev/null | while read -r repo_file; do
+        local rel="${repo_file#"$src"/}"
+        local target="$dst/$rel"
+
+        if should_ignore "$rel"; then
+            continue
+        fi
+
+        if [[ -f "$target" ]]; then
+            # Only replace if files differ AND target matches repo version (not user-modified)
+            if ! cmp -s "$repo_file" "$target" 2>/dev/null; then
+                # Check if there's a backup of the repo version to compare
+                # If user modified it, leave it alone. If repo changed, update.
+                # Simple heuristic: if the file was touched after repo last changed, skip
+                local repo_mtime
+                repo_mtime=$(stat -c %Y "$repo_file" 2>/dev/null || echo 0)
+                local target_mtime
+                target_mtime=$(stat -c %Y "$target" 2>/dev/null || echo 0)
+
+                # If target is newer than repo, user modified it — skip
+                if [[ "$target_mtime" -gt "$repo_mtime" ]]; then
+                    continue
+                fi
+
+                # Target is same age or older — safe to update
+                cp -p "$repo_file" "$target"
+            fi
+        fi
+    done
+}
+
+# ── Load .updateignore patterns ──────────────────────────────────────────────
+declare -a IGNORE_PATTERNS=()
+
+load_ignore_patterns() {
+    IGNORE_PATTERNS=()
+
+    local ignore_files=(
+        "$REPO_DIR/.updateignore"
+        "$HOME/.updateignore"
+        "$HOME/.config/hypr/.updateignore"
+        "$HOME/.config/quickshell/.updateignore"
+    )
+    for f in "${ignore_files[@]}"; do
+        if [[ -f "$f" ]]; then
+            while IFS= read -r line || [[ -n "$line" ]]; do
+                line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                [[ -z "$line" || "$line" =~ ^# ]] && continue
+                IGNORE_PATTERNS+=("$line")
+            done < "$f"
+        fi
+    done
+}
+
+should_ignore() {
+    local rel_path="$1"
+    for pattern in "${IGNORE_PATTERNS[@]}"; do
+        # Exact match
+        [[ "$rel_path" == "$pattern" ]] && return 0
+        # Glob match
+        [[ "$rel_path" == $pattern ]] && return 0
+        # Directory pattern: "custom/" matches "custom/anything"
+        if [[ "$pattern" == */ ]]; then
+            local dir_pattern="${pattern%/}"
+            [[ "$rel_path" == "$dir_pattern"/* ]] && return 0
+        fi
+    done
+    return 1
+}
+
+# ── Components ────────────────────────────────────────────────────────────────
+# 3 sections: hyprland, shell-extras, quickshell
+# Core packages (hyprland, quickshell) are always installed.
+
 declare -A SEL
-for k in "${COMP_ORDER[@]}"; do SEL[$k]=1; done
-SEL[core]=1  # always on
+SEL[core]=1
+SEL[hyprland]=1
+SEL[shell_extras]=1
+SEL[quickshell]=1
 
-# ── UI ────────────────────────────────────────────────────────────────────────
-print_header() {
+show_menu() {
     clear
     c_cyan "╔══════════════════════════════════════════════════════════════════╗"
     c_cyan "║              custom-caelestia installer                         ║"
     c_cyan "║                                                                  ║"
     c_cyan "║  Merge of Caelestia Shell + End-4 utilities                      ║"
-    c_cyan "║  Toggle each component on/off, then install.                     ║"
+    c_cyan "║  Toggle each section on/off, then install.                       ║"
     c_cyan "╚══════════════════════════════════════════════════════════════════╝"
     echo ""
-}
 
-show_menu() {
-    local i=1
-    for k in "${COMP_ORDER[@]}"; do
-        local mark="  "
-        [[ "${SEL[$k]}" == "1" ]] && mark="$(c_green "[*]")" || mark="$(c_red "[ ]")"
+    local sections=("core" "hyprland" "shell_extras" "quickshell")
+    local labels=("Core (required)" "Hyprland config" "Shell extras (fish/starship/etc)" "Quickshell config (caelestia)")
+    local descs=(
+        "Hyprland, QuickShell, caelestia-cli packages"
+        "Window rules, keybinds, scripts, systemd services, portal config"
+        "Fish shell, Starship prompt, Btop, Cava, Kitty, Foot, Fuzzel, Wlogout, fonts"
+        "Caelestia shell theme, modules, services (the actual desktop UI)"
+    )
+    local skips=(
+        "System won't work - these are mandatory"
+        "Stock Hyprland - no custom keybinds or automation"
+        "Plain shell with no custom styling or modern CLI tools"
+        "Default unstyled shell - you'd need to configure QuickShell yourself"
+    )
 
+    for i in "${!sections[@]}"; do
+        local k="${sections[$i]}"
         if [[ "$k" == "core" ]]; then
-            printf "  %s %s %s\n" "$(c_green "[$i]")" "$(c_green "${COMP_LABEL[$k]}")" "- ${COMP_DESC[$k]}"
-            printf "      %s\n" "$(c_yellow "(always installed)")"
+            printf "  ${GREEN}[%d]${NC} ${GREEN}%s${NC}\n" "$((i+1))" "${labels[$i]}"
+            printf "      %s\n" "$(c_yellow "${descs[$i]}")"
+            printf "      ${YELLOW}(always installed)${NC}\n"
         else
-            printf "  %s %s %s\n" "$mark" "$(c_blue "[$i]")" "${COMP_LABEL[$k]} - ${COMP_DESC[$k]}"
-            printf "      %s\n" "$(c_yellow "If skipped: ${COMP_SKIP[$k]}")"
+            local mark
+            if [[ "${SEL[$k]}" == "1" ]]; then
+                mark="$(c_green "[*]")"
+            else
+                mark="$(c_red "[ ]")"
+            fi
+            printf "  %s ${BLUE}[%d]${NC} %s\n" "$mark" "$((i+1))" "${labels[$i]}"
+            printf "      %s\n" "$(c_yellow "${descs[$i]}")"
+            printf "      If skipped: %s\n" "$(c_red "${skips[$i]}")"
         fi
-        ((i++))
+        echo ""
     done
 
-    echo ""
-    c_yellow "  [S] Summary  - show what's selected"
-    c_yellow "  [I] Install  - start installation"
+    c_yellow "  [S] Show summary"
+    c_yellow "  [I] Install"
     c_yellow "  [Q] Quit"
-    c_cyan "  Tip: Enter multiple numbers at once, e.g. '1 3 5' or '1,3,5'"
+    echo ""
+    c_cyan "  Enter numbers to toggle, e.g. '2 3' to toggle hyprland and shell-extras"
     echo ""
 }
 
@@ -117,229 +213,176 @@ show_summary() {
     c_cyan "═══ Installation Summary ═══"
     echo ""
     c_green "Will install:"
-    for k in "${COMP_ORDER[@]}"; do
-        [[ "${SEL[$k]}" == "1" ]] && printf "  ✓ %s\n" "${COMP_LABEL[$k]}"
-    done
+    printf "  ✓ %s\n" "Core packages (always)"
+    [[ "${SEL[hyprland]}" == "1" ]] && printf "  ✓ %s\n" "Hyprland config"
+    [[ "${SEL[shell_extras]}" == "1" ]] && printf "  ✓ %s\n" "Shell extras (fish/starship/etc)"
+    [[ "${SEL[quickshell]}" == "1" ]] && printf "  ✓ %s\n" "Quickshell config (caelestia)"
     echo ""
     c_red "Will skip:"
     local has_skip=0
-    for k in "${COMP_ORDER[@]}"; do
-        if [[ "${SEL[$k]}" == "0" ]]; then
-            printf "  ✗ %s\n" "${COMP_LABEL[$k]}"
-            printf "    %s\n" "$(c_yellow "${COMP_SKIP[$k]}")"
-            has_skip=1
-        fi
-    done
+    [[ "${SEL[hyprland]}" == "0" ]] && { printf "  ✗ Hyprland config\n    %s\n" "$(c_yellow "Stock Hyprland - no custom keybinds")"; has_skip=1; }
+    [[ "${SEL[shell_extras]}" == "0" ]] && { printf "  ✗ Shell extras\n    %s\n" "$(c_yellow "Plain shell - no fish/starship/btop styling")"; has_skip=1; }
+    [[ "${SEL[quickshell]}" == "0" ]] && { printf "  ✗ Quickshell config\n    %s\n" "$(c_yellow "Default unstyled shell")"; has_skip=1; }
     [[ $has_skip -eq 0 ]] && c_green "  (nothing - full install)"
     echo ""
 }
 
-# ── Package installation ─────────────────────────────────────────────────────
-install_pkg() {
-    local pkg="$1" is_aur="${2:-false}"
-    if [[ "$is_aur" == "true" ]]; then
-        if command -v yay &>/dev/null; then
-            yay -S --noconfirm "$pkg" 2>/dev/null || c_yellow "  Warning: failed to install $pkg"
-        elif command -v paru &>/dev/null; then
-            paru -S --noconfirm "$pkg" 2>/dev/null || c_yellow "  Warning: failed to install $pkg"
-        else
-            c_yellow "  No AUR helper found. Install manually: yay -S $pkg"
-        fi
-    else
-        sudo pacman -S --noconfirm "$pkg" 2>/dev/null || c_yellow "  Warning: failed to install $pkg"
+# ── Deploy functions ─────────────────────────────────────────────────────────
+
+deploy_core() {
+    log "Installing core packages..."
+    install_pkg hyprland
+    install_pkg quickshell
+    install_pkg caelestia-cli true
+    install_pkg caelestia-shell true
+}
+
+deploy_hyprland() {
+    log "Deploying Hyprland config..."
+    local src="$REPO_DIR/hyprland/.config/hypr"
+    local dst="$HOME/.config/hypr"
+
+    if [[ -d "$src" ]]; then
+        safe_deploy "$src" "$dst"
     fi
+
+    # Caelestia config (shell.json etc.) — always preserve shell.json
+    if [[ -d "$REPO_DIR/hyprland/.config/caelestia" ]]; then
+        mkdir -p "$HOME/.config/caelestia"
+        find "$REPO_DIR/hyprland/.config/caelestia" -type f | while read -r f; do
+            local rel="${f#"$REPO_DIR/hyprland/.config/caelestia/"}"
+            local target="$HOME/.config/caelestia/$rel"
+            # Never overwrite shell.json — it's user-specific
+            [[ "$rel" == "shell.json" || "$rel" == "shell.json.bak" ]] && continue
+            if should_ignore "$rel"; then continue; fi
+            if [[ ! -f "$target" ]]; then
+                mkdir -p "$(dirname "$target")"
+                cp -p "$f" "$target"
+            fi
+        done
+    fi
+
+    # Systemd services
+    if [[ -d "$REPO_DIR/hyprland/.config/systemd" ]]; then
+        safe_deploy "$REPO_DIR/hyprland/.config/systemd/user" "$HOME/.config/systemd/user"
+        systemctl --user daemon-reload 2>/dev/null || true
+    fi
+
+    # XDG Desktop Portal
+    if [[ -d "$REPO_DIR/hyprland/.config/xdg-desktop-portal" ]]; then
+        safe_deploy "$REPO_DIR/hyprland/.config/xdg-desktop-portal" "$HOME/.config/xdg-desktop-portal"
+    fi
+
+    # Set permissions
+    chmod +x "$HOME/.config/hypr/hyprland/scripts/"* &>/dev/null || true
+    chmod +x "$HOME/.config/hypr/hyprland/scripts/ai/"* &>/dev/null || true
+
+    log "Hyprland config deployed."
 }
 
-install_component() {
-    local k="$1"
-    case "$k" in
-        core)
-            c_green "Installing core packages..."
-            install_pkg hyprland
-            install_pkg quickshell
-            install_pkg caelestia-cli true
-            install_pkg caelestia-shell true
-            ;;
-        shell)
-            c_green "Deploying shell config from repo..."
-            local target="$HOME/.config/quickshell/caelestia"
-            # Remove existing symlinks or directories
-            if [[ -L "$target" ]]; then
-                c_yellow "  Removing symlink: $target"
-                rm -f "$target"
-            elif [[ -d "$target" ]]; then
-                c_yellow "  Removing existing directory: $target"
-                rm -rf "$target"
-            fi
-            mkdir -p "$target"
-            rsync -a --exclude=".git*" "$REPO_DIR/shell/" "$target/"
-            ;;
-        hypr)
-            c_green "Deploying Hyprland config from repo..."
-            local target="$HOME/.config/hypr"
-            # Remove existing symlinks or directories
-            if [[ -L "$target" ]]; then
-                c_yellow "  Removing symlink: $target"
-                rm -f "$target"
-            elif [[ -d "$target" ]]; then
-                c_yellow "  Removing existing directory: $target"
-                rm -rf "$target"
-            fi
-            mkdir -p "$target"
-            rsync -a --exclude=".git*" "$REPO_DIR/hyprland/.config/hypr/" "$target/"
-            # Deploy caelestia config (shell.json etc.)
-            if [[ -d "$REPO_DIR/hyprland/.config/caelestia" ]]; then
-                mkdir -p "$HOME/.config/caelestia"
-                rsync -a --exclude=".git*" "$REPO_DIR/hyprland/.config/caelestia/" "$HOME/.config/caelestia/"
-            fi
-            # Systemd services
-            if [[ -d "$REPO_DIR/hyprland/.config/systemd" ]]; then
-                mkdir -p "$HOME/.config/systemd/user"
-                rsync -a --exclude=".git*" "$REPO_DIR/hyprland/.config/systemd/user/" "$HOME/.config/systemd/user/"
-                systemctl --user daemon-reload 2>/dev/null || true
-            fi
-            # Set permissions
-            chmod +x "$HOME/.config/hypr/hyprland/scripts/"* &>/dev/null || true
-            chmod +x "$HOME/.config/hypr/hyprland/scripts/ai/"* &>/dev/null || true
-            ;;
-        fish)
-            c_green "Installing fish shell and dependencies..."
-            install_pkg fish
-            install_pkg eza
-            install_pkg bat
-            install_pkg fd
-            install_pkg delta
-            install_pkg fzf
-            install_pkg btop
-            install_pkg zoxide
-            install_pkg starship
-            install_pkg neovim
-            c_green "Deploying fish config..."
-            rsync -a --exclude=".git*" "$REPO_DIR/configs/.config/fish/" "$HOME/.config/fish/"
-            ;;
-        fishguide)
-            c_green "Deploying fish-guide..."
-            mkdir -p "$HOME/.local/share/bin"
-            cp "$REPO_DIR/configs/.local/share/bin/fish-guide" "$HOME/.local/share/bin/fish-guide"
+deploy_shell_extras() {
+    log "Deploying shell extras..."
+
+    # Fish shell
+    if [[ -d "$REPO_DIR/configs/.config/fish" ]]; then
+        log "  Fish shell config..."
+        safe_deploy "$REPO_DIR/configs/.config/fish" "$HOME/.config/fish"
+    fi
+
+    # Starship prompt
+    if [[ -f "$REPO_DIR/configs/.config/starship.toml" ]]; then
+        local target="$HOME/.config/starship.toml"
+        if [[ ! -f "$target" ]]; then
+            cp -p "$REPO_DIR/configs/.config/starship.toml" "$target"
+            log "  Starship config deployed."
+        fi
+    fi
+
+    # App configs: btop, cava, kitty, foot, fuzzel, wlogout, fontconfig
+    local app_configs=(btop cava kitty foot fuzzel wlogout fontconfig)
+    for app in "${app_configs[@]}"; do
+        if [[ -d "$REPO_DIR/configs/.config/$app" ]]; then
+            safe_deploy "$REPO_DIR/configs/.config/$app" "$HOME/.config/$app"
+        fi
+    done
+
+    # Fish-guide binary
+    if [[ -f "$REPO_DIR/configs/.local/share/bin/fish-guide" ]]; then
+        mkdir -p "$HOME/.local/share/bin"
+        if [[ ! -f "$HOME/.local/share/bin/fish-guide" ]]; then
+            cp -p "$REPO_DIR/configs/.local/share/bin/fish-guide" "$HOME/.local/share/bin/fish-guide"
             chmod +x "$HOME/.local/share/bin/fish-guide"
-            # Install textual dependency if missing
-            if ! python3 -c "import textual" &>/dev/null; then
-                c_green "  Installing textual (Python dependency)..."
-                pip install --user textual 2>/dev/null || pip3 install --user textual 2>/dev/null || c_yellow "  Install manually: pip install textual"
-            fi
-            # Ensure the hook is deployed
-            mkdir -p "$HOME/.config/fish/conf.d"
-            cp "$REPO_DIR/configs/.config/fish/conf.d/fish_guide_hook.fish" "$HOME/.config/fish/conf.d/" 2>/dev/null || true
-            ;;
-        terminals)
-            c_green "Deploying terminal configs..."
-            for d in kitty foot; do
-                [[ -d "$REPO_DIR/configs/.config/$d" ]] && rsync -a --exclude=".git*" "$REPO_DIR/configs/.config/$d/" "$HOME/.config/$d/"
-            done
-            ;;
-        launcher)
-            c_green "Deploying Fuzzel config..."
-            [[ -d "$REPO_DIR/configs/.config/fuzzel" ]] && rsync -a --exclude=".git*" "$REPO_DIR/configs/.config/fuzzel/" "$HOME/.config/fuzzel/"
-            ;;
-        btop)
-            c_green "Deploying Btop config..."
-            [[ -d "$REPO_DIR/configs/.config/btop" ]] && rsync -a --exclude=".git*" "$REPO_DIR/configs/.config/btop/" "$HOME/.config/btop/"
-            ;;
-        cava)
-            c_green "Deploying Cava config..."
-            [[ -d "$REPO_DIR/configs/.config/cava" ]] && rsync -a --exclude=".git*" "$REPO_DIR/configs/.config/cava/" "$HOME/.config/cava/"
-            ;;
-        starship)
-            c_green "Deploying Starship config..."
-            [[ -f "$REPO_DIR/configs/.config/starship.toml" ]] && cp "$REPO_DIR/configs/.config/starship.toml" "$HOME/.config/starship.toml"
-            ;;
-        wlogout)
-            c_green "Deploying Wlogout config..."
-            [[ -d "$REPO_DIR/configs/.config/wlogout" ]] && rsync -a --exclude=".git*" "$REPO_DIR/configs/.config/wlogout/" "$HOME/.config/wlogout/"
-            ;;
-        fonts)
-            c_green "Deploying font config..."
-            [[ -d "$REPO_DIR/configs/.config/fontconfig" ]] && rsync -a --exclude=".git*" "$REPO_DIR/configs/.config/fontconfig/" "$HOME/.config/fontconfig/"
-            ;;
-        portal)
-            c_green "Deploying XDG Desktop Portal config..."
-            [[ -d "$REPO_DIR/hyprland/.config/xdg-desktop-portal" ]] && {
-                mkdir -p "$HOME/.config/xdg-desktop-portal"
-                rsync -a --exclude=".git*" "$REPO_DIR/hyprland/.config/xdg-desktop-portal/" "$HOME/.config/xdg-desktop-portal/"
-            }
-            ;;
-        plugin)
-            c_green "Building C++ plugin from source..."
-            local build_dir="$REPO_DIR/build"
-            mkdir -p "$build_dir"
-            cmake -B "$build_dir" -S "$REPO_DIR" -DCMAKE_BUILD_TYPE=Release -DENABLE_MODULES="plugin;m3shapes" 2>&1 | tail -5
-            cmake --build "$build_dir" -j"$(nproc 2>/dev/null || echo 4)" 2>&1 | tail -10
+            log "  fish-guide installed."
+        fi
+    fi
 
-            c_green "Installing plugin (qmldir, .so, .qmltypes)..."
-            sudo cmake --install "$build_dir" --prefix / 2>&1 | tail -10 || {
-                # Fallback: manually copy full module directories
-                c_yellow "cmake --install failed, falling back to manual copy..."
-                local install_dir="/usr/lib/qt6/qml"
-                if [[ -d "$build_dir/qml/Caelestia" ]]; then
-                    sudo mkdir -p "$install_dir/Caelestia"
-                    sudo cp -r "$build_dir/qml/Caelestia/"* "$install_dir/Caelestia/"
-                fi
-            }
-            ;;
-        yay)
-            if ! command -v yay &>/dev/null && ! command -v paru &>/dev/null; then
-                c_green "Installing yay (AUR helper)..."
-                sudo pacman -S --noconfirm --needed git base-devel 2>/dev/null || true
-                local tmpdir=$(mktemp -d)
-                git clone https://aur.archlinux.org/yay-bin.git "$tmpdir/yay-bin" 2>/dev/null
-                (cd "$tmpdir/yay-bin" && makepkg -si --noconfirm 2>/dev/null) || c_yellow "  Install yay manually"
-                rm -rf "$tmpdir"
-            else
-                c_green "AUR helper already installed."
-            fi
-            ;;
-    esac
+    log "Shell extras deployed."
 }
 
-# ── Stash / restore user files ────────────────────────────────────────────────
-stash_user_files() {
-    rm -rf /tmp/hypr_custom_stash /tmp/hypr_monitors_lua_stash /tmp/hypr_monitors_conf_stash /tmp/shell_json_stash
-    [[ -d "$HOME/.config/hypr/custom" ]] && cp -r "$HOME/.config/hypr/custom" /tmp/hypr_custom_stash
-    [[ -f "$HOME/.config/hypr/monitors.lua" ]] && cp "$HOME/.config/hypr/monitors.lua" /tmp/hypr_monitors_lua_stash
-    [[ -f "$HOME/.config/hypr/monitors.conf" ]] && cp "$HOME/.config/hypr/monitors.conf" /tmp/hypr_monitors_conf_stash
-    [[ -f "$HOME/.config/caelestia/shell.json" ]] && cp "$HOME/.config/caelestia/shell.json" /tmp/shell_json_stash
+deploy_quickshell() {
+    log "Deploying Quickshell config..."
+    local src="$REPO_DIR/shell"
+    local dst="$HOME/.config/quickshell/caelestia"
+
+    # Remove symlinks (pointing to old locations)
+    if [[ -L "$dst" ]]; then
+        rm -f "$dst"
+    fi
+
+    safe_deploy "$src" "$dst" \
+        -not -path "*/build/*" -not -path "*/upstream/*"
+
+    # Symlink install/update scripts for settings app
+    mkdir -p "$dst/scripts"
+    ln -sf "$REPO_DIR/update.sh" "$dst/scripts/update.sh"
+    ln -sf "$REPO_DIR/install.sh" "$dst/scripts/install.sh"
+
+    # Set permissions on scripts
+    chmod +x "$dst/scripts/"* &>/dev/null || true
+    chmod +x "$dst/scripts/musicRecognition/"* &>/dev/null || true
+    chmod +x "$dst/scripts/colors/"* &>/dev/null || true
+    chmod +x "$dst/scripts/colors/random/"* &>/dev/null || true
+    chmod +x "$dst/scripts/thumbnails/"* &>/dev/null || true
+    chmod +x "$dst/scripts/videos/"* &>/dev/null || true
+
+    log "Quickshell config deployed."
 }
 
-restore_user_files() {
-    [[ -d /tmp/hypr_custom_stash ]] && { rm -rf "$HOME/.config/hypr/custom"; mv /tmp/hypr_custom_stash "$HOME/.config/hypr/custom"; }
-    [[ -f /tmp/hypr_monitors_lua_stash ]] && mv /tmp/hypr_monitors_lua_stash "$HOME/.config/hypr/monitors.lua"
-    [[ -f /tmp/hypr_monitors_conf_stash ]] && mv /tmp/hypr_monitors_conf_stash "$HOME/.config/hypr/monitors.conf"
-    [[ -f /tmp/shell_json_stash ]] && { mkdir -p "$HOME/.config/caelestia"; mv /tmp/shell_json_stash "$HOME/.config/caelestia/shell.json"; }
-}
+build_plugin() {
+    log "Building C++ plugin..."
+    local build_dir="$REPO_DIR/build"
+    mkdir -p "$build_dir"
+    cmake -B "$build_dir" -S "$REPO_DIR" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DENABLE_MODULES="plugin;m3shapes" 2>&1 | tail -5 || true
+    cmake --build "$build_dir" -j"$(nproc 2>/dev/null || echo 4)" 2>&1 | tail -10 || true
 
-cleanup() { restore_user_files 2>/dev/null; }
-trap cleanup EXIT INT TERM
+    log "Installing plugin..."
+    sudo cmake --install "$build_dir" --prefix / 2>&1 | tail -10 || {
+        warn "cmake --install failed, falling back to manual copy..."
+        local install_dir="/usr/lib/qt6/qml"
+        if [[ -d "$build_dir/qml/Caelestia" ]]; then
+            sudo mkdir -p "$install_dir/Caelestia"
+            sudo cp -r "$build_dir/qml/Caelestia/"* "$install_dir/Caelestia/"
+        fi
+    }
+    log "Plugin installed."
+}
 
 # ── Main ──────────────────────────────────────────────────────────────────────
-print_header
+load_ignore_patterns
 
 while true; do
     show_menu
-    read -p "Enter choice(s) (e.g. 1 3 5 or 1,3,5): " input
+    read -p "Enter choice(s) (e.g. 2 3): " input
 
-    # Parse space-separated or comma-separated numbers
     IFS=', ' read -ra choices <<< "$input"
     for choice in "${choices[@]}"; do
         case "$choice" in
-            [1-9]|1[0-6])
-                idx=$((choice - 1))
-                if [[ $idx -lt ${#COMP_ORDER[@]} ]]; then
-                    k="${COMP_ORDER[$idx]}"
-                    if [[ "$k" != "core" ]]; then
-                        SEL[$k]=$(( 1 - SEL[$k] ))
-                    fi
-                fi
-                ;;
+            1) ;; # core — always on
+            2) SEL[hyprland]=$(( 1 - SEL[hyprland] )) ;;
+            3) SEL[shell_extras]=$(( 1 - SEL[shell_extras] )) ;;
+            4) SEL[quickshell]=$(( 1 - SEL[quickshell] )) ;;
             [Ss])
                 show_summary
                 read -p "Press Enter to continue..." _
@@ -354,23 +397,15 @@ while true; do
                 c_cyan "Starting installation..."
                 echo ""
 
-                # Install yay first if needed and selected
-                [[ "${SEL[yay]}" == "1" ]] && install_component yay
+                deploy_core
+                [[ "${SEL[hyprland]}" == "1" ]] && deploy_hyprland
+                [[ "${SEL[shell_extras]}" == "1" ]] && deploy_shell_extras
+                [[ "${SEL[quickshell]}" == "1" ]] && deploy_quickshell
 
-                # Install all selected components
-                for k in "${COMP_ORDER[@]}"; do
-                    [[ "${SEL[$k]}" == "1" ]] && install_component "$k"
-                done
-
-                # Restore user-specific files
-                restore_user_files
-
-                # Symlink scripts for settings app
-                mkdir -p "$HOME/.config/quickshell/caelestia/scripts"
-                ln -sf "$REPO_DIR/update.sh" "$HOME/.config/quickshell/caelestia/scripts/update.sh"
-                ln -sf "$REPO_DIR/install.sh" "$HOME/.config/quickshell/caelestia/scripts/install.sh"
-
-                trap - EXIT INT TERM
+                # Ask about plugin build
+                echo ""
+                read -p "Build C++ plugin? (needed for some shell modules) [y/N]: " build_plugin_choice
+                [[ "${build_plugin_choice,,}" == "y" ]] && build_plugin
 
                 echo ""
                 c_green "═══════════════════════════════════════════════"

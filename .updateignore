@@ -1,0 +1,25 @@
+# .updateignore - Files/dirs to skip during updates
+# Paths are relative to the config directory they're in.
+# Examples: "custom/" skips the entire custom/ directory
+#           "monitors.lua" skips just that file
+# Lines starting with # are comments. Empty lines are ignored.
+
+# ── Hyprland config ──────────────────────────────────────────
+# User-specific monitor/workspace configs
+custom/
+monitors.lua
+monitors.conf
+
+# ── Caelestia config ─────────────────────────────────────────
+# User-specific theme/shell settings (monitors, theme, etc.)
+shell.json
+shell.json.bak
+
+# ── Fish shell ───────────────────────────────────────────────
+# User's custom functions, completions, and conf.d additions
+custom_functions/
+conf.d/local.fish
+
+# ── Quickshell ───────────────────────────────────────────────
+# User's custom QML overrides
+modules/custom/
