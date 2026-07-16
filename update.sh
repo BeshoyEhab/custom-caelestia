@@ -209,37 +209,19 @@ handle_conflict() {
             5) echo ""; diff -u "$home_file" "$repo_file" || true; echo "" ;;
             6) echo -e "  ${BLUE}Skipped:${NC} $home_file"; break ;;
             7)
-                local rel="" base_dir=""
+                local rel=""
                 for d in "$HOME/.config/hypr" "$HOME/.config/quickshell/caelestia" "$HOME/.config/fish" "$HOME/.config/btop" "$HOME/.config/cava" "$HOME/.config/kitty" "$HOME/.config/foot" "$HOME/.config/fuzzel" "$HOME/.config/wlogout" "$HOME"; do
                     if [[ "$home_file" == "$d/"* ]]; then
                         rel="${home_file#"$d"/}"
-                        base_dir="$d"
                         break
                     fi
                 done
                 if [[ -n "$rel" ]]; then
-                    local dir_part base_name ext suggested
-                    dir_part=$(dirname "$rel")
-                    base_name=$(basename "$rel")
-                    ext="${base_name##*.}"
-                    if [[ "$base_name" == *.* ]]; then
-                        suggested="*.${ext}"
-                    else
-                        suggested="$dir_part/"
-                    fi
-                    echo ""
-                    echo -e "  ${CYAN}Add to .updateignore:${NC}"
-                    echo "  Suggested pattern: ${GREEN}$suggested${NC}"
-                    echo "  (or type a gitignore pattern: *, **, ? supported)"
-                    echo "  Examples: *.conf, scripts/, **/*.log, !special.conf"
-                    local user_pattern
-                    read -p "  Pattern [$suggested]: " user_pattern < /dev/tty
-                    user_pattern="${user_pattern:-$suggested}"
                     local ignore_file="$HOME/.config/hypr/.updateignore"
                     mkdir -p "$(dirname "$ignore_file")"
-                    echo "$user_pattern" >> "$ignore_file"
-                    IGNORE_PATTERNS+=("$user_pattern")
-                    echo -e "  ${GREEN}Ignored:${NC} added '$user_pattern' to .updateignore"
+                    echo "$rel" >> "$ignore_file"
+                    IGNORE_PATTERNS+=("$rel")
+                    echo -e "  ${GREEN}Ignored:${NC} added '$rel' to .updateignore"
                 fi
                 break
                 ;;
