@@ -91,14 +91,61 @@ load_ignore_patterns() {
 
 should_ignore() {
     local rel_path="$1"
+    local matched=false
     for pattern in "${IGNORE_PATTERNS[@]}"; do
-        [[ "$rel_path" == "$pattern" ]] && return 0
-        [[ "$rel_path" == $pattern ]] && return 0
-        if [[ "$pattern" == */ ]]; then
-            local dir_pattern="${pattern%/}"
-            [[ "$rel_path" == "$dir_pattern"/* ]] && return 0
+        local negated=false
+        local pat="$pattern"
+        [[ "$pat" == "!"* ]] && { negated=true; pat="${pat#!}"; }
+
+        if match_gitignore "$rel_path" "$pat"; then
+            [[ "$negated" == "true" ]] && matched=false || matched=true
         fi
     done
+    [[ "$matched" == "true" ]] && return 0
+    return 1
+}
+
+match_gitignore() {
+    local path="$1" pattern="$2"
+
+    if [[ "$pattern" == $'\*\*' ]]; then
+        return 0
+    fi
+
+    if [[ "$pattern" == $'\*\*'/* ]]; then
+        local rest="${pattern#'**/'}"
+        [[ "$path" == "$rest" || "$path" == */"$rest" || "$path" == */"$rest"/* ]] && return 0
+        return 1
+    fi
+
+    if [[ "$pattern" == */$'\*\*' ]]; then
+        local prefix="${pattern%'/**'}"
+        [[ "$path" == "$prefix"/* || "$path" == "$prefix" ]] && return 0
+        return 1
+    fi
+
+    if [[ "$pattern" == */$'\*\*'/* ]]; then
+        local prefix="${pattern%'/**/*'}"
+        local suffix="${pattern##*'/\*\*/'}"
+        [[ "$path" == "$prefix"/"$suffix" || "$path" == "$prefix"/*"$suffix" || "$path" == "$prefix"/*/*"$suffix" ]] && return 0
+        return 1
+    fi
+
+    [[ "$pattern" == */ ]] && {
+        local dir="${pattern%/}"
+        [[ "$path" == "$dir" || "$path" == "$dir"/* ]] && return 0
+        return 1
+    }
+
+    [[ "$path" == $pattern ]] && return 0
+    [[ "$path" == */"$pattern" ]] && return 0
+
+    local base
+    base=$(basename "$pattern")
+    [[ "$base" == $pattern ]] && {
+        [[ "$(basename "$path")" == $pattern ]] && return 0
+    }
+
     return 1
 }
 
@@ -162,19 +209,37 @@ handle_conflict() {
             5) echo ""; diff -u "$home_file" "$repo_file" || true; echo "" ;;
             6) echo -e "  ${BLUE}Skipped:${NC} $home_file"; break ;;
             7)
-                local rel=""
-                for base_dir in "$HOME/.config/hypr" "$HOME/.config/quickshell/caelestia" "$HOME"; do
-                    if [[ "$home_file" == "$base_dir/"* ]]; then
-                        rel="${home_file#"$base_dir"/}"
+                local rel="" base_dir=""
+                for d in "$HOME/.config/hypr" "$HOME/.config/quickshell/caelestia" "$HOME/.config/fish" "$HOME/.config/btop" "$HOME/.config/cava" "$HOME/.config/kitty" "$HOME/.config/foot" "$HOME/.config/fuzzel" "$HOME/.config/wlogout" "$HOME"; do
+                    if [[ "$home_file" == "$d/"* ]]; then
+                        rel="${home_file#"$d"/}"
+                        base_dir="$d"
                         break
                     fi
                 done
                 if [[ -n "$rel" ]]; then
+                    local dir_part base_name ext suggested
+                    dir_part=$(dirname "$rel")
+                    base_name=$(basename "$rel")
+                    ext="${base_name##*.}"
+                    if [[ "$base_name" == *.* ]]; then
+                        suggested="*.${ext}"
+                    else
+                        suggested="$dir_part/"
+                    fi
+                    echo ""
+                    echo -e "  ${CYAN}Add to .updateignore:${NC}"
+                    echo "  Suggested pattern: ${GREEN}$suggested${NC}"
+                    echo "  (or type a gitignore pattern: *, **, ? supported)"
+                    echo "  Examples: *.conf, scripts/, **/*.log, !special.conf"
+                    local user_pattern
+                    read -p "  Pattern [$suggested]: " user_pattern < /dev/tty
+                    user_pattern="${user_pattern:-$suggested}"
                     local ignore_file="$HOME/.config/hypr/.updateignore"
                     mkdir -p "$(dirname "$ignore_file")"
-                    echo "$rel" >> "$ignore_file"
-                    IGNORE_PATTERNS+=("$rel")
-                    echo -e "  ${GREEN}Ignored:${NC} added '$rel' to .updateignore"
+                    echo "$user_pattern" >> "$ignore_file"
+                    IGNORE_PATTERNS+=("$user_pattern")
+                    echo -e "  ${GREEN}Ignored:${NC} added '$user_pattern' to .updateignore"
                 fi
                 break
                 ;;
