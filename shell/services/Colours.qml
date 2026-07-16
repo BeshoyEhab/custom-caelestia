@@ -76,6 +76,12 @@ Singleton {
             if (colours.hasOwnProperty(propName))
                 colours[propName] = `#${colour}`;
         }
+
+        if (!isPreview) {
+            const fm = GlobalConfig.services.forceMode;
+            if (fm && scheme.mode !== fm)
+                setMode(fm);
+        }
     }
 
     function setMode(mode: string): void {

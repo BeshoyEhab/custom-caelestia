@@ -178,17 +178,71 @@ PageBase {
         }
 
         ToggleRow {
+            text: qsTr("Auto-rotate wallpaper")
+            subtext: GlobalConfig.background.wallpaperRotation ? qsTr("Every %1h").arg(GlobalConfig.background.wallpaperRotationInterval) : qsTr("Disabled")
+            checked: GlobalConfig.background.wallpaperRotation
+            onToggled: GlobalConfig.background.wallpaperRotation = checked
+        }
+
+        StepperRow {
+            label: qsTr("Rotation interval")
+            subtext: qsTr("Hours between wallpaper changes")
+            value: GlobalConfig.background.wallpaperRotationInterval
+            from: 1
+            to: 24
+            stepSize: 1
+            enabled: GlobalConfig.background.wallpaperRotation
+            onMoved: v => GlobalConfig.background.wallpaperRotationInterval = v
+        }
+
+        ToggleRow {
             text: qsTr("Transparency")
             subtext: qsTr("Base %1, layers %2").arg(Colours.transparency.base).arg(Colours.transparency.layers)
             checked: Colours.transparency.enabled
             onToggled: GlobalConfig.appearance.transparency.enabled = checked
         }
 
-        ToggleRow {
+        SelectRow {
             last: true
-            text: qsTr("Dark theme")
-            checked: !Colours.light
-            onToggled: Colours.setMode(checked ? "dark" : "light")
+            menuOnTop: true
+            label: qsTr("Theme mode")
+            subtext: {
+                const fm = GlobalConfig.services.forceMode;
+                if (fm === "light") return qsTr("Forced light");
+                if (fm === "dark") return qsTr("Forced dark");
+                return qsTr("Follow wallpaper");
+            }
+            menuItems: [
+                MenuItem {
+                    text: qsTr("Auto")
+                    icon: GlobalConfig.services.forceMode ? "" : "check"
+                    activeIcon: "wallpaper"
+                },
+                MenuItem {
+                    text: qsTr("Light")
+                    icon: GlobalConfig.services.forceMode === "light" ? "check" : ""
+                    activeIcon: "light_mode"
+                },
+                MenuItem {
+                    text: qsTr("Dark")
+                    icon: GlobalConfig.services.forceMode === "dark" ? "check" : ""
+                    activeIcon: "dark_mode"
+                }
+            ]
+            active: {
+                const fm = GlobalConfig.services.forceMode;
+                if (fm === "light") return menuItems[1];
+                if (fm === "dark") return menuItems[2];
+                return menuItems[0];
+            }
+            onSelected: {
+                if (item.text === qsTr("Light"))
+                    GlobalConfig.services.forceMode = "light";
+                else if (item.text === qsTr("Dark"))
+                    GlobalConfig.services.forceMode = "dark";
+                else
+                    GlobalConfig.services.forceMode = "";
+            }
         }
     }
 }

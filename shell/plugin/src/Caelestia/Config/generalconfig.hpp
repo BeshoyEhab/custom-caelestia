@@ -56,29 +56,9 @@ class GeneralBattery : public ConfigObject {
     Q_OBJECT
     QML_ANONYMOUS
 
-    CONFIG_GLOBAL_PROPERTY(QVariantList, warnLevels,
-        {
-            vmap({
-                { u"level"_s, 20 },
-                { u"title"_s, u"Low battery"_s },
-                { u"message"_s, u"You might want to plug in a charger"_s },
-                { u"icon"_s, u"battery_android_frame_2"_s },
-            }),
-            vmap({
-                { u"level"_s, 10 },
-                { u"title"_s, u"Did you see the previous message?"_s },
-                { u"message"_s, u"You should probably plug in a charger <b>now</b>"_s },
-                { u"icon"_s, u"battery_android_frame_1"_s },
-            }),
-            vmap({
-                { u"level"_s, 5 },
-                { u"title"_s, u"Critical battery level"_s },
-                { u"message"_s, u"PLUG THE CHARGER RIGHT NOW!!"_s },
-                { u"icon"_s, u"battery_android_alert"_s },
-                { u"critical"_s, true },
-            }),
-        })
-    CONFIG_GLOBAL_PROPERTY(int, criticalLevel, 3)
+    CONFIG_GLOBAL_PROPERTY(int, warningLevel, 20)
+    CONFIG_GLOBAL_PROPERTY(int, criticalLevel, 5)
+    CONFIG_GLOBAL_PROPERTY(int, hibernateLevel, 3)
 
 public:
     explicit GeneralBattery(QObject* parent = nullptr)

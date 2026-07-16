@@ -12,7 +12,8 @@ Searcher {
     id: root
 
     readonly property string currentNamePath: `${Paths.state}/wallpaper/path.txt`
-    readonly property list<string> smartArg: GlobalConfig.services.smartScheme ? [] : ["--no-smart"]
+    readonly property string rotationTimestampPath: `${Paths.cache}/last_wallpaper_change`
+    readonly property list<string> smartArg: (GlobalConfig.services.smartScheme && !GlobalConfig.services.forceMode) ? [] : ["--no-smart"]
     readonly property string fallback: Quickshell.shellPath("assets/wallpaper.webp")
 
     property bool showPreview: false
@@ -52,6 +53,12 @@ Searcher {
             pendingPreviewClear = true;
         else
             Colours.showPreview = false;
+    }
+
+    function checkRotation(): void {
+        if (!GlobalConfig.background.wallpaperRotation)
+            return;
+        rotationCheckProc.running = true;
     }
 
     onPreviewColourLockChanged: {
@@ -109,6 +116,33 @@ Searcher {
         recursive: true
         path: Paths.wallsdir
         filter: FileSystemModel.Images
+    }
+
+    Timer {
+        id: rotationTimer
+
+        interval: 60000
+        running: GlobalConfig.background.wallpaperRotation
+        repeat: true
+        onTriggered: root.checkRotation()
+        Component.onCompleted: {
+            if (running)
+                root.checkRotation();
+        }
+    }
+
+    Process {
+        id: rotationCheckProc
+
+        property int intervalSeconds: GlobalConfig.background.wallpaperRotationInterval * 3600
+
+        command: ["sh", "-c", `ts_file="${root.rotationTimestampPath}"; interval=${intervalSeconds}; now=$(date +%s); last=$(cat "$ts_file" 2>/dev/null || echo 0); if [ $((now - last)) -ge $interval ]; then mkdir -p "$(dirname "$ts_file")" && echo "$now" > "$ts_file" && echo "rotate"; fi`]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (text.trim() === "rotate")
+                    root.setRandom();
+            }
+        }
     }
 
     Process {

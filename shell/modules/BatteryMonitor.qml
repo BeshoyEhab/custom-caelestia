@@ -7,7 +7,8 @@ import Caelestia.Config
 Scope {
     id: root
 
-    readonly property list<var> warnLevels: [...GlobalConfig.general.battery.warnLevels].sort((a, b) => b.level - a.level)
+    property bool warningWarned: false
+    property bool criticalWarned: false
 
     Connections {
         function onOnBatteryChanged(): void {
@@ -17,8 +18,8 @@ Scope {
             } else {
                 if (GlobalConfig.utilities.toasts.chargingChanged)
                     Toaster.toast(qsTr("Charger plugged in"), qsTr("Battery is charging"), "power");
-                for (const level of root.warnLevels)
-                    level.warned = false;
+                root.warningWarned = false;
+                root.criticalWarned = false;
             }
         }
 
@@ -31,14 +32,18 @@ Scope {
                 return;
 
             const p = UPower.displayDevice.percentage * 100;
-            for (const level of root.warnLevels) {
-                if (p <= level.level && !level.warned) {
-                    level.warned = true;
-                    Toaster.toast(level.title ?? qsTr("Battery warning"), level.message ?? qsTr("Battery level is low"), level.icon ?? "battery_android_alert", level.critical ? Toast.Error : Toast.Warning);
-                }
+
+            if (p <= GlobalConfig.general.battery.warningLevel && !root.warningWarned) {
+                root.warningWarned = true;
+                Toaster.toast(qsTr("Low battery"), qsTr("You might want to plug in a charger"), "battery_android_frame_2", Toast.Warning);
             }
 
-            if (!hibernateTimer.running && p <= GlobalConfig.general.battery.criticalLevel) {
+            if (p <= GlobalConfig.general.battery.criticalLevel && !root.criticalWarned) {
+                root.criticalWarned = true;
+                Toaster.toast(qsTr("Critical battery level"), qsTr("Plug the charger right now!"), "battery_android_alert", Toast.Error);
+            }
+
+            if (!hibernateTimer.running && p <= GlobalConfig.general.battery.hibernateLevel) {
                 Toaster.toast(qsTr("Hibernating in 5 seconds"), qsTr("Hibernating to prevent data loss"), "battery_android_alert", Toast.Error);
                 hibernateTimer.start();
             }

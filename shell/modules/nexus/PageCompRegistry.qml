@@ -158,6 +158,9 @@ QtObject {
                 Component {
                     NotificationsPage {}
                 }
+                Component {
+                    BatteryPage {}
+                }
             }
         },
         Component {

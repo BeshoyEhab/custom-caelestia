@@ -29,6 +29,8 @@ class ServiceConfig : public ConfigObject {
     CONFIG_GLOBAL_PROPERTY(qreal, brightnessIncrement, 0.1)
     CONFIG_GLOBAL_PROPERTY(qreal, maxVolume, 1.0)
     CONFIG_GLOBAL_PROPERTY(bool, smartScheme, true)
+    // ponytail: "" = auto (follow wallpaper), "light" = force light, "dark" = force dark
+    CONFIG_GLOBAL_PROPERTY(QString, forceMode, u""_s)
     CONFIG_GLOBAL_PROPERTY(QString, defaultPlayer, u"Spotify"_s)
     CONFIG_GLOBAL_PROPERTY(QVariantList, playerAliases,
         { vmap({ { u"from"_s, u"com.github.th_ch.youtube_music"_s }, { u"to"_s, u"YT Music"_s } }) })

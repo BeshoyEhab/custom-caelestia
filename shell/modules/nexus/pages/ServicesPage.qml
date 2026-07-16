@@ -86,11 +86,18 @@ PageBase {
 
         NavRow {
             first: true
-            last: true
             icon: "notifications"
             label: qsTr("Notifications")
             status: qsTr("Notifications, toasts, timeouts")
             onClicked: root.nState.openSubPage(1)
+        }
+
+        NavRow {
+            last: true
+            icon: "battery_std"
+            label: qsTr("Battery")
+            status: qsTr("Warning levels, auto hibernate")
+            onClicked: root.nState.openSubPage(2)
         }
 
         // Polling
