@@ -126,6 +126,16 @@ Singleton {
         onLoaded: root.load(text(), false)
     }
 
+    Connections {
+        target: GlobalConfig.services
+        function onForceModeChanged(): void {
+            const fm = GlobalConfig.services.forceMode;
+            if (!fm) return;
+            if ((fm === "light") !== currentLight)
+                setMode(fm);
+        }
+    }
+
     ImageAnalyser {
         id: analyser
 
