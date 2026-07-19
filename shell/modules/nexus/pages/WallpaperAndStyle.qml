@@ -123,6 +123,13 @@ PageBase {
                     id: wallImg
 
                     anchors.fill: parent
+                    fillMode: {
+                        switch (GlobalConfig.background.wallpaperMode) {
+                        case "fit": return Image.PreserveAspectFit;
+                        case "stretch": return Image.Stretch;
+                        default: return Image.PreserveAspectCrop;
+                        }
+                    }
                     source: Wallpapers.current
                     preventInit: wallIndicatorLoader.opacity > 0
                     fadeOutAnim: Anim.DefaultEffects
@@ -175,6 +182,48 @@ PageBase {
             text: qsTr("Display wallpaper")
             checked: Config.background.wallpaperEnabled
             onToggled: GlobalConfig.background.wallpaperEnabled = checked
+        }
+
+        SelectRow {
+            label: qsTr("Wallpaper mode")
+            subtext: {
+                const m = GlobalConfig.background.wallpaperMode;
+                if (m === "fit") return qsTr("Fit (preserve aspect ratio)");
+                if (m === "stretch") return qsTr("Stretch (fill screen)");
+                return qsTr("Crop (fill & clip)");
+            }
+            enabled: Config.background.wallpaperEnabled
+            menuItems: [
+                MenuItem {
+                    text: qsTr("Crop")
+                    icon: GlobalConfig.background.wallpaperMode === "crop" ? "check" : ""
+                    activeIcon: "crop"
+                },
+                MenuItem {
+                    text: qsTr("Fit")
+                    icon: GlobalConfig.background.wallpaperMode === "fit" ? "check" : ""
+                    activeIcon: "fit_screen"
+                },
+                MenuItem {
+                    text: qsTr("Stretch")
+                    icon: GlobalConfig.background.wallpaperMode === "stretch" ? "check" : ""
+                    activeIcon: "aspect_ratio"
+                }
+            ]
+            active: {
+                const m = GlobalConfig.background.wallpaperMode;
+                if (m === "fit") return menuItems[1];
+                if (m === "stretch") return menuItems[2];
+                return menuItems[0];
+            }
+            onSelected: {
+                if (item.text === qsTr("Fit"))
+                    GlobalConfig.background.wallpaperMode = "fit";
+                else if (item.text === qsTr("Stretch"))
+                    GlobalConfig.background.wallpaperMode = "stretch";
+                else
+                    GlobalConfig.background.wallpaperMode = "crop";
+            }
         }
 
         ToggleRow {

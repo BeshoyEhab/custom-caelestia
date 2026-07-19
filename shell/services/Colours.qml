@@ -79,8 +79,10 @@ Singleton {
 
         if (!isPreview) {
             const fm = GlobalConfig.services.forceMode;
-            if (fm && scheme.mode !== fm)
+            if (fm && scheme.mode !== fm) {
                 setMode(fm);
+                return;
+            }
         }
     }
 
@@ -131,8 +133,7 @@ Singleton {
         function onForceModeChanged(): void {
             const fm = GlobalConfig.services.forceMode;
             if (!fm) return;
-            if ((fm === "light") !== currentLight)
-                setMode(fm);
+            setMode(fm);
         }
     }
 

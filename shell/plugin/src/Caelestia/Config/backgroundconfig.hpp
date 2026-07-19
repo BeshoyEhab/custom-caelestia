@@ -74,6 +74,8 @@ class BackgroundConfig : public ConfigObject {
 
     CONFIG_PROPERTY(bool, enabled, true)
     CONFIG_PROPERTY(bool, wallpaperEnabled, true)
+    // "crop" = PreserveAspectCrop (default), "fit" = PreserveAspectFit, "stretch" = Stretch
+    CONFIG_PROPERTY(QString, wallpaperMode, QStringLiteral("crop"))
     CONFIG_PROPERTY(bool, wallpaperRotation, false)
     CONFIG_PROPERTY(int, wallpaperRotationInterval, 2)
     CONFIG_SUBOBJECT(DesktopClock, desktopClock)

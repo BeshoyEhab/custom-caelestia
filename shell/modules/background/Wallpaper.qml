@@ -15,12 +15,21 @@ Item {
     property CachingImage current
     property bool completed
 
+    function wallpaperFillMode(): int {
+        switch (GlobalConfig.background.wallpaperMode) {
+        case "fit": return Image.PreserveAspectFit;
+        case "stretch": return Image.Stretch;
+        default: return Image.PreserveAspectCrop;
+        }
+    }
+
     onSourceChanged: {
         if (!source)
             current = null;
         else
             current = imgComp.createObject(this, {
-                path: source
+                path: source,
+                fillMode: wallpaperFillMode()
             });
     }
 
@@ -28,7 +37,8 @@ Item {
         if (source)
             Qt.callLater(() => {
                 current = imgComp.createObject(this, {
-                    path: source
+                    path: source,
+                    fillMode: wallpaperFillMode()
                 });
                 completed = true;
             });

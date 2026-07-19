@@ -6,9 +6,9 @@ Image {
     id: root
 
     property string path
+    property int fillMode: Image.PreserveAspectCrop
 
     asynchronous: true
-    fillMode: Image.PreserveAspectCrop
     source: IUtils.urlForPath(path, fillMode)
     sourceSize: {
         const dpr = (QsWindow.window as QsWindow)?.devicePixelRatio ?? 1;
