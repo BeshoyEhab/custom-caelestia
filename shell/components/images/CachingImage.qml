@@ -6,8 +6,8 @@ Image {
     id: root
 
     property string path
-    property int fillMode: Image.PreserveAspectCrop
 
+    fillMode: Image.PreserveAspectCrop
     asynchronous: true
     source: IUtils.urlForPath(path, fillMode)
     sourceSize: {
