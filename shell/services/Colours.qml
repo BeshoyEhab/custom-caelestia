@@ -15,6 +15,7 @@ Singleton {
     property bool showPreview
     property string scheme
     property string flavour
+    property string variant
     readonly property bool light: showPreview ? previewLight : currentLight
     property bool currentLight
     property bool previewLight
@@ -73,11 +74,11 @@ Singleton {
 
         for (const [name, colour] of Object.entries(scheme.colours)) {
             const propName = name.startsWith("term") ? name : `m3${name}`;
-            if (colours.hasOwnProperty(propName))
-                colours[propName] = `#${colour}`;
+            colours[propName] = `#${colour}`;
         }
 
         if (!isPreview) {
+            root.variant = scheme.variant || "tonalspot";
             const fm = GlobalConfig.services.forceMode;
             if (fm && scheme.mode !== fm) {
                 setMode(fm);

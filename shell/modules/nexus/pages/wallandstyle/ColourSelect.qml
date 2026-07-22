@@ -213,14 +213,6 @@ PageBase {
                             : Colours.layer(Colours.palette.m3surfaceContainerHigh, 2)
                         radius: Tokens.rounding.full
 
-                        StateLayer {
-                            onClicked: {
-                                schemeSetProc.command = ["sh", "-c", `caelestia scheme set -v ${modelData} --notify`];
-                                schemeSetProc.pendingScheme = root.currentScheme;
-                                schemeSetProc.running = true;
-                            }
-                        }
-
                         StyledText {
                             id: variantLabel
 
@@ -228,8 +220,18 @@ PageBase {
                             text: modelData.charAt(0).toUpperCase() + modelData.slice(1)
                             color: modelData === root.currentVariant
                                 ? Colours.palette.m3onPrimaryContainer
-                                : Colours.palette.m3onSurface
+                                : Colours.on(Colours.palette.m3surfaceContainerHigh)
                             font: Tokens.font.label.small
+                            enabled: false
+                        }
+
+                        StateLayer {
+                            onClicked: {
+                                Colours.variant = modelData;
+                                schemeSetProc.command = ["sh", "-c", `caelestia scheme set -v ${modelData} --notify`];
+                                schemeSetProc.pendingScheme = root.currentScheme;
+                                schemeSetProc.running = true;
+                            }
                         }
                     }
                 }
