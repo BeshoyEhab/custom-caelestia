@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Fast job on Ubuntu: syntax + shellcheck
+  syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax check
+        run: |
+          for s in install.sh update.sh build-plugin.sh tests/*.sh; do
+            bash -n "$s" && echo "  OK: $s" || { echo "  FAIL: $s"; exit 1; }
+          done
+      - name: Shellcheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck install.sh update.sh build-plugin.sh || echo "shellcheck: non-blocking warnings above"
+
+  # Full test suite on Arch Linux
+  arch-test:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize pacman
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+
+      - name: Install test dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm --needed base-devel git
+
+      - name: Shell syntax (Arch)
+        run: |
+          for s in install.sh update.sh build-plugin.sh tests/*.sh; do
+            bash -n "$s" && echo "  OK: $s"
+          done
+
+      - name: Install logic tests
+        run: bash tests/install_test.sh
+
+      - name: QML structure tests
+        run: bash tests/qml_test.sh
+
+      - name: Widget structure tests
+        run: bash tests/widget_test.sh
+
+      - name: End-to-end deploy dry-run
+        run: bash tests/e2e_deploy_test.sh

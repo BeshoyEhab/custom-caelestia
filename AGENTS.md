@@ -54,12 +54,17 @@ import qs.modules.nexus.common
 
 ### Bar Rendering (modules/bar/)
 
-The bar uses a `ColumnLayout` root with a `Repeater` + `WrappedLoader` delegate pattern (replacing upstream's `DelegateChooser`).
+The bar uses an `Item` root with a split layout (`topLayout` + `bottomLayout` + active window loader), replacing upstream's `DelegateChooser`. Entry components are loaded via inline `TopLoader`/`BottomLoader` components.
+
+**Current entry layout (hardcoded in Bar.qml):**
+- `topLayout`: `logo`, `workspaces`
+- `middle`: `activeWindow` (separate `Loader`)
+- `bottomLayout`: `tray`, `clock`, `statusIcons`, `power`
 
 **Critical rules:**
-1. **`pragma ComponentBehavior: Bound` must NOT be used in Bar.qml** — it prevents Repeater delegates from resolving Component IDs (`logoComp`, `workspacesComp`, etc.) defined at the ColumnLayout root level.
-2. **Components must be defined at root level** (as `Component {}` children of the ColumnLayout), not inside the delegate.
-3. **Spacer entries** (`id: "spacer"`) must be handled in the delegate switch — they return `null` sourceComponent but need `Layout.fillHeight: true` to push sections apart.
+1. **`pragma ComponentBehavior: Bound` must NOT be used in Bar.qml** — it prevents inline component loaders from resolving component references.
+2. **No `ColumnLayout` root** — the root is `Item` with separate `ColumnLayout` for top/bottom sections.
+3. **Popout widths use Tokens** — each popout has a dedicated token: `batteryWidth` (250), `networkWidth` (320), `kbLayoutWidth` (320), `bluetoothWidth` (300), `trayMenuWidth` (300). Never hardcode pixel values.
 4. **ContentWindow.qml BarWrapper anchoring**: For vertical bars, use `anchors.top/parent.top` + `anchors.bottom/parent.bottom`. For horizontal bars, use `anchors.left/parent.left` + `anchors.right/parent.right`. Never use conditional logic that removes both top AND bottom anchors for vertical bars — the BarWrapper gets 0 height and nothing renders.
 5. **BarWrapper has no `implicitHeight`** — it gets its height from parent anchors (top+bottom for vertical, left+right for horizontal).
 6. **`Tokens.sizes.bar.innerWidth`** is the content width; `contentWidth = innerWidth + padding*2`.

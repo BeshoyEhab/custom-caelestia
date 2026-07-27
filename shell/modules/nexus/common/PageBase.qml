@@ -61,6 +61,8 @@ ColumnLayout {
         id: flickable
 
         Layout.fillWidth: true
+
+
         Layout.fillHeight: true
 
         Layout.topMargin: -topMargin

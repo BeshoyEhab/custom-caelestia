@@ -240,7 +240,7 @@ deploy_dir() {
 
     mkdir -p "$dst"
 
-    find "$src" -type f "${find_excludes[@]}" 2>/dev/null | while read -r repo_file; do
+    find "$src" -type f "${find_excludes[@]}" 2>/dev/null | while IFS= read -r repo_file; do
         local rel="${repo_file#"$src"/}"
         local target="$dst/$rel"
 
@@ -296,7 +296,7 @@ update_hyprland() {
     # Caelestia config — never touch shell.json
     if [[ -d "$MERGED_DIR/hyprland/.config/caelestia" ]]; then
         mkdir -p "$HOME/.config/caelestia"
-        find "$MERGED_DIR/hyprland/.config/caelestia" -type f | while read -r f; do
+        find "$MERGED_DIR/hyprland/.config/caelestia" -type f | while IFS= read -r f; do
             local rel="${f#"$MERGED_DIR/hyprland/.config/caelestia/"}"
             local target="$HOME/.config/caelestia/$rel"
             [[ "$rel" == "shell.json" || "$rel" == "shell.json.bak" ]] && continue
@@ -408,11 +408,6 @@ update_quickshell() {
 
         # Permissions
         chmod +x "$dst/scripts/"* &>/dev/null || true
-        chmod +x "$dst/scripts/musicRecognition/"* &>/dev/null || true
-        chmod +x "$dst/scripts/colors/"* &>/dev/null || true
-        chmod +x "$dst/scripts/colors/random/"* &>/dev/null || true
-        chmod +x "$dst/scripts/thumbnails/"* &>/dev/null || true
-        chmod +x "$dst/scripts/videos/"* &>/dev/null || true
     fi
 
     log "Quickshell config updated."
@@ -439,17 +434,26 @@ update_plugin() {
 
         [[ -d "$build_dir" ]] && rm -rf "$build_dir"
         mkdir -p "$build_dir"
-        cmake -B "$build_dir" -S "$MERGED_DIR" \
+        cmake -B "$build_dir" -S "$MERGED_DIR" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DENABLE_MODULES="plugin;m3shapes" 2>&1 | tail -3 || true
-        cmake --build "$build_dir" -j"$(nproc 2>/dev/null || echo 4)" 2>&1 | tail -5 || true
+            -DENABLE_MODULES="plugin;m3shapes" || {
+            warn "cmake configuration failed. Check that cmake and ninja are installed."
+            return
+        }
+        cmake --build "$build_dir" -j"$(nproc 2>/dev/null || echo 4)" || {
+            warn "Plugin build failed. See output above for details."
+            return
+        }
 
-        sudo cmake --install "$build_dir" --prefix / 2>&1 | tail -10 || {
+        sudo cmake --install "$build_dir" --prefix / || {
             warn "cmake --install failed, falling back to manual copy..."
             local INSTALL_DIR="/usr/lib/qt6/qml"
             if [[ -d "$build_dir/qml/Caelestia" ]]; then
                 sudo mkdir -p "$INSTALL_DIR/Caelestia"
                 sudo cp -r "$build_dir/qml/Caelestia/"* "$INSTALL_DIR/Caelestia/"
+            else
+                warn "No built plugin found at $build_dir/qml/Caelestia"
+                return
             fi
         }
 

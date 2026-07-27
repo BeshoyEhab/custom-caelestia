@@ -28,37 +28,187 @@ PageBase {
         "Rose Pine", "Solarized", "Tokyo Night", "Caelestia"
     ]
 
-    readonly property list<string> schemeSurfaces: [
+    readonly property list<string> schemeSurfacesDark: [
         "#0c0e12", "#1e1e2e", "#282a36", "#2d353b",
         "#282828", "#2e3440", "#1a1614", "#282c34",
         "#191724", "#002b36", "#1a1b26", "#0c0e12"
     ]
 
-    readonly property list<string> schemePrimaries: [
+    readonly property list<string> schemeSurfacesLight: [
+        "#f2f2f7", "#eff1f5", "#282a36", "#fdf6e3",
+        "#fbf1c7", "#2e3440", "#1a1614", "#282c34",
+        "#faf4ed", "#fdf6e3", "#e1e2e8", "#0c0e12"
+    ]
+
+    readonly property list<string> schemePrimariesDark: [
         "#b4c7ed", "#cba6f7", "#bd93f9", "#a7c080",
         "#d79921", "#88c0d0", "#d0b48c", "#61afef",
         "#c4a7e7", "#268bd2", "#7aa2f7", "#b4c7ed"
     ]
 
-    readonly property list<string> schemeSecondaries: [
+    readonly property list<string> schemePrimariesLight: [
+        "#3b5b8c", "#8839ef", "#bd93f9", "#5a8f5c",
+        "#b57614", "#88c0d0", "#d0b48c", "#61afef",
+        "#9b59b6", "#268bd2", "#4569d4", "#b4c7ed"
+    ]
+
+    readonly property list<string> schemeSecondariesDark: [
         "#bdc7dc", "#f5c2e7", "#50fa7b", "#dbbc7f",
         "#b8bb26", "#a3be8c", "#8cb89a", "#98c379",
         "#3182ce", "#2aa198", "#9ece6a", "#bdc7dc"
     ]
 
-    readonly property list<string> schemeTertiaries: [
+    readonly property list<string> schemeSecondariesLight: [
+        "#757f9a", "#ea76cb", "#50fa7b", "#8a9b6e",
+        "#98971a", "#a3be8c", "#8cb89a", "#98c379",
+        "#c678dd", "#2aa198", "#7dcfff", "#bdc7dc"
+    ]
+
+    readonly property list<string> schemeTertiariesDark: [
         "#eaddff", "#94e2d5", "#ff79c6", "#e67e80",
         "#d3869b", "#b48ead", "#c4927a", "#c678dd",
         "#eb6f92", "#6c71c4", "#bb9af7", "#eaddff"
     ]
 
-    readonly property list<string> variantNames: [
+    readonly property list<string> schemeTertiariesLight: [
+        "#c4a0e8", "#40a02b", "#ff79c6", "#d3869b",
+        "#d3869b", "#b48ead", "#c4927a", "#c678dd",
+        "#d7827e", "#6c71c4", "#bb9af7", "#eaddff"
+    ]
+
+    readonly property list<string> schemeSurfaces: Colours.light ? schemeSurfacesLight : schemeSurfacesDark
+    readonly property list<string> schemePrimaries: Colours.light ? schemePrimariesLight : schemePrimariesDark
+    readonly property list<string> schemeSecondaries: Colours.light ? schemeSecondariesLight : schemeSecondariesDark
+    readonly property list<string> schemeTertiaries: Colours.light ? schemeTertiariesLight : schemeTertiariesDark
+
+    readonly property list<string> variantOrder: [
         "tonalspot", "vibrant", "expressive", "fidelity",
         "fruitsalad", "monochrome", "neutral", "rainbow", "content"
     ]
 
+    readonly property list<string> flavourOrder: [
+        "frappe", "latte", "macchiato", "mocha"
+    ]
+
     property string currentScheme: Colours.scheme || "dynamic"
     property string currentVariant: Colours.variant || "tonalspot"
+    property string currentFlavour: Colours.flavour || "mocha"
+    property bool isCatppuccin: currentScheme === "catppuccin"
+
+    readonly property string precomputeScript:
+        Paths.home + "/.config/quickshell/caelestia/scripts/precompute_variants.py"
+
+    readonly property var variantFallback: [
+        { name: "tonalspot", primary: "#b4c7ed", secondary: "#bdc7dc", tertiary: "#eaddff" },
+        { name: "vibrant", primary: "#ff6b6b", secondary: "#ffd93d", tertiary: "#6bcb77" },
+        { name: "expressive", primary: "#c084fc", secondary: "#f472b6", tertiary: "#fbbf24" },
+        { name: "fidelity", primary: "#818cf8", secondary: "#34d399", tertiary: "#fb923c" },
+        { name: "fruitsalad", primary: "#4ade80", secondary: "#facc15", tertiary: "#f472b6" },
+        { name: "monochrome", primary: "#9ca3af", secondary: "#d1d5db", tertiary: "#6b7280" },
+        { name: "neutral", primary: "#a8a29e", secondary: "#d6d3d1", tertiary: "#78716c" },
+        { name: "rainbow", primary: "#f43f5e", secondary: "#3b82f6", tertiary: "#22c55e" },
+        { name: "content", primary: "#a78bfa", secondary: "#f59e0b", tertiary: "#10b981" }
+    ]
+
+    readonly property var flavourFallback: [
+        { name: "frappe", surface: "#303446", primary: "#ca9ee6", secondary: "#f5bde6", tertiary: "#a6da95" },
+        { name: "latte", surface: "#eff1f5", primary: "#8839ef", secondary: "#ea76cb", tertiary: "#40a02b" },
+        { name: "macchiato", surface: "#24273a", primary: "#cba6f7", secondary: "#f5c2e7", tertiary: "#a6da95" },
+        { name: "mocha", surface: "#1e1e2e", primary: "#cba6f7", secondary: "#f5c2e7", tertiary: "#94e2d5" }
+    ]
+
+    readonly property string activeVariantName: isCatppuccin ? currentFlavour : currentVariant
+
+    property var variantTiles: isCatppuccin ? flavourFallback : variantFallback
+
+    function rebuildVariants() {
+        if (isCatppuccin) {
+            var fc = Colours.flavourColours;
+            if (fc && Object.keys(fc).length > 0) {
+                var list = [];
+                for (var fi = 0; fi < flavourOrder.length; fi++) {
+                    var fn = flavourOrder[fi];
+                    var c = fc[fn];
+                    if (c)
+                        list.push({ name: fn, primary: "#" + (c.primary || "000000"), secondary: "#" + (c.secondary || "000000"), tertiary: "#" + (c.tertiary || "000000"), surface: "#" + (c.surface || "000000") });
+                }
+                if (list.length > 0) { variantTiles = list; return; }
+            }
+            variantTiles = flavourFallback;
+        } else {
+            var vc = Colours.variantColours;
+            if (vc && Object.keys(vc).length > 0) {
+                var list = [];
+                for (var vi = 0; vi < variantOrder.length; vi++) {
+                    var vn = variantOrder[vi];
+                    var c = vc[vn];
+                    if (c)
+                        list.push({ name: vn, primary: "#" + (c.primary || "000000"), secondary: "#" + (c.secondary || "000000"), tertiary: "#" + (c.tertiary || "000000"), surface: "#" + (c.surface || "000000") });
+                }
+                if (list.length > 0) { variantTiles = list; return; }
+            }
+            variantTiles = variantFallback;
+        }
+    }
+
+    function hexToLuminance(hex) {
+        const s = (typeof hex === "string" ? hex : hex.toString()).replace("#", "");
+        if (s.length < 6) return 0;
+        const r = parseInt(s.slice(0,2), 16) / 255;
+        const g = parseInt(s.slice(2,4), 16) / 255;
+        const b = parseInt(s.slice(4,6), 16) / 255;
+        return 0.299 * r + 0.587 * g + 0.114 * b;
+    }
+
+    function clampLuminance(hex, minLum, maxLum) {
+        const s = (typeof hex === "string" ? hex : hex.toString()).replace("#", "");
+        if (s.length < 6) return Qt.rgba(0.5, 0.5, 0.5, 1);
+        let r = parseInt(s.slice(0,2), 16) / 255;
+        let g = parseInt(s.slice(2,4), 16) / 255;
+        let b = parseInt(s.slice(4,6), 16) / 255;
+        let lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        if (lum < minLum) {
+            const f = (minLum - lum) / (1 - lum || 0.01);
+            r = r + (1 - r) * f;
+            g = g + (1 - g) * f;
+            b = b + (1 - b) * f;
+        } else if (lum > maxLum) {
+            const f = maxLum / (lum || 0.01);
+            r *= f;
+            g *= f;
+            b *= f;
+        }
+        return Qt.rgba(r, g, b, 1);
+    }
+
+    function hexToColor(h) {
+        const c = h.toString().slice(1);
+        return Qt.rgba(
+            parseInt(c.slice(0,2), 16) / 255,
+            parseInt(c.slice(2,4), 16) / 255,
+            parseInt(c.slice(4,6), 16) / 255,
+            1
+        );
+    }
+
+    function variantTileBg(primaryHex) {
+        const p = hexToColor(primaryHex);
+        const base = Colours.palette.m3surfaceContainerLow;
+        const w = Colours.light ? 0.5 : 0.65;
+        const color = Qt.rgba(
+            base.r * w + p.r * (1 - w),
+            base.g * w + p.g * (1 - w),
+            base.b * w + p.b * (1 - w),
+            1
+        );
+        if (Colours.light) return clampLuminance(color.toString(), 0.55, 1);
+        return clampLuminance(color.toString(), 0, 0.25);
+    }
+
+    function textOnSurface(hex) {
+        const lum = hexToLuminance(hex);
+        return lum > 0.4 ? "#1a1a1a" : "#f0f0f0";
+    }
 
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
@@ -66,21 +216,16 @@ PageBase {
         width: root.cappedWidth
         spacing: Tokens.spacing.extraSmall / 2
 
-        Process {
-            id: schemeSetProc
-
-            property string pendingScheme
-
-            command: ["sh", "-c"]
-            onRunningChanged: {
-                if (!running && schemeSetProc.exitCode === 0)
-                    root.currentScheme = pendingScheme;
-            }
-        }
-
-        SectionHeader {
-            first: true
+        StyledText {
+            Layout.fillWidth: true
+            Layout.topMargin: Tokens.spacing.largeIncreased - ((parent as ColumnLayout).spacing ?? 0)
+            Layout.bottomMargin: Tokens.spacing.extraSmall
+            Layout.leftMargin: Tokens.padding.small
             text: qsTr("Theme")
+            color: root.textOnSurface(Colours.palette.m3surface.toString())
+            font.pixelSize: Tokens.font.label.medium.pixelSize
+            font.weight: Font.Bold
+            elide: Text.ElideRight
         }
 
         ToggleRow {
@@ -91,8 +236,16 @@ PageBase {
             onToggled: Colours.setMode(checked ? "dark" : "light")
         }
 
-        SectionHeader {
+        StyledText {
+            Layout.fillWidth: true
+            Layout.topMargin: Tokens.spacing.largeIncreased - ((parent as ColumnLayout).spacing ?? 0)
+            Layout.bottomMargin: Tokens.spacing.extraSmall
+            Layout.leftMargin: Tokens.padding.small
             text: qsTr("Colour scheme")
+            color: root.textOnSurface(Colours.palette.m3surface.toString())
+            font.pixelSize: Tokens.font.label.medium.pixelSize
+            font.weight: Font.Bold
+            elide: Text.ElideRight
         }
 
         ConnectedRect {
@@ -115,64 +268,76 @@ PageBase {
                 Repeater {
                     model: root.schemeNames.length
 
-                    Rectangle {
+                    Item {
                         required property int index
 
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 64
-                        color: root.schemeSurfaces[index]
-                        radius: Tokens.rounding.medium
-                        border.color: root.schemeNames[index] === root.currentScheme
-                            ? Colours.palette.m3primary
-                            : "transparent"
-                        border.width: root.schemeNames[index] === root.currentScheme ? 2 : 0
+                        Layout.preferredHeight: 72
 
-                        StateLayer {
+                        readonly property bool isActive: root.schemeNames[index] === root.currentScheme
+                        readonly property string surface: root.schemeSurfaces[index]
+                        readonly property string primary: root.schemePrimaries[index]
+                        readonly property string secondary: root.schemeSecondaries[index]
+                        readonly property string tertiary: root.schemeTertiaries[index]
+                        readonly property string schemeLabel: root.schemeLabels[index]
+                        readonly property string schemeName: root.schemeNames[index]
+                        readonly property string textColor: root.textOnSurface(surface)
+
+                        Rectangle {
+                            anchors.fill: parent
+                            color: surface
+                            radius: Tokens.rounding.medium
+                            border.color: isActive ? Colours.palette.m3primary : "transparent"
+                            border.width: isActive ? 2 : 0
+                        }
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: Tokens.rounding.medium
+                            color: textColor
+                            opacity: schemeMouse.containsMouse ? 0.08 : 0
+                            Behavior on opacity { Anim {} }
+                        }
+
+                        MouseArea {
+                            id: schemeMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                const scheme = root.schemeNames[index];
-                                schemeSetProc.command = ["sh", "-c", `caelestia scheme set -n ${scheme} --notify`];
-                                schemeSetProc.pendingScheme = scheme;
-                                schemeSetProc.running = true;
+                                Colours.scheme = schemeName;
+                                Quickshell.execDetached(["sh", "-c", `caelestia scheme set -n ${schemeName} --notify && python3 '${root.precomputeScript}'`]);
                             }
                         }
 
                         ColumnLayout {
                             anchors.centerIn: parent
-                            spacing: 2
+                            spacing: 4
 
                             Row {
                                 Layout.alignment: Qt.AlignHCenter
                                 spacing: 4
 
                                 Rectangle {
-                                    width: 16
-                                    height: 16
-                                    radius: 8
-                                    color: root.schemePrimaries[index]
+                                    width: 16; height: 16; radius: 8
+                                    color: primary
                                 }
-
                                 Rectangle {
-                                    width: 16
-                                    height: 16
-                                    radius: 8
-                                    color: root.schemeSecondaries[index]
+                                    width: 16; height: 16; radius: 8
+                                    color: secondary
                                 }
-
                                 Rectangle {
-                                    width: 16
-                                    height: 16
-                                    radius: 8
-                                    color: root.schemeTertiaries[index]
+                                    width: 16; height: 16; radius: 8
+                                    color: tertiary
                                 }
                             }
 
                             StyledText {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: root.schemeLabels[index]
-                                color: root.schemeNames[index] === root.currentScheme
-                                    ? Colours.palette.m3primary
-                                    : Colours.palette.m3onSurface
-                                font: Tokens.font.label.small
+                                text: schemeLabel
+                                color: textColor
+                                font.pixelSize: Tokens.font.label.small.pixelSize
+                                font.weight: isActive ? Font.Bold : Font.Normal
                             }
                         }
                     }
@@ -180,153 +345,133 @@ PageBase {
             }
         }
 
-        SectionHeader {
+        StyledText {
+            Layout.fillWidth: true
+            Layout.topMargin: Tokens.spacing.largeIncreased - ((parent as ColumnLayout).spacing ?? 0)
+            Layout.bottomMargin: Tokens.spacing.extraSmall
+            Layout.leftMargin: Tokens.padding.small
             text: qsTr("Variant")
+            color: root.textOnSurface(Colours.palette.m3surface.toString())
+            font.pixelSize: Tokens.font.label.medium.pixelSize
+            font.weight: Font.Bold
+            elide: Text.ElideRight
         }
 
         ConnectedRect {
             Layout.fillWidth: true
             first: true
             last: true
-            implicitHeight: variantRow.implicitHeight + variantRow.anchors.margins * 2
-
-            Flow {
-                id: variantRow
-
-                anchors.fill: parent
-                anchors.margins: Tokens.padding.medium
-                anchors.leftMargin: Tokens.padding.largeIncreased
-                anchors.rightMargin: Tokens.padding.largeIncreased
-                spacing: Tokens.spacing.small
-
-                Repeater {
-                    model: root.variantNames
-
-                    Rectangle {
-                        required property string modelData
-                        required property int index
-
-                        width: variantLabel.implicitWidth + Tokens.padding.large * 2
-                        height: 32
-                        color: modelData === root.currentVariant
-                            ? Colours.palette.m3primaryContainer
-                            : Colours.layer(Colours.palette.m3surfaceContainerHigh, 2)
-                        radius: Tokens.rounding.full
-
-                        StyledText {
-                            id: variantLabel
-
-                            anchors.centerIn: parent
-                            text: modelData.charAt(0).toUpperCase() + modelData.slice(1)
-                            color: modelData === root.currentVariant
-                                ? Colours.palette.m3onPrimaryContainer
-                                : Colours.on(Colours.palette.m3surfaceContainerHigh)
-                            font: Tokens.font.label.small
-                            enabled: false
-                        }
-
-                        StateLayer {
-                            onClicked: {
-                                Colours.variant = modelData;
-                                schemeSetProc.command = ["sh", "-c", `caelestia scheme set -v ${modelData} --notify`];
-                                schemeSetProc.pendingScheme = root.currentScheme;
-                                schemeSetProc.running = true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        SectionHeader {
-            text: qsTr("Transparency")
-        }
-
-        ToggleRow {
-            first: true
-            last: true
-            text: qsTr("Enable transparency")
-            checked: Colours.transparency.enabled
-            onToggled: GlobalConfig.appearance.transparency.enabled = checked
-        }
-
-        SectionHeader {
-            text: qsTr("Current palette")
-        }
-
-        ConnectedRect {
-            Layout.fillWidth: true
-            first: true
-            last: true
-            implicitHeight: paletteGrid.implicitHeight + paletteGrid.anchors.margins * 2
+            implicitHeight: variantGrid.implicitHeight + variantGrid.anchors.margins * 2
 
             GridLayout {
-                id: paletteGrid
+                id: variantGrid
 
                 anchors.fill: parent
                 anchors.margins: Tokens.padding.medium
                 anchors.leftMargin: Tokens.padding.largeIncreased
                 anchors.rightMargin: Tokens.padding.largeIncreased
-                columns: 5
+                columns: 4
                 rowSpacing: Tokens.spacing.small
                 columnSpacing: Tokens.spacing.small
 
                 Repeater {
-                    model: [
-                        { label: "Primary", val: Colours.palette.m3primary, textVal: Colours.palette.m3onPrimary },
-                        { label: "On Primary", val: Colours.palette.m3onPrimary, textVal: Colours.palette.m3primary },
-                        { label: "Primary Container", val: Colours.palette.m3primaryContainer, textVal: Colours.palette.m3onPrimaryContainer },
-                        { label: "On Primary Container", val: Colours.palette.m3onPrimaryContainer, textVal: Colours.palette.m3primaryContainer },
-                        { label: "Secondary", val: Colours.palette.m3secondary, textVal: Colours.palette.m3onSecondary },
+                    model: root.variantTiles
 
-                        { label: "On Secondary", val: Colours.palette.m3onSecondary, textVal: Colours.palette.m3secondary },
-                        { label: "Secondary Container", val: Colours.palette.m3secondaryContainer, textVal: Colours.palette.m3onSecondaryContainer },
-                        { label: "On Secondary Container", val: Colours.palette.m3onSecondaryContainer, textVal: Colours.palette.m3secondaryContainer },
-                        { label: "Tertiary", val: Colours.palette.m3tertiary, textVal: Colours.palette.m3onTertiary },
-                        { label: "On Tertiary", val: Colours.palette.m3onTertiary, textVal: Colours.palette.m3tertiary },
-
-                        { label: "Surface", val: Colours.palette.m3surface, textVal: Colours.palette.m3onSurface },
-                        { label: "On Surface", val: Colours.palette.m3onSurface, textVal: Colours.palette.m3surface },
-                        { label: "Surface Variant", val: Colours.palette.m3surfaceVariant, textVal: Colours.palette.m3onSurfaceVariant },
-                        { label: "On Surface Variant", val: Colours.palette.m3onSurfaceVariant, textVal: Colours.palette.m3surfaceVariant },
-                        { label: "Outline", val: Colours.palette.m3outline, textVal: Colours.palette.m3onSurface }
-                    ]
-
-                    Rectangle {
+                    Item {
                         required property var modelData
                         required property int index
 
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 48
-                        color: modelData.val
-                        radius: Tokens.rounding.extraSmall
+                        Layout.preferredHeight: 72
 
-                        StyledText {
+                        readonly property string vName: modelData.name
+                        readonly property string vLabel: vName.charAt(0).toUpperCase() + vName.slice(1)
+                        readonly property string vPrimary: modelData.primary
+                        readonly property string vSecondary: modelData.secondary
+                        readonly property string vTertiary: modelData.tertiary
+                        readonly property bool isActive: vName === root.activeVariantName
+                        readonly property string vSurface: modelData.surface
+                            ? modelData.surface
+                            : root.variantTileBg(isActive ? Colours.palette.m3primary.toString() : vPrimary).toString()
+                        readonly property color borderColor: isActive ? Colours.palette.m3primary : "transparent"
+                        readonly property string textColor: root.textOnSurface(vSurface)
+
+                        Rectangle {
                             anchors.fill: parent
-                            anchors.margins: 4
-                            text: modelData.label
-                            color: modelData.textVal
-                            font: Tokens.font.label.small
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            wrapMode: Text.WordWrap
-                            elide: Text.ElideRight
+                            color: vSurface
+                            radius: Tokens.rounding.medium
+                            border.color: borderColor
+                            border.width: isActive ? 2 : 0
+                        }
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: Tokens.rounding.medium
+                            color: textColor
+                            opacity: variantMouse.containsMouse ? 0.08 : 0
+                            Behavior on opacity { Anim {} }
+                        }
+
+                        MouseArea {
+                            id: variantMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (root.isCatppuccin) {
+                                    Colours.flavour = vName;
+                                    Quickshell.execDetached(["sh", "-c", `caelestia scheme set -f ${vName} --notify && python3 '${root.precomputeScript}'`]);
+                                } else {
+                                    Colours.variant = vName;
+                                    Quickshell.execDetached(["sh", "-c", `caelestia scheme set -v ${vName} --notify && python3 '${root.precomputeScript}'`]);
+                                }
+                            }
+                        }
+
+                        ColumnLayout {
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            Row {
+                                Layout.alignment: Qt.AlignHCenter
+                                spacing: 4
+
+                                Rectangle {
+                                    width: 16; height: 16; radius: 8
+                                    color: vPrimary
+                                }
+                                Rectangle {
+                                    width: 16; height: 16; radius: 8
+                                    color: vSecondary
+                                }
+                                Rectangle {
+                                    width: 16; height: 16; radius: 8
+                                    color: vTertiary
+                                }
+                            }
+
+                            StyledText {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: vLabel
+                                color: textColor
+                                font.pixelSize: Tokens.font.label.small.pixelSize
+                                font.weight: isActive ? Font.Bold : Font.Normal
+                            }
                         }
                     }
                 }
             }
         }
 
-        SectionHeader {
-            text: qsTr("Wallpaper")
+        Component.onCompleted: {
+            root.rebuildVariants();
+            Quickshell.execDetached(["sh", "-c", `python3 '${root.precomputeScript}'`]);
         }
 
-        ToggleRow {
-            first: true
-            last: true
-            text: qsTr("Display wallpaper")
-            checked: Config.background.wallpaperEnabled
-            onToggled: GlobalConfig.background.wallpaperEnabled = checked
+        Connections {
+            target: Colours
+            function onVariantColoursChanged() { root.rebuildVariants(); }
+            function onFlavourColoursChanged() { root.rebuildVariants(); }
         }
     }
 }

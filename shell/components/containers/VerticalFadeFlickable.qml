@@ -33,7 +33,7 @@ StyledFlickable {
 
             anchors.fill: parent
             visible: false
-            layer.enabled: true
+    layer.enabled: true
 
             gradient: Gradient {
                 orientation: Gradient.Vertical

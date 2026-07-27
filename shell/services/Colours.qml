@@ -16,6 +16,8 @@ Singleton {
     property string scheme
     property string flavour
     property string variant
+    property var variantColours: ({})
+    property var flavourColours: ({})
     readonly property bool light: showPreview ? previewLight : currentLight
     property bool currentLight
     property bool previewLight
@@ -79,6 +81,8 @@ Singleton {
 
         if (!isPreview) {
             root.variant = scheme.variant || "tonalspot";
+            root.variantColours = scheme.variantColours || {};
+            root.flavourColours = scheme.flavourColours || {};
             const fm = GlobalConfig.services.forceMode;
             if (fm && scheme.mode !== fm) {
                 setMode(fm);

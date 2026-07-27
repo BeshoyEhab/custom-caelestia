@@ -15,7 +15,7 @@ ColumnLayout {
 
     required property PopoutState popouts
 
-    width: 300
+    width: Tokens.sizes.bar.bluetoothWidth
     spacing: Tokens.spacing.small
 
     StyledText {

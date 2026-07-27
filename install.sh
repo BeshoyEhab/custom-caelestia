@@ -57,7 +57,7 @@ safe_deploy() {
     local rsync_args=(-a --exclude=".git*" --exclude="upstream/" --exclude="build/")
 
     # First pass: copy only new files (don't overwrite existing)
-    find "$src" -type f "${find_excludes[@]}" 2>/dev/null | while read -r repo_file; do
+    find "$src" -type f "${find_excludes[@]}" 2>/dev/null | while IFS= read -r repo_file; do
         local rel="${repo_file#"$src"/}"
         local target="$dst/$rel"
 
@@ -75,7 +75,7 @@ safe_deploy() {
 
     # Second pass: update files that are older or identical (repo is source of truth for non-custom)
     # But ONLY if the target file hasn't been modified by the user
-    find "$src" -type f "${find_excludes[@]}" 2>/dev/null | while read -r repo_file; do
+    find "$src" -type f "${find_excludes[@]}" 2>/dev/null | while IFS= read -r repo_file; do
         local rel="${repo_file#"$src"/}"
         local target="$dst/$rel"
 
@@ -231,10 +231,35 @@ show_summary() {
 
 deploy_core() {
     log "Installing core packages..."
+    # Window manager
     install_pkg hyprland
-    install_pkg quickshell
+    # Shell runtime (MUST be git version per upstream)
+    install_pkg quickshell-git true
+    # Caelestia packages
     install_pkg caelestia-cli true
     install_pkg caelestia-shell true
+    # Hardware control
+    install_pkg ddcutil
+    install_pkg brightnessctl
+    install_pkg lm_sensors
+    # Audio visualiser & beat detection
+    install_pkg libcava
+    install_pkg aubio
+    install_pkg libpulse
+    # System
+    install_pkg networkmanager
+    # Qt/QML runtime
+    install_pkg qt6-base
+    install_pkg qt6-declarative
+    # Tools the shell uses
+    install_pkg swappy
+    install_pkg libqalculate
+    # Fonts
+    install_pkg ttf-cascadia-code-nerd
+    install_pkg ttf-material-symbols-variable
+    # Build tools (for C++ plugin)
+    install_pkg cmake
+    install_pkg ninja
 }
 
 deploy_hyprland() {
@@ -249,7 +274,7 @@ deploy_hyprland() {
     # Caelestia config (shell.json etc.) — always preserve shell.json
     if [[ -d "$REPO_DIR/hyprland/.config/caelestia" ]]; then
         mkdir -p "$HOME/.config/caelestia"
-        find "$REPO_DIR/hyprland/.config/caelestia" -type f | while read -r f; do
+        find "$REPO_DIR/hyprland/.config/caelestia" -type f | while IFS= read -r f; do
             local rel="${f#"$REPO_DIR/hyprland/.config/caelestia/"}"
             local target="$HOME/.config/caelestia/$rel"
             # Never overwrite shell.json — it's user-specific
@@ -281,7 +306,18 @@ deploy_hyprland() {
 }
 
 deploy_shell_extras() {
-    log "Deploying shell extras..."
+    log "Installing shell extras packages..."
+    # Install the apps whose configs are about to be deployed
+    install_pkg fish
+    install_pkg starship
+    install_pkg btop
+    install_pkg cava
+    install_pkg kitty
+    install_pkg foot
+    install_pkg fuzzel
+    install_pkg wlogout
+
+    log "Deploying shell extras configs..."
 
     # Fish shell
     if [[ -d "$REPO_DIR/configs/.config/fish" ]]; then
@@ -339,11 +375,6 @@ deploy_quickshell() {
 
     # Set permissions on scripts
     chmod +x "$dst/scripts/"* &>/dev/null || true
-    chmod +x "$dst/scripts/musicRecognition/"* &>/dev/null || true
-    chmod +x "$dst/scripts/colors/"* &>/dev/null || true
-    chmod +x "$dst/scripts/colors/random/"* &>/dev/null || true
-    chmod +x "$dst/scripts/thumbnails/"* &>/dev/null || true
-    chmod +x "$dst/scripts/videos/"* &>/dev/null || true
 
     log "Quickshell config deployed."
 }
@@ -352,24 +383,35 @@ build_plugin() {
     log "Building C++ plugin..."
     local build_dir="$REPO_DIR/build"
     mkdir -p "$build_dir"
-    cmake -B "$build_dir" -S "$REPO_DIR" \
+    cmake -B "$build_dir" -S "$REPO_DIR" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
-        -DENABLE_MODULES="plugin;m3shapes" 2>&1 | tail -5 || true
-    cmake --build "$build_dir" -j"$(nproc 2>/dev/null || echo 4)" 2>&1 | tail -10 || true
+        -DENABLE_MODULES="plugin;m3shapes" || {
+        warn "cmake configuration failed. Check that cmake and ninja are installed."
+        return 1
+    }
+    cmake --build "$build_dir" -j"$(nproc 2>/dev/null || echo 4)" || {
+        warn "Plugin build failed. See output above for details."
+        return 1
+    }
 
     log "Installing plugin..."
-    sudo cmake --install "$build_dir" --prefix / 2>&1 | tail -10 || {
+    sudo cmake --install "$build_dir" --prefix / || {
         warn "cmake --install failed, falling back to manual copy..."
         local install_dir="/usr/lib/qt6/qml"
         if [[ -d "$build_dir/qml/Caelestia" ]]; then
             sudo mkdir -p "$install_dir/Caelestia"
             sudo cp -r "$build_dir/qml/Caelestia/"* "$install_dir/Caelestia/"
+        else
+            warn "No built plugin found at $build_dir/qml/Caelestia"
+            return 1
         fi
     }
     log "Plugin installed."
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+# If CI_TEST=true, only define functions, don't run the installer
+if [[ "${CI_TEST:-false}" != "true" ]]; then
 load_ignore_patterns
 
 while true; do
@@ -432,3 +474,4 @@ while true; do
         esac
     done
 done
+fi
