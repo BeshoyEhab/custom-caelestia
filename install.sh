@@ -38,7 +38,7 @@ install_pkg() {
             warn "No AUR helper found. Install manually: yay -S $pkg"
         fi
     else
-        pacman -S --noconfirm --needed "$pkg" 2>/dev/null || warn "Failed to install $pkg"
+        sudo pacman -S --noconfirm --needed "$pkg" 2>/dev/null || warn "Failed to install $pkg"
     fi
 }
 
@@ -399,11 +399,11 @@ build_plugin() {
 
     log "Installing plugin..."
     local install_dir="/usr/lib/qt6/qml"
-    cmake --install "$build_dir" --prefix / || {
+    sudo cmake --install "$build_dir" --prefix / || {
         warn "cmake --install failed, falling back to manual copy..."
         if [[ -d "$build_dir/qml/Caelestia" ]]; then
-            mkdir -p "$install_dir/Caelestia"
-            cp -r "$build_dir/qml/Caelestia/"* "$install_dir/Caelestia/"
+            sudo mkdir -p "$install_dir/Caelestia"
+            sudo cp -r "$build_dir/qml/Caelestia/"* "$install_dir/Caelestia/"
         else
             warn "No built plugin found at $build_dir/qml/Caelestia"
             return 1
@@ -413,8 +413,8 @@ build_plugin() {
     # cmake --install does not include FetchContent dependencies (M3Shapes)
     if [[ -d "$build_dir/qml/M3Shapes" && ! -f "$install_dir/M3Shapes/qmldir" ]]; then
         log "Installing M3Shapes module (cmake --install skips FetchContent deps)..."
-        mkdir -p "$install_dir/M3Shapes"
-        cp -r "$build_dir/qml/M3Shapes/"* "$install_dir/M3Shapes/"
+        sudo mkdir -p "$install_dir/M3Shapes"
+        sudo cp -r "$build_dir/qml/M3Shapes/"* "$install_dir/M3Shapes/"
     fi
     log "Plugin installed."
 }
