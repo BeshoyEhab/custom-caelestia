@@ -206,9 +206,9 @@ show_menu() {
         echo ""
     done
 
-    c_yellow "  [S] Show summary"
-    c_yellow "  [I] Install"
-    c_yellow "  [Q] Quit"
+    c_yellow "  [s] Show summary"
+    c_yellow "  [i] Install (default)"
+    c_yellow "  [q] Quit"
     echo ""
     c_cyan "  Enter numbers to toggle, e.g. '2 3' to toggle hyprland and shell-extras"
     echo ""
@@ -411,8 +411,8 @@ build_plugin() {
     }
 
     # cmake --install does not include FetchContent dependencies (M3Shapes)
-    if [[ -d "$build_dir/qml/M3Shapes" && ! -f "$install_dir/M3Shapes/qmldir" ]]; then
-        log "Installing M3Shapes module (cmake --install skips FetchContent deps)..."
+    if [[ -d "$build_dir/qml/M3Shapes" ]]; then
+        log "Installing M3Shapes module..."
         sudo mkdir -p "$install_dir/M3Shapes"
         sudo cp -r "$build_dir/qml/M3Shapes/"* "$install_dir/M3Shapes/"
     fi
@@ -426,7 +426,12 @@ load_ignore_patterns
 
 while true; do
     show_menu
-    read -p "Enter choice(s) (e.g. 2 3): " input
+    read -p "Enter choice(s) (e.g. 2 3) or press Enter to install: " input
+
+    # Empty input defaults to install
+    if [[ -z "$input" ]]; then
+        input="i"
+    fi
 
     IFS=', ' read -ra choices <<< "$input"
     for choice in "${choices[@]}"; do
@@ -435,7 +440,7 @@ while true; do
             2) SEL[hyprland]=$(( 1 - SEL[hyprland] )) ;;
             3) SEL[shell_extras]=$(( 1 - SEL[shell_extras] )) ;;
             4) SEL[quickshell]=$(( 1 - SEL[quickshell] )) ;;
-            [Ss])
+            [sS])
                 show_summary
                 read -p "Press Enter to continue..." _
                 break

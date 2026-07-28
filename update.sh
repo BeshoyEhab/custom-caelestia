@@ -471,8 +471,8 @@ update_plugin() {
         }
 
         # cmake --install does not include FetchContent dependencies (M3Shapes)
-        if [[ -d "$build_dir/qml/M3Shapes" && ! -f "$INSTALL_DIR/M3Shapes/qmldir" ]]; then
-            log "Installing M3Shapes module (cmake --install skips FetchContent deps)..."
+        if [[ -d "$build_dir/qml/M3Shapes" ]]; then
+            log "Installing M3Shapes module..."
             sudo mkdir -p "$INSTALL_DIR/M3Shapes"
             sudo cp -r "$build_dir/qml/M3Shapes/"* "$INSTALL_DIR/M3Shapes/"
         fi
