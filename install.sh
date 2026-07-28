@@ -168,7 +168,7 @@ show_menu() {
     local sections=("core" "hyprland" "shell_extras" "quickshell")
     local labels=("Core (required)" "Hyprland config" "Shell extras (fish/starship/etc)" "Quickshell config (caelestia)")
     local descs=(
-        "Hyprland, QuickShell, caelestia-cli packages"
+        "Hyprland, QuickShell, build tools, fonts"
         "Window rules, keybinds, scripts, systemd services, portal config"
         "Fish shell, Starship prompt, Btop, Cava, Kitty, Foot, Fuzzel, Wlogout, fonts"
         "Caelestia shell theme, modules, services (the actual desktop UI)"
@@ -235,9 +235,6 @@ deploy_core() {
     install_pkg hyprland
     # Shell runtime (MUST be git version per upstream)
     install_pkg quickshell-git true
-    # Caelestia packages
-    install_pkg caelestia-cli true
-    install_pkg caelestia-shell true
     # Hardware control
     install_pkg ddcutil
     install_pkg brightnessctl
