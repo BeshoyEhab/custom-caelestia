@@ -21,9 +21,11 @@ log()  { echo -e "${GREEN}[+]${NC} $1"; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 err()  { echo -e "${RED}[x]${NC} $1"; exit 1; }
 
-# ── Sudo wrapper: show the command being run ──────────────────────────────────
+# ── Sudo wrapper: show command, ask for confirmation ─────────────────────────
 sudo() {
-    echo -e "  ${CYAN}>>${NC} sudo $*" >&2
+    echo -e "  >> sudo $*" >&2
+    read -p "  ${CYAN}run? [Y/n]${NC} " _confirm < /dev/tty
+    [[ "${_confirm,,}" == "n" ]] && return 1
     command sudo "$@"
 }
 
