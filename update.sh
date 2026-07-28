@@ -501,6 +501,15 @@ update_plugin() {
 main() {
     parse_args "$@"
 
+    # ── Sudo check ─────────────────────────────────────────────────────
+    if [[ $EUID -eq 0 ]]; then
+        warn "Running as root. Run ./update.sh as a normal user instead —"
+        warn "the script will ask for sudo when needed."
+        exit 1
+    fi
+    log "Checking sudo access... (you may be prompted)"
+    sudo -v || { err "sudo required."; exit 1; }
+
     echo "═══════════════════════════════════════════════════════════════"
     echo "  Updating custom-caelestia"
     echo "═══════════════════════════════════════════════════════════════"

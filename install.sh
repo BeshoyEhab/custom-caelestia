@@ -385,6 +385,7 @@ deploy_quickshell() {
 build_plugin() {
     log "Building C++ plugin..."
     local build_dir="$REPO_DIR/build"
+    [[ -d "$build_dir" ]] && rm -rf "$build_dir"
     mkdir -p "$build_dir"
     cmake -B "$build_dir" -S "$REPO_DIR" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
@@ -436,6 +437,15 @@ build_plugin() {
 # If CI_TEST=true, only define functions, don't run the installer
 if [[ "${CI_TEST:-false}" != "true" ]]; then
 load_ignore_patterns
+
+# ── Sudo check ─────────────────────────────────────────────────────────
+if [[ $EUID -eq 0 ]]; then
+    warn "Running as root. Run ./install.sh as a normal user instead —"
+    warn "the script will ask for sudo when needed."
+    exit 1
+fi
+log "Checking sudo access... (you may be prompted)"
+sudo -v || { err "sudo required."; exit 1; }
 
 while true; do
     show_menu
