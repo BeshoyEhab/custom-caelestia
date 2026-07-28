@@ -451,7 +451,7 @@ update_plugin() {
         log "Plugin source changed — rebuilding..."
         [[ "$DRY_RUN" == "true" ]] && { echo -e "  ${BLUE}[dry-run]${NC} Would rebuild plugin"; return; }
 
-        [[ -d "$build_dir" ]] && rm -rf "$build_dir"
+        [[ -d "$build_dir" ]] && sudo rm -rf "$build_dir"
         mkdir -p "$build_dir"
         cmake -B "$build_dir" -S "$MERGED_DIR" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \

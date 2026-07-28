@@ -392,7 +392,7 @@ deploy_quickshell() {
 build_plugin() {
     log "Building C++ plugin..."
     local build_dir="$REPO_DIR/build"
-    [[ -d "$build_dir" ]] && rm -rf "$build_dir"
+    [[ -d "$build_dir" ]] && sudo rm -rf "$build_dir"
     mkdir -p "$build_dir"
     cmake -B "$build_dir" -S "$REPO_DIR" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
