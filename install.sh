@@ -62,7 +62,7 @@ safe_deploy() {
         local target="$dst/$rel"
 
         # Skip if in .updateignore
-        if should_ignore "$rel"; then
+        if should_ignore "$rel" "$target"; then
             continue
         fi
 
@@ -79,7 +79,7 @@ safe_deploy() {
         local rel="${repo_file#"$src"/}"
         local target="$dst/$rel"
 
-        if should_ignore "$rel"; then
+        if should_ignore "$rel" "$target"; then
             continue
         fi
 
@@ -131,7 +131,13 @@ load_ignore_patterns() {
 
 should_ignore() {
     local rel_path="$1"
+    local full_path="$2"
     for pattern in "${IGNORE_PATTERNS[@]}"; do
+        # Absolute path patterns match against the full target path
+        if [[ "$pattern" == /* ]]; then
+            [[ "$full_path" == "$pattern" ]] && return 0
+            continue
+        fi
         # Exact match
         [[ "$rel_path" == "$pattern" ]] && return 0
         # Glob match
@@ -276,7 +282,7 @@ deploy_hyprland() {
             local target="$HOME/.config/caelestia/$rel"
             # Never overwrite shell.json — it's user-specific
             [[ "$rel" == "shell.json" || "$rel" == "shell.json.bak" ]] && continue
-            if should_ignore "$rel"; then continue; fi
+            if should_ignore "$rel" "$target"; then continue; fi
             if [[ ! -f "$target" ]]; then
                 mkdir -p "$(dirname "$target")"
                 cp -p "$f" "$target"
@@ -392,9 +398,9 @@ build_plugin() {
     }
 
     log "Installing plugin..."
+    local install_dir="/usr/lib/qt6/qml"
     sudo cmake --install "$build_dir" --prefix / || {
         warn "cmake --install failed, falling back to manual copy..."
-        local install_dir="/usr/lib/qt6/qml"
         if [[ -d "$build_dir/qml/Caelestia" ]]; then
             sudo mkdir -p "$install_dir/Caelestia"
             sudo cp -r "$build_dir/qml/Caelestia/"* "$install_dir/Caelestia/"
@@ -403,6 +409,13 @@ build_plugin() {
             return 1
         fi
     }
+
+    # cmake --install does not include FetchContent dependencies (M3Shapes)
+    if [[ -d "$build_dir/qml/M3Shapes" && ! -f "$install_dir/M3Shapes/qmldir" ]]; then
+        log "Installing M3Shapes module (cmake --install skips FetchContent deps)..."
+        sudo mkdir -p "$install_dir/M3Shapes"
+        sudo cp -r "$build_dir/qml/M3Shapes/"* "$install_dir/M3Shapes/"
+    fi
     log "Plugin installed."
 }
 

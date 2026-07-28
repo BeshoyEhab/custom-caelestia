@@ -458,9 +458,9 @@ update_plugin() {
             return
         }
 
+        local INSTALL_DIR="/usr/lib/qt6/qml"
         sudo cmake --install "$build_dir" --prefix / || {
             warn "cmake --install failed, falling back to manual copy..."
-            local INSTALL_DIR="/usr/lib/qt6/qml"
             if [[ -d "$build_dir/qml/Caelestia" ]]; then
                 sudo mkdir -p "$INSTALL_DIR/Caelestia"
                 sudo cp -r "$build_dir/qml/Caelestia/"* "$INSTALL_DIR/Caelestia/"
@@ -469,6 +469,13 @@ update_plugin() {
                 return
             fi
         }
+
+        # cmake --install does not include FetchContent dependencies (M3Shapes)
+        if [[ -d "$build_dir/qml/M3Shapes" && ! -f "$INSTALL_DIR/M3Shapes/qmldir" ]]; then
+            log "Installing M3Shapes module (cmake --install skips FetchContent deps)..."
+            sudo mkdir -p "$INSTALL_DIR/M3Shapes"
+            sudo cp -r "$build_dir/qml/M3Shapes/"* "$INSTALL_DIR/M3Shapes/"
+        fi
 
         touch "$stamp_file"
         log "Plugin rebuilt and installed."
