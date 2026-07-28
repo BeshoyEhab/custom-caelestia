@@ -25,6 +25,7 @@ err()  { echo -e "${RED}[x]${NC} $1"; exit 1; }
 ON_CONFLICT="ask"
 BACKUP=false
 DRY_RUN=false
+FORCE=false
 
 usage() {
     cat <<EOF
@@ -41,6 +42,7 @@ ${BOLD}Options:${NC}
                           ${GREEN}new${NC}      - Save repo as .new, keep local
   ${CYAN}--backup${NC}           Create safety backups before deploying
   ${CYAN}--dry-run${NC}          Show what would be updated without making changes
+  ${CYAN}--force${NC}             Force update — skip mtime check, replace all files
   ${CYAN}--non-interactive${NC}  Skip prompts (replace on conflict)
   ${CYAN}-h, --help${NC}        Show this help
 EOF
@@ -54,6 +56,7 @@ parse_args() {
             --on-conflict=*)  ON_CONFLICT="${1#*=}"; shift ;;
             --backup)         BACKUP=true; shift ;;
             --dry-run)        DRY_RUN=true; shift ;;
+            --force)          FORCE=true; shift ;;
             --non-interactive) ON_CONFLICT="replace"; shift ;;
             -h|--help)        usage ;;
             *)                warn "Unknown option: $1"; shift ;;
@@ -91,11 +94,20 @@ load_ignore_patterns() {
 
 should_ignore() {
     local rel_path="$1"
+    local full_path="$2"
     local matched=false
     for pattern in "${IGNORE_PATTERNS[@]}"; do
         local negated=false
         local pat="$pattern"
         [[ "$pat" == "!"* ]] && { negated=true; pat="${pat#!}"; }
+
+        # Absolute path patterns match against the full target path
+        if [[ "$pat" == /* ]]; then
+            if [[ "$full_path" == "$pat" ]]; then
+                [[ "$negated" == "true" ]] && matched=false || matched=true
+            fi
+            continue
+        fi
 
         if match_gitignore "$rel_path" "$pat"; then
             [[ "$negated" == "true" ]] && matched=false || matched=true
@@ -209,20 +221,10 @@ handle_conflict() {
             5) echo ""; diff -u "$home_file" "$repo_file" || true; echo "" ;;
             6) echo -e "  ${BLUE}Skipped:${NC} $home_file"; break ;;
             7)
-                local rel=""
-                for d in "$HOME/.config/hypr" "$HOME/.config/quickshell/caelestia" "$HOME/.config/fish" "$HOME/.config/btop" "$HOME/.config/cava" "$HOME/.config/kitty" "$HOME/.config/foot" "$HOME/.config/fuzzel" "$HOME/.config/wlogout" "$HOME"; do
-                    if [[ "$home_file" == "$d/"* ]]; then
-                        rel="${home_file#"$d"/}"
-                        break
-                    fi
-                done
-                if [[ -n "$rel" ]]; then
-                    local ignore_file="$HOME/.config/hypr/.updateignore"
-                    mkdir -p "$(dirname "$ignore_file")"
-                    echo "$rel" >> "$ignore_file"
-                    IGNORE_PATTERNS+=("$rel")
-                    echo -e "  ${GREEN}Ignored:${NC} added '$rel' to .updateignore"
-                fi
+                local ignore_file="$HOME/.updateignore"
+                echo "$home_file" >> "$ignore_file"
+                IGNORE_PATTERNS+=("$home_file")
+                echo -e "  ${GREEN}Ignored:${NC} added '$home_file' to ~/.updateignore"
                 break
                 ;;
             *) echo -e "  ${RED}Invalid. Enter 1-7.${NC}" ;;
@@ -245,7 +247,7 @@ deploy_dir() {
         local target="$dst/$rel"
 
         # Skip ignored files
-        if should_ignore "$rel"; then
+        if should_ignore "$rel" "$target"; then
             continue
         fi
 
@@ -254,25 +256,34 @@ deploy_dir() {
         if [[ -f "$target" ]]; then
             # File exists — check if it changed
             if ! cmp -s "$repo_file" "$target" 2>/dev/null; then
-                # Check if user modified it (target newer than repo)
-                local repo_mtime target_mtime
-                repo_mtime=$(stat -c %Y "$repo_file" 2>/dev/null || echo 0)
-                target_mtime=$(stat -c %Y "$target" 2>/dev/null || echo 0)
-
-                if [[ "$target_mtime" -gt "$repo_mtime" ]]; then
-                    # User modified — handle conflict
+                # Force mode — always replace without asking
+                if [[ "$FORCE" == "true" ]]; then
                     if [[ "$DRY_RUN" == "true" ]]; then
-                        echo -e "  ${YELLOW}[dry-run]${NC} Would conflict: $target"
-                        continue
-                    fi
-                    handle_conflict "$repo_file" "$target"
-                else
-                    # Repo changed, target not modified — safe to update
-                    if [[ "$DRY_RUN" == "true" ]]; then
-                        echo -e "  ${BLUE}[dry-run]${NC} Would update: $target"
+                        echo -e "  ${BLUE}[dry-run]${NC} Would replace: $target"
                         continue
                     fi
                     cp -p "$repo_file" "$target"
+                else
+                    # Check if user modified it (target newer than repo)
+                    local repo_mtime target_mtime
+                    repo_mtime=$(stat -c %Y "$repo_file" 2>/dev/null || echo 0)
+                    target_mtime=$(stat -c %Y "$target" 2>/dev/null || echo 0)
+
+                    if [[ "$target_mtime" -gt "$repo_mtime" ]]; then
+                        # User modified — handle conflict
+                        if [[ "$DRY_RUN" == "true" ]]; then
+                            echo -e "  ${YELLOW}[dry-run]${NC} Would conflict: $target"
+                            continue
+                        fi
+                        handle_conflict "$repo_file" "$target"
+                    else
+                        # Repo changed, target not modified — safe to update
+                        if [[ "$DRY_RUN" == "true" ]]; then
+                            echo -e "  ${BLUE}[dry-run]${NC} Would update: $target"
+                            continue
+                        fi
+                        cp -p "$repo_file" "$target"
+                    fi
                 fi
             fi
         else
@@ -300,7 +311,7 @@ update_hyprland() {
             local rel="${f#"$MERGED_DIR/hyprland/.config/caelestia/"}"
             local target="$HOME/.config/caelestia/$rel"
             [[ "$rel" == "shell.json" || "$rel" == "shell.json.bak" ]] && continue
-            if should_ignore "$rel"; then continue; fi
+            if should_ignore "$rel" "$target"; then continue; fi
             mkdir -p "$(dirname "$target")"
             if [[ -f "$target" ]]; then
                 if ! cmp -s "$f" "$target" 2>/dev/null; then
@@ -421,7 +432,9 @@ update_plugin() {
     local plugin_changed=false
 
     if [[ -d "$plugin_src" ]]; then
-        if [[ ! -f "$stamp_file" ]]; then
+        if [[ "$FORCE" == "true" ]]; then
+            plugin_changed=true
+        elif [[ ! -f "$stamp_file" ]]; then
             plugin_changed=true
         elif find "$plugin_src" -type f \( -name "*.hpp" -o -name "*.cpp" \) -newer "$stamp_file" 2>/dev/null | grep -q .; then
             plugin_changed=true
@@ -543,8 +556,8 @@ main() {
     [[ "$SECTION_SHELL_EXTRAS" == "true" ]] && update_shell_extras
     [[ "$SECTION_QUICKSHELL" == "true" ]] && update_quickshell
 
-    # Plugin rebuild
-    update_plugin
+    # Plugin rebuild (only if quickshell section is installed)
+    [[ "$SECTION_QUICKSHELL" == "true" ]] && update_plugin
 
     # Reload Hyprland
     if [[ "$DRY_RUN" != "true" ]] && command -v hyprctl &>/dev/null && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
