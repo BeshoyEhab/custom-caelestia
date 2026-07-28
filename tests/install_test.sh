@@ -25,7 +25,7 @@ load_ignore_patterns
 test_ignore() {
     local desc="$1" path="$2" expected="$3"
     local got=0
-    should_ignore "$path" || got=$?
+    should_ignore "$path" "$path" || got=$?
     if [[ "$got" -eq "$expected" ]]; then
         pass "ignore: $desc"
     else
