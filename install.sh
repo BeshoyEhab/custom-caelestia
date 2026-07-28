@@ -158,7 +158,7 @@ SEL[quickshell]=1
 show_menu() {
     clear
     c_cyan "╔══════════════════════════════════════════════════════════════════╗"
-    c_cyan "║              custom-caelestia installer                         ║"
+    c_cyan "║               custom-caelestia installer                         ║"
     c_cyan "║                                                                  ║"
     c_cyan "║  Merge of Caelestia Shell + End-4 utilities                      ║"
     c_cyan "║  Toggle each section on/off, then install.                       ║"
@@ -189,7 +189,7 @@ show_menu() {
         else
             local mark
             if [[ "${SEL[$k]}" == "1" ]]; then
-                mark="$(c_green "[*]")"
+                mark="$(c_green "[+]")"
             else
                 mark="$(c_red "[ ]")"
             fi
