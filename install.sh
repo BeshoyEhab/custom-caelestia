@@ -441,10 +441,8 @@ while true; do
                 [[ "${SEL[shell_extras]}" == "1" ]] && deploy_shell_extras
                 [[ "${SEL[quickshell]}" == "1" ]] && deploy_quickshell
 
-                # Ask about plugin build
-                echo ""
-                read -p "Build C++ plugin? (needed for some shell modules) [y/N]: " build_plugin_choice
-                [[ "${build_plugin_choice,,}" == "y" ]] && build_plugin
+                # Build C++ plugin (required for the Caelestia QML module)
+                build_plugin
 
                 echo ""
                 c_green "═══════════════════════════════════════════════"
