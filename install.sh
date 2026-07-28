@@ -410,11 +410,20 @@ build_plugin() {
         fi
     }
 
-    # cmake --install does not include FetchContent dependencies (M3Shapes)
-    if [[ -d "$build_dir/qml/M3Shapes" ]]; then
-        log "Installing M3Shapes module..."
-        sudo mkdir -p "$install_dir/M3Shapes"
-        sudo cp -r "$build_dir/qml/M3Shapes/"* "$install_dir/M3Shapes/"
+    # cmake --install on the top-level build skips FetchContent deps (M3Shapes)
+    # Install M3Shapes from its own build subdirectory
+    local m3shapes_build="$build_dir/_deps/m3shapes_external-build"
+    if [[ -d "$m3shapes_build" ]]; then
+        log "Installing M3Shapes module from FetchContent build dir..."
+        sudo cmake --install "$m3shapes_build" --prefix / || {
+            warn "M3Shapes cmake --install failed, falling back to manual copy..."
+            if [[ -d "$build_dir/qml/M3Shapes" ]]; then
+                sudo mkdir -p "$install_dir/M3Shapes"
+                sudo cp -r "$build_dir/qml/M3Shapes/"* "$install_dir/M3Shapes/"
+            else
+                warn "M3Shapes build output not found at $build_dir/qml/M3Shapes"
+            fi
+        }
     fi
     log "Plugin installed."
 }
