@@ -21,6 +21,12 @@ log()  { echo -e "${GREEN}[+]${NC} $1"; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 err()  { echo -e "${RED}[x]${NC} $1"; exit 1; }
 
+# ── Sudo wrapper: show the command being run ──────────────────────────────────
+sudo() {
+    echo -e "  ${CYAN}>>${NC} sudo $*" >&2
+    command sudo "$@"
+}
+
 # ── Options ───────────────────────────────────────────────────────────────────
 ON_CONFLICT="ask"
 BACKUP=false
@@ -508,7 +514,7 @@ main() {
         exit 1
     fi
     log "Checking sudo access... (you may be prompted)"
-    sudo -v || { err "sudo required."; exit 1; }
+    sudo -v || err "sudo required."
 
     echo "═══════════════════════════════════════════════════════════════"
     echo "  Updating custom-caelestia"
