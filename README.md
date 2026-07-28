@@ -50,40 +50,40 @@ Unlike traditional dotfile setups that overwrite personal modifications, **custo
 
 During updates and installation, the installer **automatically stashes** your user customizations to `/tmp`, deploys the latest global templates, and then **safely restores** your private files.
 
-Additionally, you can create a custom `.updateignore` file (in your repository root `./.updateignore`, your home directory `~/.updateignore`, or your config directory `~/.config/hypr/.updateignore`). Any files or patterns defined in this file (such as custom themes, layouts, or modified scripts) will be automatically skipped by the installer and left untouched.
+You can skip files from updates via `.updateignore`. The script reads from:
+- `$REPO/.updateignore` — project-wide ignores
+- `~/.updateignore` — your personal ignores (option 7 in conflict prompts adds absolute paths here)
+- `~/.config/hypr/.updateignore`, `~/.config/quickshell/.updateignore`, `~/.config/quickshell/caelestia/.updateignore`
+- Patterns support gitignore syntax; absolute paths match the full target path.
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-Make sure you are on Arch Linux or an Arch-based distribution. An AUR helper (like `yay` or `paru`) is required to install the Caelestia tools directly without manual compilation.
+Arch Linux or an Arch-based distribution with an AUR helper (`yay` or `paru`).
 
 ### Installation
-Clone this repository and run the interactive setup script:
-
 ```bash
-git clone https://github.com/Bisho/caelestia-merged.git
-cd caelestia-merged
-chmod +x install.sh
+git clone https://github.com/BeshoyEhab/custom-caelestia.git
+cd custom-caelestia
 ./install.sh
 ```
 
 The installer will:
-1. Provide an interactive menu to choose which optional helper components to install.
-2. Automatically check for and install core dependencies (`hyprland`, `quickshell`, `caelestia-shell`, `caelestia-cli`) through your AUR helper.
-3. Securely backup your existing config folder to `~/.config/hypr.bak/` and `~/.config/quickshell/caelestia.bak/`.
-4. Deploy the latest global templates while fully preserving your custom layouts, monitors, and `shell.json` settings.
+1. Show an interactive menu — press Enter to install with defaults, or toggle sections by number.
+2. Install core packages (`hyprland`, `quickshell-git`, tools) via pacman/AUR.
+3. Deploy configs while preserving your `shell.json`, custom scripts, and any files listed in `.updateignore`.
+4. Build and install the C++ QML plugin (prompts for sudo per command).
+
+**Run as a normal user** — the script caches sudo credentials and asks for confirmation before each privileged command.
 
 ### Updating
-To sync your fork with upstream changes:
-
 ```bash
-chmod +x update.sh
 ./update.sh
 ```
 
-The updater will fetch the latest commits, stash any local modifications safely, perform a clean pull, and prompt you to run `./install.sh` to apply the updates.
+Supports `--force` (replace all files, skip mtime checks), `--dry-run`, `--backup`, `--on-conflict` (ask/replace/keep/backup/new). During interactive conflict resolution, option 7 adds the file's absolute path to `~/.updateignore` to skip it in future updates.
 
 ---
 
