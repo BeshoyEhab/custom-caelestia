@@ -404,6 +404,7 @@ build_plugin() {
         if [[ -d "$build_dir/qml/Caelestia" ]]; then
             sudo mkdir -p "$install_dir/Caelestia"
             sudo cp -r "$build_dir/qml/Caelestia/"* "$install_dir/Caelestia/"
+            sudo chmod -R a+rX "$install_dir/Caelestia/"
         else
             warn "No built plugin found at $build_dir/qml/Caelestia"
             return 1
@@ -420,10 +421,13 @@ build_plugin() {
             if [[ -d "$build_dir/qml/M3Shapes" ]]; then
                 sudo mkdir -p "$install_dir/M3Shapes"
                 sudo cp -r "$build_dir/qml/M3Shapes/"* "$install_dir/M3Shapes/"
+                sudo chmod -R a+rX "$install_dir/M3Shapes/"
             else
                 warn "M3Shapes build output not found at $build_dir/qml/M3Shapes"
             fi
         }
+        # Ensure world-readable regardless of how it was installed
+        sudo chmod -R a+rX "$install_dir/M3Shapes/" 2>/dev/null || true
     fi
     log "Plugin installed."
 }

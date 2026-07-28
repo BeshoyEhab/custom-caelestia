@@ -464,17 +464,30 @@ update_plugin() {
             if [[ -d "$build_dir/qml/Caelestia" ]]; then
                 sudo mkdir -p "$INSTALL_DIR/Caelestia"
                 sudo cp -r "$build_dir/qml/Caelestia/"* "$INSTALL_DIR/Caelestia/"
+                sudo chmod -R a+rX "$INSTALL_DIR/Caelestia/"
             else
                 warn "No built plugin found at $build_dir/qml/Caelestia"
                 return
             fi
         }
 
-        # cmake --install does not include FetchContent dependencies (M3Shapes)
-        if [[ -d "$build_dir/qml/M3Shapes" ]]; then
-            log "Installing M3Shapes module..."
-            sudo mkdir -p "$INSTALL_DIR/M3Shapes"
-            sudo cp -r "$build_dir/qml/M3Shapes/"* "$INSTALL_DIR/M3Shapes/"
+        # cmake --install on the top-level build skips FetchContent deps (M3Shapes)
+        # Install M3Shapes from its own build subdirectory
+        local m3shapes_build="$build_dir/_deps/m3shapes_external-build"
+        if [[ -d "$m3shapes_build" ]]; then
+            log "Installing M3Shapes module from FetchContent build dir..."
+            sudo cmake --install "$m3shapes_build" --prefix / || {
+                warn "M3Shapes cmake --install failed, falling back to manual copy..."
+                if [[ -d "$build_dir/qml/M3Shapes" ]]; then
+                    sudo mkdir -p "$INSTALL_DIR/M3Shapes"
+                    sudo cp -r "$build_dir/qml/M3Shapes/"* "$INSTALL_DIR/M3Shapes/"
+                    sudo chmod -R a+rX "$INSTALL_DIR/M3Shapes/"
+                else
+                    warn "M3Shapes build output not found at $build_dir/qml/M3Shapes"
+                fi
+            }
+            # Ensure world-readable regardless of how it was installed
+            sudo chmod -R a+rX "$INSTALL_DIR/M3Shapes/" 2>/dev/null || true
         fi
 
         touch "$stamp_file"
