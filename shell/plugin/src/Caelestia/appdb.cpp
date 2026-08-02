@@ -119,6 +119,7 @@ AppDb::AppDb(QObject* parent)
 
     QSqlQuery query(db);
     query.exec("CREATE TABLE IF NOT EXISTS frequencies (id TEXT PRIMARY KEY, frequency INTEGER)");
+    query.exec("CREATE TABLE IF NOT EXISTS query_aliases (query TEXT NOT NULL, id TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(query, id))");
 }
 
 QString AppDb::uuid() const {
@@ -146,6 +147,7 @@ void AppDb::setPath(const QString& path) {
 
     QSqlQuery query(db);
     query.exec("CREATE TABLE IF NOT EXISTS frequencies (id TEXT PRIMARY KEY, frequency INTEGER)");
+    query.exec("CREATE TABLE IF NOT EXISTS query_aliases (query TEXT NOT NULL, id TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(query, id))");
 
     updateAppFrequencies();
 }
@@ -223,6 +225,86 @@ void AppDb::incrementFrequency(const QString& id) {
     } else {
         qCWarning(lcAppDb) << "incrementFrequency: could not find app with id" << id;
     }
+}
+
+void AppDb::learnQuery(const QString& query, const QString& id) {
+    const QString q = query.trimmed().toLower();
+    if (q.isEmpty() || id.isEmpty())
+        return;
+
+    auto db = QSqlDatabase::database(m_uuid);
+    QSqlQuery qr(db);
+    qr.prepare("INSERT INTO query_aliases (query, id, count) "
+               "VALUES (:query, :id, 1) "
+               "ON CONFLICT (query, id) DO UPDATE SET count = count + 1");
+    qr.bindValue(":query", q);
+    qr.bindValue(":id", id);
+    qr.exec();
+}
+
+QVariantMap AppDb::queryAliases(const QString& query) {
+    QVariantMap out;
+    const QString q = query.trimmed().toLower();
+    if (q.isEmpty())
+        return out;
+
+    auto db = QSqlDatabase::database(m_uuid);
+    QHash<QString, double> acc;
+
+    const auto add = [&acc](const QString& id, int count, double factor) {
+        if (count <= 0)
+            return;
+        acc[id] += count * factor;
+    };
+
+    // 1. Exact query -> the user typed this exact (or near) thing for this app.
+    {
+        QSqlQuery qr(db);
+        qr.setForwardOnly(true);
+        qr.prepare("SELECT id, count FROM query_aliases WHERE query = :q");
+        qr.bindValue(":q", q);
+        if (qr.exec()) {
+            while (qr.next())
+                add(qr.value(0).toString(), qr.value(1).toInt(), 1.0);
+        }
+    }
+
+    // 2. The user's query is a substring of a remembered query (typo/variation).
+    {
+        QSqlQuery qr(db);
+        qr.setForwardOnly(true);
+        qr.prepare("SELECT id, count FROM query_aliases WHERE instr(query, :q) > 0");
+        qr.bindValue(":q", q);
+        if (qr.exec()) {
+            while (qr.next())
+                add(qr.value(0).toString(), qr.value(1).toInt(), 0.6);
+        }
+    }
+
+    // 3. A remembered query is a substring of the user query (expansion as a prefix).
+    {
+        QSqlQuery qr(db);
+        qr.setForwardOnly(true);
+        qr.prepare("SELECT id, count FROM query_aliases WHERE instr(:q, query) > 0");
+        qr.bindValue(":q", q);
+        if (qr.exec()) {
+            while (qr.next())
+                add(qr.value(0).toString(), qr.value(1).toInt(), 0.6);
+        }
+    }
+
+    double maxScore = 0;
+    for (auto it = acc.constBegin(); it != acc.constEnd(); ++it) {
+        if (it.value() > maxScore)
+            maxScore = it.value();
+    }
+    if (maxScore <= 0)
+        return out;
+
+    for (auto it = acc.constBegin(); it != acc.constEnd(); ++it)
+        out.insert(it.key(), it.value() / maxScore);
+
+    return out;
 }
 
 QList<AppEntry*>& AppDb::getSortedApps() const {

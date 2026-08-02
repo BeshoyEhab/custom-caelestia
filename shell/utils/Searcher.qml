@@ -1,9 +1,12 @@
 import "scripts/fzf.js" as Fzf
 import "scripts/fuzzysort.js" as Fuzzy
+import "scripts/levendist.js" as Lev
 import QtQuick
 import Quickshell
 
 Singleton {
+    readonly property bool debug: false
+
     required property list<QtObject> list
     property string key: "name"
     property bool useFuzzy: false
@@ -14,17 +17,27 @@ Singleton {
     property list<real> weights: [1]
 
     // Score threshold
-    property real scoreThreshold: 0.2
+    property real scoreThreshold: 0.25
+
+    // Learned alias memory (e.g. "ff"->Firefox, "gim"->GIMP). When enabled, the
+    // scores from `aliasBoost(query)` get added (times `aliasBoostWeight`) to
+    // each matching item so apps you habitually pick for a given query (including
+    // its typos and synonyms) rise to the top next time.
+    property bool useLearnedAliases: false
+    property var aliasBoost: null // function(query) -> {idKey: 0..1}
+    property string aliasIdField: "id"
+    property real aliasBoostWeight: 0.4
+
+    function learnedScore(item: var, aliasMap: var): real {
+        if (!aliasMap || !item)
+            return 0;
+        const v = aliasMap[item[aliasIdField]];
+        return v ? Math.min(1.0, v) * aliasBoostWeight : 0;
+    }
 
     readonly property var fzf: useFuzzy ? [] : new Fzf.Finder(list, Object.assign({
         selector
     }, extraOpts))
-    readonly property list<var> fuzzyPrepped: useFuzzy ? list.map(e => {
-        const obj = { _item: e };
-        for (const k of keys)
-            obj[k] = Fuzzy.prepare(e[k]);
-        return obj;
-    }) : []
 
     function transformSearch(search: string): string {
         return search;
@@ -34,149 +47,118 @@ Singleton {
         return keys.map(k => item[k]).join(" ");
     }
 
-    // Get frequency score 0-1 (normalized to max frequency in list)
-    function getFreqScore(item: var): real {
-        let maxFreq = 0;
-        for (const entry of list) {
-            const freq = entry.frequency || 0;
-            if (freq > maxFreq) maxFreq = freq;
+    // 1 if every char of `needle` appears in `hay` in order (allowing a split).
+    function isSubsequence(needle: string, hay: string): bool {
+        if (!needle || !hay)
+            return false;
+        let j = 0;
+        for (let i = 0; i < hay.length && j < needle.length; i++) {
+            if (hay[i] === needle[j])
+                j++;
         }
-        if (maxFreq === 0) return 0;
-        return (item.frequency || 0) / maxFreq;
+        return j === needle.length;
     }
 
-    // Match score for a single field
-    function getSingleMatchScore(textLower: string, searchLower: string): real {
-        if (!textLower || !searchLower) return 0;
+    // Near/fuzzy score in [0,1] for a single field, tolerant of typos.
+    function getFieldScore(needle: string, hay: string): real {
+        if (!needle || !hay)
+            return 0;
 
-        let score = 0;
+        if (hay === needle)
+            return 1;
+        if (hay.startsWith(needle))
+            return 0.9 + 0.05 * Math.min(1, needle.length / Math.max(1, hay.length));
+        if (hay.includes(needle))
+            return 0.8;
 
-        if (textLower[0] === searchLower[0]) {
-            score += 0.8;
-        } else {
-            score -= 0.5;
-        }
+        // Levenshtein near-match: fixes "thubderbird" -> "thunderbird".
+        const levScore = Lev.computeTextMatchScore(needle, hay);
+        if (levScore >= 0.6)
+            return levScore;
 
-        if (textLower.startsWith(searchLower)) {
-            score += 0.3;
-        } else if (textLower.includes(searchLower)) {
-            score += 0.15;
-        } else {
-            let si = 0;
-            for (let ni = 0; ni < textLower.length && si < searchLower.length; ni++) {
-                if (textLower[ni] === searchLower[si]) si++;
-            }
-            if (si === searchLower.length) {
-                score += 0.05;
-            } else {
-                score -= 0.15 * (1 - si / searchLower.length);
-            }
-        }
+        // Subsequence fallback: "frfx" -> "firefox".
+        if (isSubsequence(needle, hay))
+            return 0.5;
 
-        return score;
+        return Math.max(0, Math.min(1, levScore));
     }
 
-    // Best match score across all configured keys
+    // Best near/fuzzy score across every configured key.
     function getMatchScore(item: var, searchLower: string): real {
-        let best = -1;
+        let best = 0;
         for (const k of keys) {
-            const textLower = (item[k] || "").toLowerCase();
-            const score = getSingleMatchScore(textLower, searchLower);
-            if (score > best) best = score;
+            const t = (item[k] || "").toLowerCase();
+            const s = getFieldScore(searchLower, t);
+            if (s > best)
+                best = s;
         }
         return best;
     }
 
+    // Get usage 0..1 normalized to the most-used app in the list.
+    function getUsageScore(item: var, maxFreq: real): real {
+        return maxFreq > 0 ? (item.frequency || 0) / maxFreq : 0;
+    }
+
     function query(search: string): list<var> {
-        search = transformSearch(search.trim().replace(/\s+/g, " "));
-        if (!search)
+        const q = transformSearch(search.trim().replace(/\s+/g, " "));
+        if (!q)
             return [...list];
 
-        const searchLen = search.length;
-        const searchLower = search.toLowerCase();
+        const searchLower = q.toLowerCase();
+        const searchLen = searchLower.length;
 
         let maxFreq = 0;
-        for (const entry of list) {
-            const freq = entry.frequency || 0;
-            if (freq > maxFreq) maxFreq = freq;
-        }
+        for (const entry of list)
+            maxFreq = Math.max(maxFreq, entry.frequency || 0);
 
-        // Dynamic weights: 1 char = 60% freq, 2 = 50%, 3 = 40%, 4+ = 30%
+        // Dynamic weights: short queries lean on usage more (a single letter is
+        // ambiguous), long queries almost entirely on the actual text match.
         let matchWeight, usageWeight;
         if (searchLen === 1) {
-            matchWeight = 0.4;
-            usageWeight = 0.6;
+            matchWeight = 0.45;
+            usageWeight = 0.55;
         } else if (searchLen === 2) {
-            matchWeight = 0.5;
-            usageWeight = 0.5;
+            matchWeight = 0.55;
+            usageWeight = 0.45;
         } else if (searchLen === 3) {
-            matchWeight = 0.6;
-            usageWeight = 0.4;
-        } else {
             matchWeight = 0.7;
             usageWeight = 0.3;
+        } else {
+            matchWeight = 0.85;
+            usageWeight = 0.15;
         }
 
-        // Short queries (≤3): match scoring + frequency
-        if (searchLen <= 3) {
-            const results = list.map(item => {
-                const letterScore = getMatchScore(item, searchLower);
+        const aliasMap = useLearnedAliases && typeof aliasBoost === "function"
+            ? aliasBoost(searchLower) : null;
 
-                // Normalize to 0-1 range (getMatchScore ranges from ~-0.5 to ~1.1)
-                const matchScore = Math.min(1.0, Math.max(0, (letterScore + 0.5) / 1.6));
+        const results = list.map(item => {
+            const match = getMatchScore(item, searchLower);
+            const usage = getUsageScore(item, maxFreq);
+            const aliased = learnedScore(item, aliasMap);
 
-                const usageScore = maxFreq > 0 ? (item.frequency || 0) / maxFreq : 0;
-                const combinedScore = matchScore * matchWeight + usageScore * usageWeight;
-                return { item, combinedScore };
-            });
+            // never let usage beat a clearly-better text match: usage only
+            // contributes once the text genuinely matches, so Thunderbird keeps
+            // beating Ferdium even if Ferdium was launched more often.
+            let score = match * matchWeight + aliased;
+            if (match >= 0.35)
+                score += usage * usageWeight * (1 - match);
 
-            return results
-                .sort((a, b) => b.combinedScore - a.combinedScore)
-                .map(r => r.item);
-        }
+            return { item, match, usage, score };
+        });
 
-        // Longer queries (>3): fast scoring + frequency
-        if (searchLen > 2) {
-            const results = list.map(item => {
-                let bestScore = 0;
-                for (const k of keys) {
-                    const t = (item[k] || "").toLowerCase();
-                    if (t === searchLower) { bestScore = 1.0; break; }
-                    if (t.startsWith(searchLower)) { bestScore = Math.max(bestScore, 0.95); continue; }
-                    if (t.includes(searchLower)) { bestScore = Math.max(bestScore, 0.7 + 0.25 * searchLen / t.length); continue; }
-                    // Substring match: best contiguous overlap
-                    let best = 0;
-                    for (let i = 0; i < t.length; i++) {
-                        let match = 0;
-                        while (i + match < t.length && match < searchLen && t[i + match] === searchLower[match])
-                            match++;
-                        if (match > best) best = match;
-                    }
-                    if (best >= 3) {
-                        const s = 0.3 * best / searchLen;
-                        if (s > bestScore) bestScore = s;
-                    }
-                }
-                return { item, score: bestScore };
+        // Longer queries drop clearly-unrelated entries; a lone keystroke keeps
+        // the whole (sorted) list so one char still leans on history.
+        const minMatch = searchLen <= 2 ? 0 : 0.3;
+        return results
+            .filter(r => r.match >= minMatch)
+            .sort((a, b) => {
+                if (b.score !== a.score)
+                    return b.score - a.score;
+                if (b.match !== a.match)
+                    return b.match - a.match;
+                return b.usage - a.usage;
             })
-            .filter(r => r.score > scoreThreshold);
-
-            const combined = results.map(r => {
-                const usageScore = maxFreq > 0 ? (r.item.frequency || 0) / maxFreq : 0;
-                const combinedScore = r.score * matchWeight + usageScore * usageWeight;
-                return { item: r.item, combinedScore };
-            });
-
-            return combined
-                .sort((a, b) => b.combinedScore - a.combinedScore)
-                .map(r => r.item);
-        }
-
-        // FZF mode (default, no fuzzy)
-        return fzf.find(search).sort((a, b) => {
-            if (a.score === b.score)
-                return selector(a.item).trim().length - selector(b.item).trim().length;
-            return b.score - a.score;
-        }).map(r => r.item);
+            .map(r => r.item);
     }
 }

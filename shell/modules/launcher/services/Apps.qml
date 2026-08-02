@@ -9,6 +9,7 @@ Searcher {
     id: root
 
     function launch(entry: DesktopEntry): void {
+        root.remember(entry.id);
         appDb.incrementFrequency(entry.id);
 
         if (entry.runInTerminal)
@@ -23,7 +24,28 @@ Searcher {
             });
     }
 
+    // Remember the exact query (typo/synonym/shortcut) the user used to pick this app.
+    function remember(id: string): void {
+        const q = root.lastQuery;
+        if (q)
+            appDb.learnQuery(q, id);
+    }
+
+    // Normalize the raw search box text into the query form stored/queried for aliases.
+    function activeQuery(text: string): string {
+        return text.trim().replace(/\s+/g, " ").toLowerCase().replace(/^[@>][a-zA-Z]*\s+/, "");
+    }
+
+    property string lastQuery: ""
+
+    // Feed learned aliases into the shared scoring (items are AppEntry, keyed by id).
+    function aliasScores(queryText: string): var {
+        return appDb.queryAliases(queryText);
+    }
+
     function search(search: string): list<var> {
+        root.lastQuery = activeQuery(search);
+
         const prefix = GlobalConfig.launcher.specialPrefix;
 
         if (search.startsWith(`${prefix}i `)) {
@@ -67,6 +89,12 @@ Searcher {
 
     list: appDb.apps
     useFuzzy: GlobalConfig.launcher.useFuzzy.apps
+
+    // Learned alias memory: boost apps you habitually pick for a given query.
+    useLearnedAliases: true
+    aliasBoost: root.aliasScores
+    aliasIdField: "id"
+    aliasBoostWeight: 0.5
 
     AppDb {
         id: appDb

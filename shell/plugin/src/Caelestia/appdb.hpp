@@ -6,6 +6,7 @@
 #include <qqmllist.h>
 #include <qregularexpression.h>
 #include <qtimer.h>
+#include <qvariantmap.h>
 
 namespace caelestia {
 
@@ -87,6 +88,10 @@ public:
     [[nodiscard]] QQmlListProperty<AppEntry> apps();
 
     Q_INVOKABLE void incrementFrequency(const QString& id);
+    // Remember that the user picked `id` after typing `query` (typo/synonym/alias learning).
+    Q_INVOKABLE void learnQuery(const QString& query, const QString& id);
+    // Returns id -> learned 0..1 score for how strongly `id` matches this typed query.
+    Q_INVOKABLE QVariantMap queryAliases(const QString& query);
 
 signals:
     void pathChanged();

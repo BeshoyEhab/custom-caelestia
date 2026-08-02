@@ -23,8 +23,9 @@ err()  { echo -e "${RED}[x]${NC} $1"; exit 1; }
 
 # ── Sudo wrapper: show command, ask for confirmation ─────────────────────────
 sudo() {
-    echo -e "  >> sudo $*" >&2
-    read -p "  ${CYAN}run? [Y/n]${NC} " _confirm < /dev/tty
+    printf '  >> sudo %s\n' "$*" >/dev/tty
+    printf '  %b run? [Y/n] %b ' "$CYAN" "$NC" >/dev/tty
+    read -r _confirm < /dev/tty
     [[ "${_confirm,,}" == "n" ]] && return 1
     command sudo "$@"
 }

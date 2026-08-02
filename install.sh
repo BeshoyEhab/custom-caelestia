@@ -5,6 +5,15 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# ── Flags ─────────────────────────────────────────────────────────────────────
+# -v / --verbose : show real command output (pacman/yay/etc.) instead of hiding it
+VERBOSE=false
+for _arg in "$@"; do
+    case "$_arg" in
+        -v|--verbose) VERBOSE=true ;;
+    esac
+done
+
 # ── Colors ────────────────────────────────────────────────────────────────────
 if [[ -t 1 ]] && command -v tput &>/dev/null && [[ "$(tput colors 2>/dev/null)" -ge 8 ]]; then
     HAS_COLOR=true
@@ -26,29 +35,75 @@ c_bold()   { $HAS_COLOR && echo -e "${BOLD}$*${NC}" || echo "$*"; }
 log()   { echo -e "${GREEN}[+]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
 err()   { echo -e "${RED}[x]${NC} $1"; exit 1; }
+vlog()  { if [[ "$VERBOSE" == true ]]; then echo -e "${CYAN}    $1${NC}"; fi; }
+# Divert a stream to /dev/null when NOT verbose; otherwise keep it live.
+vfd()   { [[ "$VERBOSE" == false ]] && echo "/dev/null" || echo "/dev/stderr"; }
+
+# ── Progress indicator: keeps non-verbose installs from feeling dead ──────────
+spin() {
+    local pid="$1" label="$2" i=0
+    local frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+    local n=${#frames[@]}
+    while kill -0 "$pid" 2>/dev/null; do
+        i=$(( (i + 1) % n ))
+        printf "  \e[0;36m%s\e[0m %s\r" "${frames[$i]}" "$label" >&2
+        sleep 0.1
+    done
+    printf "  \e[0;32m✓\e[0m %s   \n" "$label" >&2
+}
 
 # ── Sudo wrapper: show command, ask for confirmation ─────────────────────────
+# The prompt/confirmation ALWAYS goes to the terminal (/dev/tty) so it stays
+# visible even when the rest of the command output is redirected/spinnered.
 sudo() {
-    echo -e "  >> sudo $*" >&2
-    read -p "  ${CYAN}run? [Y/n]${NC} " _confirm < /dev/tty
+    printf '  >> sudo %s\n' "$*" >/dev/tty
+    printf '  %b run? [Y/n] %b ' "$CYAN" "$NC" >/dev/tty
+    read -r _confirm < /dev/tty
     [[ "${_confirm,,}" == "n" ]] && return 1
     command sudo "$@"
 }
 
 # ── Package installation ─────────────────────────────────────────────────────
+# Verbose (-v): run the command live so real output streams to the terminal.
+# Otherwise: background + spinner so nothing feels dead; failures dump the log.
 install_pkg() {
-    local pkg="$1" is_aur="${2:-false}"
+    local pkg="$1" is_aur="${2:-false}" logfile ok
+    logfile="$(mktemp "${TMPDIR:-/tmp}/caelestia-pkg-XXXXXX.log")"
+    ok=0
+
+    _run() {
+        if [[ "$VERBOSE" == true ]]; then
+            vlog "Running: $*"
+            if ! "$@"; then
+                warn "Failed: $*"
+                return 1
+            fi
+        else
+            "$@" >"$logfile" 2>&1 & local pid=$!
+            spin "$pid" "$pkg"
+            wait "$pid" || { warn "Failed: $*"; return 1; }
+        fi
+        ok=1
+    }
+
     if [[ "$is_aur" == "true" ]]; then
         if command -v yay &>/dev/null; then
-            yay -S --noconfirm --needed "$pkg" 2>/dev/null || warn "Failed to install $pkg"
+            _run yay -S --noconfirm --needed "$pkg"
         elif command -v paru &>/dev/null; then
-            paru -S --noconfirm --needed "$pkg" 2>/dev/null || warn "Failed to install $pkg"
+            _run paru -S --noconfirm --needed "$pkg"
         else
             warn "No AUR helper found. Install manually: yay -S $pkg"
+            ok=1
         fi
     else
-        sudo pacman -S --noconfirm --needed "$pkg" 2>/dev/null || warn "Failed to install $pkg"
+        _run sudo pacman -S --noconfirm --needed "$pkg"
     fi
+
+    if [[ "$ok" != 1 ]]; then
+        warn "Failed to install $pkg"
+        [[ "$VERBOSE" == false ]] && cat "$logfile" >&2
+    fi
+    rm -f "$logfile"
 }
 
 # ── Safe deploy: merge repo into target without destroying user files ────────
@@ -255,7 +310,7 @@ deploy_core() {
     install_pkg brightnessctl
     install_pkg lm_sensors
     # Audio visualiser & beat detection
-    install_pkg libcava
+    install_pkg libcava true
     install_pkg aubio
     install_pkg libpulse
     # System
