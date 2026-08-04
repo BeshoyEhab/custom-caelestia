@@ -402,7 +402,7 @@ deploy_shell_extras() {
     fi
 
     # App configs: btop, cava, kitty, foot, fuzzel, wlogout, fontconfig
-    local app_configs=(btop cava kitty foot fuzzel wlogout fontconfig)
+    local app_configs=(btop cava kitty foot fuzzel wlogout fontconfig nvim)
     for app in "${app_configs[@]}"; do
         if [[ -d "$REPO_DIR/configs/.config/$app" ]]; then
             safe_deploy "$REPO_DIR/configs/.config/$app" "$HOME/.config/$app"

@@ -385,7 +385,7 @@ update_shell_extras() {
     fi
 
     # App configs
-    local app_configs=(btop cava kitty foot fuzzel wlogout fontconfig)
+    local app_configs=(btop cava kitty foot fuzzel wlogout fontconfig nvim)
     for app in "${app_configs[@]}"; do
         if [[ -d "$MERGED_DIR/configs/.config/$app" ]]; then
             deploy_dir "$MERGED_DIR/configs/.config/$app" "$HOME/.config/$app"
@@ -578,7 +578,7 @@ main() {
         local dirs=()
         [[ "$SECTION_HYPRLAND" == "true" ]] && dirs+=("$HOME/.config/hypr")
         [[ "$SECTION_QUICKSHELL" == "true" ]] && dirs+=("$HOME/.config/quickshell/caelestia")
-        [[ "$SECTION_SHELL_EXTRAS" == "true" ]] && dirs+=("$HOME/.config/fish" "$HOME/.config/btop" "$HOME/.config/cava" "$HOME/.config/kitty" "$HOME/.config/foot" "$HOME/.config/fuzzel" "$HOME/.config/wlogout")
+        [[ "$SECTION_SHELL_EXTRAS" == "true" ]] && dirs+=("$HOME/.config/fish" "$HOME/.config/btop" "$HOME/.config/cava" "$HOME/.config/kitty" "$HOME/.config/foot" "$HOME/.config/fuzzel" "$HOME/.config/wlogout" "$HOME/.config/nvim")
         for d in "${dirs[@]}"; do
             if [[ -d "$d" ]]; then
                 local backup_dir="${d}.bak.${ts}"
