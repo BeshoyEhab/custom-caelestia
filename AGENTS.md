@@ -153,7 +153,7 @@ PageBase {
 
 ### install.sh
 Interactive installer with 3 optional config sections:
-1. **Core** (always installed): hyprland, quickshell, caelestia-cli, caelestia-shell packages
+1. **Core** (always installed): hyprland, quickshell, caelestia-cli; the C++ QML plugin is built locally (caelestia-shell is NOT installed from AUR — it conflicts with the locally-built plugin).
 2. **Hyprland config**: window rules, keybinds, scripts, systemd, portal config
 3. **Shell extras** (optional): fish, starship, btop, cava, kitty, foot, fuzzel, wlogout, fonts
 4. **Quickshell config**: caelestia shell theme, modules, services
