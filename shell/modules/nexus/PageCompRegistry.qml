@@ -96,6 +96,14 @@ QtObject {
                 }
             }
         },
+        Component {
+            // Screen lock
+            StackPage {
+                Component {
+                    IdleLockPage {}
+                }
+            }
+        },
 
         // Shell
         Component {

@@ -55,6 +55,12 @@ QtObject {
             description: qsTr("Manage plugins"),
             category: "system"
         },
+        {
+            label: qsTr("Screen lock"),
+            icon: "lock",
+            description: qsTr("Lock, screen-off and suspend timers"),
+            category: "system"
+        },
 
         // Shell
         {
