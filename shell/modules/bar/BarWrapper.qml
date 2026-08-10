@@ -63,17 +63,11 @@ Item {
     }
 
     Behavior on slideProgress {
-        Anim {
-            type: Anim.Emphasized
-            duration: Tokens.anim.durations.normal * 1.5
-        }
+        Anim {}
     }
 
     Behavior on implicitWidth {
-        Anim {
-            type: Anim.Emphasized
-            duration: Tokens.anim.durations.normal * 1.5
-        }
+        Anim {}
     }
 
     Loader {
