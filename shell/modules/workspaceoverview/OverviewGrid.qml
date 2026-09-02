@@ -247,7 +247,7 @@ Item {
                     const gp = mapToItem(previewContainer, mouse.x, mouse.y);
                     const dx = gp.x - pressX;
                     const dy = gp.y - pressY;
-                    if (!wasDrag && !prevItem.dragging && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+                    if (!wasDrag && !prevItem.dragging && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) {
                         wasDrag = true;
                         wasDragSession = true;
                         wasMouseDrag = true;
