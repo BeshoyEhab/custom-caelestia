@@ -7,10 +7,19 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── Flags ─────────────────────────────────────────────────────────────────────
 # -v / --verbose : show real command output (pacman/yay/etc.) instead of hiding it
+# --rebuild-quickshell : force a Quickshell source rebuild (screencopy enabled)
+# --non-interactive : skip all prompts, deploy everything (for GUI integration)
+# --no-install : skip package installation and plugin build (config files only)
 VERBOSE=false
+REBUILD_QS=false
+NON_INTERACTIVE=false
+NO_INSTALL=false
 for _arg in "$@"; do
     case "$_arg" in
         -v|--verbose) VERBOSE=true ;;
+        --rebuild-quickshell) REBUILD_QS=true ;;
+        --non-interactive) NON_INTERACTIVE=true ;;
+        --no-install) NO_INSTALL=true ;;
     esac
 done
 
@@ -55,7 +64,12 @@ spin() {
 # ── Sudo wrapper: show command, ask for confirmation ─────────────────────────
 # The prompt/confirmation ALWAYS goes to the terminal (/dev/tty) so it stays
 # visible even when the rest of the command output is redirected/spinnered.
+# Skipped entirely in --non-interactive mode (no prompts for GUI integration).
 sudo() {
+    if [[ "$NON_INTERACTIVE" == true ]]; then
+        command sudo "$@"
+        return
+    fi
     printf '  >> sudo %s\n' "$*" >/dev/tty
     printf '  %b run? [Y/n] %b ' "$CYAN" "$NC" >/dev/tty
     read -r _confirm < /dev/tty
@@ -68,6 +82,10 @@ sudo() {
 # Otherwise: background + spinner so nothing feels dead; failures dump the log.
 install_pkg() {
     local pkg="$1" is_aur="${2:-false}" logfile ok
+    if [[ "$NO_INSTALL" == true ]]; then
+        log "Skipped (no-install): $pkg"
+        return 0
+    fi
     logfile="$(mktemp "${TMPDIR:-/tmp}/caelestia-pkg-XXXXXX.log")"
     ok=0
 
@@ -315,20 +333,93 @@ deploy_core() {
     install_pkg libcava true
     install_pkg aubio
     install_pkg libpulse
+    install_pkg pipewire
+    install_pkg pipewire-pulse
+    install_pkg fftw
     # System
     install_pkg networkmanager
+    install_pkg wireplumber
+    install_pkg upower
+    install_pkg geoclue
+    # Portals (file chooser, screenshare; config shipped in hyprland section)
+    install_pkg xdg-desktop-portal
+    install_pkg xdg-desktop-portal-hyprland
+    # Keyboard layout database (Nexus keyboard page reads base.xml)
+    install_pkg xkeyboard-config
     # Qt/QML runtime
     install_pkg qt6-base
     install_pkg qt6-declarative
+    install_pkg qt6-wayland
+    install_pkg qt6-svg
+    install_pkg qt6-shadertools
+    # Wayland protocols (needed for quickshell screencopy rebuilds)
+    install_pkg wayland
+    install_pkg wayland-protocols
+    install_pkg libdrm
+    install_pkg mesa
     # Tools the shell uses
     install_pkg swappy
     install_pkg libqalculate
+    install_pkg wl-clipboard
+    install_pkg cliphist
+    install_pkg copyq
+    install_pkg jq
+    install_pkg xdg-user-dirs
+    install_pkg playerctl
+    install_pkg bc
+    install_pkg libxml2
+    install_pkg wtype
+    install_pkg curl
+    # Screenshots / capture (keybinds depend on these)
+    install_pkg grim
+    install_pkg slurp
+    install_pkg hyprpicker
+    install_pkg hyprshot
+    install_pkg tesseract
+    install_pkg gpu-screen-recorder
+    install_pkg emote true
+    # Launcher helper (app2unit -- terminal wrapping)
+    install_pkg app2unit-git true
     # Fonts
     install_pkg ttf-cascadia-code-nerd
     install_pkg ttf-material-symbols-variable
-    # Build tools (for C++ plugin)
+    # Build tools (for C++ plugin + quickshell rebuilds)
     install_pkg cmake
     install_pkg ninja
+    install_pkg pkgconf
+    install_pkg git
+    install_pkg vulkan-headers
+    install_pkg spirv-tools
+    install_pkg cli11
+    install_pkg jemalloc
+
+    enable_pipewire
+}
+
+# ── PipeWire user services ───────────────────────────────────────────────────
+# Packages alone don't produce sound: PipeWire runs as per-user systemd units.
+# Skipped with --no-install so headless GUI deploys stay side-effect free.
+enable_pipewire() {
+    if [[ "$NO_INSTALL" == true ]]; then
+        return 0
+    fi
+    if [[ $EUID -eq 0 ]]; then
+        warn "Skipping PipeWire user services (running as root)."
+        return 0
+    fi
+    if ! command -v systemctl &>/dev/null; then
+        return 0
+    fi
+    if [[ -z "${XDG_RUNTIME_DIR:-}" || ! -d "$XDG_RUNTIME_DIR/systemd" ]]; then
+        warn "No user systemd session; enable PipeWire manually:"
+        warn "  systemctl --user enable --now pipewire pipewire-pulse wireplumber"
+        return 0
+    fi
+    log "Enabling PipeWire user services..."
+    systemctl --user enable --now pipewire pipewire-pulse wireplumber 2>/dev/null || {
+        warn "Could not enable PipeWire services; run manually:"
+        warn "  systemctl --user enable --now pipewire pipewire-pulse wireplumber"
+    }
 }
 
 deploy_hyprland() {
@@ -448,6 +539,60 @@ deploy_quickshell() {
     log "Quickshell config deployed."
 }
 
+# ── Quickshell screencopy check & rebuild ────────────────────────────────────
+# ScreencopyView (area picker, workspace overview, lock screen) lives inside
+# Quickshell's own Wayland/_Screencopy QML module. If the installed quickshell
+# was built without it, overview/picker render nothing. This detects that case
+# and offers a scripted source rebuild with screencopy enabled (see BUILD.md
+# in the quickshell repo for the full dependency list).
+qs_screencopy_present() {
+    local qmldirs=()
+    if command -v qtpaths6 &>/dev/null; then
+        qmldirs+=("$(qtpaths6 --query QT_INSTALL_QML 2>/dev/null)")
+    fi
+    qmldirs+=("/usr/lib/qt6/qml" "/usr/local/lib/qt6/qml")
+    local d
+    for d in "${qmldirs[@]}"; do
+        [[ -n "$d" && -d "$d/Quickshell/Wayland/_Screencopy" ]] && return 0
+    done
+    return 1
+}
+
+rebuild_quickshell() {
+    log "Rebuilding Quickshell from source (screencopy enabled)..."
+    local src="${QUICKSHELL_SRC:-$HOME/quickshell}"
+    if [[ ! -d "$src" ]]; then
+        git clone https://git.outfoxxed.me/outfoxxed/quickshell "$src" || {
+            warn "quickshell clone failed."
+            return 1
+        }
+    else
+        log "Updating existing checkout at $src ..."
+        git -C "$src" pull --ff-only || warn "git pull failed, building current checkout."
+    fi
+    cmake -GNinja -B "$src/build" -S "$src" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DDISTRIBUTOR="custom-caelestia" || {
+        warn "quickshell cmake configure failed."
+        return 1
+    }
+    cmake --build "$src/build" -j"$(nproc 2>/dev/null || echo 4)" || {
+        warn "quickshell build failed."
+        return 1
+    }
+    log "Installing quickshell (needs sudo)..."
+    sudo cmake --install "$src/build" || {
+        warn "quickshell install failed."
+        return 1
+    }
+    if qs_screencopy_present; then
+        log "Screencopy module present."
+    else
+        warn "Screencopy module still missing after rebuild."
+        return 1
+    fi
+}
+
 build_plugin() {
     log "Building C++ plugin..."
     local build_dir="$REPO_DIR/build"
@@ -504,6 +649,38 @@ build_plugin() {
 if [[ "${CI_TEST:-false}" != "true" ]]; then
 load_ignore_patterns
 
+# ── Headless mode (GUI integration: Nexus "Deploy configurations") ───────────
+# --non-interactive deploys everything with no prompts. --no-install additionally
+# skips package installation, the plugin build, and the sudo check, so the run
+# needs no tty and always works headless from the settings app.
+if [[ "$NON_INTERACTIVE" == true ]]; then
+    if [[ "$NO_INSTALL" != true ]]; then
+        if [[ $EUID -eq 0 ]]; then
+            warn "Running as root. Run ./install.sh as a normal user instead —"
+            warn "the script will ask for sudo when needed."
+            exit 1
+        fi
+        log "Checking sudo access... (you may be prompted)"
+        sudo -v || err "sudo required."
+        deploy_core
+    fi
+    deploy_hyprland
+    deploy_shell_extras
+    deploy_quickshell
+    if [[ "$NO_INSTALL" != true ]]; then
+        build_plugin
+        if [[ "$REBUILD_QS" == true ]]; then
+            rebuild_quickshell
+        elif ! qs_screencopy_present; then
+            warn "Quickshell screencopy module not found (overview/picker will be broken)."
+            warn "Re-run with --rebuild-quickshell to rebuild it from source."
+        fi
+    fi
+    echo ""
+    c_green "Deployment complete!"
+    exit 0
+fi
+
 # ── Sudo check ─────────────────────────────────────────────────────────
 if [[ $EUID -eq 0 ]]; then
     warn "Running as root. Run ./install.sh as a normal user instead —"
@@ -544,6 +721,13 @@ while true; do
                 echo ""
 
                 deploy_core
+                if [[ "$REBUILD_QS" == true ]]; then
+                    rebuild_quickshell
+                elif ! qs_screencopy_present; then
+                    warn "Quickshell screencopy module not found (overview/picker will be broken)."
+                    read -p "Rebuild Quickshell from source now? [Y/n]: " _rb
+                    if [[ "${_rb,,}" != "n" ]]; then rebuild_quickshell; fi
+                fi
                 [[ "${SEL[hyprland]}" == "1" ]] && deploy_hyprland
                 [[ "${SEL[shell_extras]}" == "1" ]] && deploy_shell_extras
                 [[ "${SEL[quickshell]}" == "1" ]] && deploy_quickshell

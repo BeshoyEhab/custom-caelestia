@@ -63,6 +63,34 @@ You can skip files from updates via `.updateignore`. The script reads from:
 ### Prerequisites
 Arch Linux or an Arch-based distribution with an AUR helper (`yay` or `paru`).
 
+The installer (`deploy_core` in `install.sh`) covers everything the dots call:
+- **Shell**: `hyprland`, `quickshell-git` (AUR), `caelestia-cli` (AUR), `qt6-base`, `qt6-declarative`, `qt6-wayland`, `qt6-svg`, `qt6-shadertools`
+- **Wayland/screencopy**: `wayland`, `wayland-protocols`, `libdrm`, `mesa`, `vulkan-headers`
+- **Audio**: `libcava` (AUR), `aubio`, `libpulse`, `pipewire`, `pipewire-pulse`, `wireplumber`, `fftw`
+  (`deploy_core` also runs `systemctl --user enable --now pipewire pipewire-pulse wireplumber` — packages alone don't start the server)
+- **System**: `networkmanager`, `upower` (battery), `geoclue` (location/weather)
+- **Portals**: `xdg-desktop-portal`, `xdg-desktop-portal-hyprland` (file chooser, screenshare)
+- **Keyboard**: `xkeyboard-config` (layout database for the Nexus keyboard page)
+- **Capture**: `grim`, `slurp`, `hyprpicker`, `hyprshot`, `tesseract`, `gpu-screen-recorder`, `swappy`
+- **Clipboard/utils**: `wl-clipboard`, `cliphist`, `copyq`, `emote` (AUR), `jq`, `xdg-user-dirs`, `playerctl`, `bc`, `libxml2` (xmllint), `wtype`, `curl`, `app2unit-git` (AUR)
+- **Hardware/system**: `ddcutil`, `brightnessctl`, `lm_sensors`, `networkmanager`, `libqalculate`
+- **Build tools**: `cmake`, `ninja`, `pkgconf`, `git`, `spirv-tools`, `cli11`, `jemalloc`
+
+### Quickshell screencopy note
+The workspace overview, area picker, and lock-screen capture use Quickshell's
+`ScreencopyView` (`Quickshell/Wayland/_Screencopy` QML module), which is compiled
+into Quickshell itself — not into this repo's C++ plugin. If your installed
+`quickshell-git` lacks that module (overview shows nothing), the installer
+detects it and offers a source rebuild. To force it non-interactively:
+
+```bash
+./install.sh --rebuild-quickshell
+```
+
+This clones/updates `~/quickshell` (override with `QUICKSHELL_SRC`), configures
+with `-DDISTRIBUTOR="custom-caelestia"` (screencopy defaults ON), builds, and
+installs. Quickshell must also be rebuilt after every Qt minor release (ABI).
+
 ### Installation
 ```bash
 git clone https://github.com/BeshoyEhab/custom-caelestia.git
@@ -84,6 +112,11 @@ The installer will:
 ```
 
 Supports `--force` (replace all files, skip mtime checks), `--dry-run`, `--backup`, `--on-conflict` (ask/replace/keep/backup/new). During interactive conflict resolution, option 7 adds the file's absolute path to `~/.updateignore` to skip it in future updates.
+
+The Nexus settings app drives the same scripts headlessly:
+- `./update.sh --check` — read-only status (`BEHIND`, `PLUGINS_STALE`, …), exit 0 = up to date
+- `./update.sh --non-interactive` — full update, conflicts resolved as `replace`, no prompts
+- `./install.sh --non-interactive --no-install` — redeploy config files only (no packages, no plugin build, no sudo), always tty-free
 
 ---
 

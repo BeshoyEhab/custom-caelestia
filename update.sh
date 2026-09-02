@@ -36,6 +36,7 @@ BACKUP=false
 DRY_RUN=false
 FORCE=false
 BUILD_PLUGIN=false
+CHECK=false
 
 usage() {
     cat <<EOF
@@ -54,6 +55,9 @@ ${BOLD}Options:${NC}
   ${CYAN}--dry-run${NC}          Show what would be updated without making changes
   ${CYAN}--force${NC}             Force update — skip mtime check, replace all files
   ${CYAN}--build${NC}            Rebuild C++ plugin (needed when barconfig.hpp changes)
+  ${CYAN}--check${NC}            Read-only status check for GUI integration
+                          (prints REPO_DIR/BRANCH/AHEAD/BEHIND/DIRTY/PLUGINS_STALE;
+                          exit 0 = up to date, 1 = updates available, 2 = error)
   ${CYAN}--non-interactive${NC}  Skip prompts (replace on conflict)
   ${CYAN}-h, --help${NC}        Show this help
 EOF
@@ -69,6 +73,7 @@ parse_args() {
             --dry-run)        DRY_RUN=true; shift ;;
             --force)          FORCE=true; shift ;;
             --build)          BUILD_PLUGIN=true; shift ;;
+            --check)          CHECK=true; shift ;;
             --non-interactive) ON_CONFLICT="replace"; shift ;;
             -h|--help)        usage ;;
             *)                warn "Unknown option: $1"; shift ;;
@@ -514,18 +519,85 @@ update_plugin() {
     fi
 }
 
+# ── Read-only status check for GUI integration ───────────────────────────────
+# Machine-readable output, no side effects (no fetch, no file changes).
+# Exit: 0 = up to date, 1 = updates available, 2 = error.
+cmd_check() {
+    [[ -d "$MERGED_DIR/.git" ]] || {
+        echo "REPO_DIR=$MERGED_DIR"
+        echo "ERROR=not a git repository"
+        return 2
+    }
+
+    local branch remote_sha ahead behind dirty stale
+    branch=$(git -C "$MERGED_DIR" branch --show-current 2>/dev/null || echo "unknown")
+
+    # Remote tip without fetching (read-only). Fall back to the last-fetched
+    # remote-tracking ref when offline or when the branch has no upstream.
+    remote_sha=$(git -C "$MERGED_DIR" ls-remote origin "$branch" 2>/dev/null | awk '{print $1}')
+    if [[ -n "$remote_sha" ]]; then
+        ahead=$(git -C "$MERGED_DIR" rev-list --count "$remote_sha"..HEAD 2>/dev/null || echo 0)
+        behind=$(git -C "$MERGED_DIR" rev-list --count HEAD.."$remote_sha" 2>/dev/null || echo 0)
+    else
+        ahead=$(git -C "$MERGED_DIR" rev-list --count '@{u}'..HEAD 2>/dev/null || echo 0)
+        behind=$(git -C "$MERGED_DIR" rev-list --count HEAD..'@{u}' 2>/dev/null || echo 0)
+    fi
+
+    if [[ -n "$(git -C "$MERGED_DIR" status --porcelain 2>/dev/null)" ]]; then
+        dirty=true
+    else
+        dirty=false
+    fi
+
+    local stamp_file="$MERGED_DIR/build/.plugin_build_stamp"
+    if [[ ! -f "$stamp_file" ]]; then
+        stale=true
+    elif find "$MERGED_DIR/shell/plugin/src" -type f \( -name "*.hpp" -o -name "*.cpp" \) -newer "$stamp_file" 2>/dev/null | grep -q .; then
+        stale=true
+    else
+        stale=false
+    fi
+
+    echo "REPO_DIR=$MERGED_DIR"
+    echo "BRANCH=$branch"
+    echo "AHEAD=$ahead"
+    echo "BEHIND=$behind"
+    echo "DIRTY=$dirty"
+    echo "PLUGINS_STALE=$stale"
+
+    if [[ "$behind" != "0" || "$stale" == "true" ]]; then
+        return 1
+    fi
+    return 0
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 main() {
     parse_args "$@"
 
-    # ── Sudo check ─────────────────────────────────────────────────────
-    if [[ $EUID -eq 0 ]]; then
-        warn "Running as root. Run ./update.sh as a normal user instead —"
-        warn "the script will ask for sudo when needed."
-        exit 1
+    # Read-only check: no sudo, no prompts, no side effects.
+    # (if-condition is exempt from set -e, so the 1/2 codes survive.)
+    if [[ "$CHECK" == "true" ]]; then
+        if cmd_check; then
+            exit 0
+        else
+            exit $?
+        fi
     fi
-    log "Checking sudo access... (you may be prompted)"
-    sudo -v || err "sudo required."
+
+    # ── Sudo check ─────────────────────────────────────────────────────
+    # Sudo is only needed for the plugin rebuild (--build). Config deploy
+    # and git operations run unprivileged, including --non-interactive runs
+    # launched from the settings app (no tty for password prompts).
+    if [[ "$BUILD_PLUGIN" == "true" ]]; then
+        if [[ $EUID -eq 0 ]]; then
+            warn "Running as root. Run ./update.sh as a normal user instead —"
+            warn "the script will ask for sudo when needed."
+            exit 1
+        fi
+        log "Checking sudo access... (you may be prompted)"
+        sudo -v || err "sudo required."
+    fi
 
     echo "═══════════════════════════════════════════════════════════════"
     echo "  Updating custom-caelestia"

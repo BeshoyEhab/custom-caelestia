@@ -29,7 +29,7 @@ PageBase {
 
         Process {
             id: scriptCheckProc
-            command: ["test", "-x", "~/.config/quickshell/caelestia/scripts/update.sh"]
+            command: ["sh", "-c", "test -x ~/.config/quickshell/caelestia/scripts/update.sh"]
             onRunningChanged: {
                 if (!running)
                     root.scriptAvailable = exitCode === 0;
@@ -60,7 +60,7 @@ PageBase {
 
         Process {
             id: updateRunProc
-            command: ["sh", "-c", "~/.config/quickshell/caelestia/scripts/update.sh --non-interactive 2>&1 | tail -5"]
+            command: ["sh", "-c", "set -o pipefail; ~/.config/quickshell/caelestia/scripts/update.sh --non-interactive 2>&1 | tail -5"]
             onRunningChanged: {
                 if (!running) {
                     root.checking = false;
@@ -72,7 +72,7 @@ PageBase {
 
         Process {
             id: deployRunProc
-            command: ["sh", "-c", "~/.config/quickshell/caelestia/scripts/install.sh --non-interactive --no-install 2>&1 | tail -5"]
+            command: ["sh", "-c", "set -o pipefail; ~/.config/quickshell/caelestia/scripts/install.sh --non-interactive --no-install 2>&1 | tail -5"]
             onRunningChanged: {
                 if (!running) {
                     root.checking = false;
