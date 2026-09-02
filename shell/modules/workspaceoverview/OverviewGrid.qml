@@ -245,7 +245,7 @@ Item {
                     root.dragTargetWorkspace = -1;
 
                     if (didDrop) {
-                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ window = "address:0x${prevItem.addr}", workspace = ${targetWs} })` : `movetoworkspace ${targetWs},address:0x${prevItem.addr}`);
+                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ window = "address:0x${prevItem.addr}", workspace = ${targetWs}, follow = false })` : `movetowsilent ${targetWs},address:0x${prevItem.addr}`);
                         root.refreshWindows();
                         prevItem.x = prevItem.expectedX;
                         prevItem.y = prevItem.expectedY;
