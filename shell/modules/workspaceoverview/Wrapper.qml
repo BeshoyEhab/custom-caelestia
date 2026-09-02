@@ -83,8 +83,7 @@ Item {
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
-        hoverEnabled: true
-        propagateComposedEvents: true
+        hoverEnabled: false
         onPressed: mouse => {
             const lp = mapToItem(cardBg, mouse.x, mouse.y);
             if (lp.x < 0 || lp.y < 0 || lp.x > cardBg.width || lp.y > cardBg.height) {
