@@ -83,21 +83,6 @@ Item {
         property real pressY: 0
         property bool wasDrag: false
 
-        Timer {
-            id: dragClickTimer
-            interval: 80
-            onTriggered: {
-                Hypr.dispatch(Hypr.usingLua
-                    ? `hl.dsp.focus({ address = "0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}" })`
-                    : `focuswindow address:0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}`);
-                if (root.toplevel?.workspace?.id !== Hypr.activeWsId)
-                    Hypr.dispatch(Hypr.usingLua
-                        ? `hl.dsp.focus({ workspace = "${root.toplevel?.workspace?.id}" })`
-                        : `workspace ${root.toplevel?.workspace?.id}`);
-                root.parent?.parent?.close?.();
-            }
-        }
-
         onPressed: mouse => {
             pressX = mapToItem(root.parent, mouse.x, mouse.y).x;
             pressY = mapToItem(root.parent, mouse.x, mouse.y).y;
@@ -108,10 +93,8 @@ Item {
             if (!pressed) return;
             const curX = mapToItem(root.parent, mouse.x, mouse.y).x;
             const curY = mapToItem(root.parent, mouse.x, mouse.y).y;
-            if (Math.abs(curX - pressX) > 1 || Math.abs(curY - pressY) > 1) {
+            if (Math.abs(curX - pressX) > 1 || Math.abs(curY - pressY) > 1)
                 wasDrag = true;
-                dragClickTimer.stop();
-            }
         }
 
         onReleased: mouse => {
@@ -125,7 +108,14 @@ Item {
                 root.x = Qt.binding(() => root.cellX + root.winOffsetX);
                 root.y = Qt.binding(() => root.cellY + root.winOffsetY);
             } else {
-                dragClickTimer.start();
+                Hypr.dispatch(Hypr.usingLua
+                    ? `hl.dsp.focus({ address = "0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}" })`
+                    : `focuswindow address:0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}`);
+                if (root.toplevel?.workspace?.id !== Hypr.activeWsId)
+                    Hypr.dispatch(Hypr.usingLua
+                        ? `hl.dsp.focus({ workspace = "${root.toplevel?.workspace?.id}" })`
+                        : `workspace ${root.toplevel?.workspace?.id}`);
+                root.parent?.parent?.close?.();
             }
         }
     }
