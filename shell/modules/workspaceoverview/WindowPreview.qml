@@ -21,6 +21,7 @@ Item {
     required property real cardSpacing
     required property int totalWindows
     required property int windowIndex
+    property int dragTargetWorkspace: -1
 
     readonly property var ipcObj: toplevel?.lastIpcObject
     readonly property int wsId: toplevel?.workspace?.id ?? 0
@@ -32,7 +33,6 @@ Item {
     readonly property real scaledW: winW * fitScale
     readonly property real scaledH: winH * fitScale
 
-    // Position: window position within its workspace cell, offset by cell position
     readonly property real cellX: wsCol * (containerWidth + cardSpacing)
     readonly property real cellY: wsRow * (containerHeight + cardSpacing)
     readonly property real winOffsetX: Math.min(ipcObj?.at[0] ?? 0, containerWidth - scaledW) * 0.3
@@ -42,25 +42,27 @@ Item {
     y: cellY + winOffsetY
     width: scaledW
     height: scaledH
-    z: dragArea.drag.active ? 999 : 1
 
+    property bool hovered: false
+    property bool pressed: false
+
+    z: Drag.active ? 9999 : 1
     Drag.hotSpot.x: width / 2
     Drag.hotSpot.y: height / 2
 
-    // Window preview
     StyledClippingRect {
         anchors.fill: parent
         radius: Tokens.rounding.medium
-        color: Colours.layer(Colours.palette.m3surfaceContainer, 1)
+        color: root.pressed ? Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.3) :
+            root.hovered ? Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.15) :
+            Colours.layer(Colours.palette.m3surfaceContainer, 1)
 
         ScreencopyView {
-            id: screencopy
             anchors.fill: parent
             captureSource: root.overviewOpen ? root.toplevel : null
             live: true
         }
 
-        // App icon fallback — always show
         MaterialIcon {
             anchors.centerIn: parent
             grade: 0
@@ -70,64 +72,54 @@ Item {
         }
     }
 
-    // Drag + click handling
     MouseArea {
         id: dragArea
         anchors.fill: parent
         hoverEnabled: true
-        cursorShape: drag.active ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+        cursorShape: Drag.active ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
         drag.target: root
-        drag.axis: Drag.XAndY
-
-        property real pressX: 0
-        property real pressY: 0
-        property bool wasDrag: false
 
         onPressed: mouse => {
-            pressX = mapToItem(root.parent, mouse.x, mouse.y).x;
-            pressY = mapToItem(root.parent, mouse.x, mouse.y).y;
-            wasDrag = false;
+            root.pressed = true;
+            root.Drag.active = true;
+            root.Drag.source = root;
+            root.Drag.hotSpot.x = mouse.x;
+            root.Drag.hotSpot.y = mouse.y;
         }
+        onReleased: {
+            const targetWs = root.dragTargetWorkspace;
+            root.pressed = false;
+            root.Drag.active = false;
+            root.dragTargetWorkspace = -1;
 
-        onPositionChanged: mouse => {
-            if (!pressed) return;
-            const curX = mapToItem(root.parent, mouse.x, mouse.y).x;
-            const curY = mapToItem(root.parent, mouse.x, mouse.y).y;
-            if (Math.abs(curX - pressX) > 1 || Math.abs(curY - pressY) > 1)
-                wasDrag = true;
-        }
-
-        onReleased: mouse => {
-            if (wasDrag) {
-                const targetWs = root.getWorkspaceAtPosition(root.x + root.width / 2, root.y + root.height / 2);
-                if (targetWs > 0 && targetWs !== root.wsId) {
-                    Hypr.dispatch(Hypr.usingLua
-                        ? `hl.dsp.window.move({ address = "0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}", workspace = ${targetWs} })`
-                        : `movetoworkspace ${targetWs},address:0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}`);
-                }
-                root.x = Qt.binding(() => root.cellX + root.winOffsetX);
-                root.y = Qt.binding(() => root.cellY + root.winOffsetY);
-            } else {
+            if (targetWs !== -1 && targetWs !== root.wsId) {
                 Hypr.dispatch(Hypr.usingLua
-                    ? `hl.dsp.focus({ address = "0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}" })`
-                    : `focuswindow address:0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}`);
-                if (root.toplevel?.workspace?.id !== Hypr.activeWsId)
-                    Hypr.dispatch(Hypr.usingLua
-                        ? `hl.dsp.focus({ workspace = "${root.toplevel?.workspace?.id}" })`
-                        : `workspace ${root.toplevel?.workspace?.id}`);
-                root.parent?.parent?.close?.();
+                    ? `hl.dsp.window.move({ address = "0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}", workspace = ${targetWs} })`
+                    : `movetoworkspace ${targetWs},address:0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}`);
             }
+            root.x = Qt.binding(() => root.cellX + root.winOffsetX);
+            root.y = Qt.binding(() => root.cellY + root.winOffsetY);
         }
-    }
-
-    function getWorkspaceAtPosition(x: real, y: real): int {
-        const cols = root.columns;
-        const cellW = root.containerWidth + root.cardSpacing;
-        const cellH = root.containerHeight + root.cardSpacing;
-        const col = Math.floor(x / cellW);
-        const row = Math.floor(y / cellH);
-        if (col < 0 || col >= cols || row < 0) return -1;
-        return root.groupOffset + row * cols + col + 1;
+        onClicked: mouse => {
+            if (!root.toplevel) return;
+            if (mouse.button === Qt.MiddleButton) {
+                Hypr.dispatch(Hypr.usingLua
+                    ? `hl.dsp.window.close({ address = "0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}" })`
+                    : `closewindow address:0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}`);
+                return;
+            }
+            Hypr.dispatch(Hypr.usingLua
+                ? `hl.dsp.focus({ address = "0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}" })`
+                : `focuswindow address:0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}`);
+            if (root.toplevel?.workspace?.id !== Hypr.activeWsId)
+                Hypr.dispatch(Hypr.usingLua
+                    ? `hl.dsp.focus({ workspace = "${root.toplevel?.workspace?.id}" })`
+                    : `workspace ${root.toplevel?.workspace?.id}`);
+            root.parent?.parent?.close?.();
+        }
+        onEntered: root.hovered = true
+        onExited: root.hovered = false
     }
 
     Behavior on x { Anim { type: Anim.FastSpatial } }
