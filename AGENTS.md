@@ -69,6 +69,20 @@ The bar uses an `Item` root with a split layout (`topLayout` + `bottomLayout` + 
 5. **BarWrapper has no `implicitHeight`** — it gets its height from parent anchors (top+bottom for vertical, left+right for horizontal).
 6. **`Tokens.sizes.bar.innerWidth`** is the content width; `contentWidth = innerWidth + padding*2`.
 
+## Workspace Overview (modules/workspaceoverview/)
+
+**CRITICAL: Repeater with `property var` (JS array) models does NOT render delegates** in this Quickshell/Qt6 build. Delegates are created (Component.onCompleted fires, data is correct) but produce no visual output.
+
+**Working patterns:**
+- `model: <integer>` (e.g., `model: 3`, `model: root.workspacesShown`) — delegates render correctly
+- `Component.createObject()` / `Qt.createQmlObject()` — dynamic creation works for JS data
+
+**Solution used:** Dynamic object creation via `Component {}` + `createObject()`. Window data is stored in a JS array (`property var windowDataList`), and preview Items are created/destroyed in `onWindowDataListChanged`.
+
+**Known failures:**
+- `ListModel` with `required property` causes "Unable to assign [undefined]" errors that break the entire component
+- `model: root.windowDataList.length` with `root.windowDataList[index]` access also causes assignment errors
+
 ## Settings App ("Nexus")
 
 The settings app lives at `shell/modules/nexus/`. Key files:
