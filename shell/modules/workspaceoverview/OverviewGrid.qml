@@ -169,6 +169,9 @@ Item {
             property int wsId: 0
             property bool hovered: false
             property bool pressed: false
+            property bool wasDrag: false
+            property real pressX: 0
+            property real pressY: 0
 
             z: Drag.active ? 9999 : 1
             Drag.hotSpot.x: width / 2
@@ -215,10 +218,20 @@ Item {
                 onPressed: mouse => {
                     root.dragSourceWorkspace = prevItem.wsId;
                     prevItem.pressed = true;
+                    prevItem.wasDrag = false;
+                    prevItem.pressX = mouse.x;
+                    prevItem.pressY = mouse.y;
                     prevItem.Drag.active = true;
                     prevItem.Drag.source = prevItem;
                     prevItem.Drag.hotSpot.x = mouse.x;
                     prevItem.Drag.hotSpot.y = mouse.y;
+                }
+                onPositionChanged: mouse => {
+                    if (!prevMouse.pressed || prevItem.wasDrag) return;
+                    const dx = mouse.x - prevItem.pressX;
+                    const dy = mouse.y - prevItem.pressY;
+                    if (Math.abs(dx) > 1 || Math.abs(dy) > 1)
+                        prevItem.wasDrag = true;
                 }
                 onReleased: {
                     const targetWs = root.dragTargetWorkspace;
@@ -231,9 +244,11 @@ Item {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ address = "0x${prevItem.addr}", workspace = ${targetWs} })` : `movetoworkspace ${targetWs},address:0x${prevItem.addr}`);
                         root.refreshWindows();
                     }
+                    prevItem.x = prevItem.cellX + prevItem.winOffsetX;
+                    prevItem.y = prevItem.cellY + prevItem.winOffsetY;
                 }
                 onClicked: mouse => {
-                    if (!prevItem.toplevel) return;
+                    if (prevItem.wasDrag || !prevItem.toplevel) return;
                     const a = prevItem.addr;
                     if (mouse.button === Qt.MiddleButton) {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ address = "0x${a}" })` : `closewindow address:0x${a}`);
