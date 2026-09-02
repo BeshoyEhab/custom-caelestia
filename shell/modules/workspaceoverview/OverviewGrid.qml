@@ -212,6 +212,7 @@ Item {
                 property bool wasMouseDrag: false
                 property real startX: 0
                 property real startY: 0
+                property string pendingAddr: ""
 
                 Timer {
                     id: longPressTimer
@@ -223,6 +224,37 @@ Item {
                             root.dragWindow = { addr: prevItem.addr, wsId: prevItem.wsId };
                             prevItem.z = 999;
                         }
+                    }
+                }
+
+                Timer {
+                    id: clickTimer
+                    interval: 80
+                    onTriggered: {
+                        const a = prevMouse.pendingAddr;
+                        if (root.dragWindow) {
+                            if (root.dragWindow.addr !== a) {
+                                Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ address = "0x${root.dragWindow.addr}", workspace = ${prevItem.wsId} })` : `movetoworkspace ${prevItem.wsId},address:0x${root.dragWindow.addr}`);
+                            }
+                            root.dragWindow = null;
+                            root.close();
+                            return;
+                        }
+                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ address = "0x${a}" })` : `focuswindow address:0x${a}`);
+                        if (prevItem.wsId !== Hypr.activeWsId)
+                            Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ workspace = ${prevItem.wsId} })` : `workspace ${prevItem.wsId}`);
+                        if (Hypr.usingLua) {
+                            const ipc = prevItem.toplevel?.lastIpcObject;
+                            if (ipc) {
+                                const mon = Hypr.focusedMonitor?.lastIpcObject;
+                                const mx = mon?.x ?? 0;
+                                const my = mon?.y ?? 0;
+                                const cx = mx + (ipc.at?.[0] ?? 0) + (ipc.size?.[0] ?? 0) / 2;
+                                const cy = my + (ipc.at?.[1] ?? 0) + (ipc.size?.[1] ?? 0) / 2;
+                                Hypr.dispatch(`hl.dsp.cursor.move({x=${Math.round(cx)},y=${Math.round(cy)}})`);
+                            }
+                        }
+                        root.close();
                     }
                 }
 
@@ -252,6 +284,7 @@ Item {
                         wasDragSession = true;
                         wasMouseDrag = true;
                         longPressTimer.stop();
+                        clickTimer.stop();
                         prevItem.dragging = true;
                         root.dragWindow = { addr: prevItem.addr, wsId: prevItem.wsId };
                         prevItem.z = 999;
@@ -278,33 +311,12 @@ Item {
                         return;
                     }
                     if (!wasDragSession) {
-                        if (root.dragWindow) {
-                            if (root.dragWindow.addr !== a) {
-                                Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ address = "0x${root.dragWindow.addr}", workspace = ${prevItem.wsId} })` : `movetoworkspace ${prevItem.wsId},address:0x${root.dragWindow.addr}`);
-                            }
-                            root.dragWindow = null;
-                            root.close();
-                            return;
-                        }
                         if (prevMouse.pressedButtons === Qt.MiddleButton) {
                             Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ address = "0x${a}" })` : `closewindow address:0x${a}`);
                             return;
                         }
-                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ address = "0x${a}" })` : `focuswindow address:0x${a}`);
-                        if (prevItem.wsId !== Hypr.activeWsId)
-                            Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ workspace = ${prevItem.wsId} })` : `workspace ${prevItem.wsId}`);
-                        if (Hypr.usingLua) {
-                            const ipc = prevItem.toplevel?.lastIpcObject;
-                            if (ipc) {
-                                const mon = Hypr.focusedMonitor?.lastIpcObject;
-                                const mx = mon?.x ?? 0;
-                                const my = mon?.y ?? 0;
-                                const cx = mx + (ipc.at?.[0] ?? 0) + (ipc.size?.[0] ?? 0) / 2;
-                                const cy = my + (ipc.at?.[1] ?? 0) + (ipc.size?.[1] ?? 0) / 2;
-                                Hypr.dispatch(`hl.dsp.cursor.move({x=${Math.round(cx)},y=${Math.round(cy)}})`);
-                            }
-                        }
-                        root.close();
+                        pendingAddr = a;
+                        clickTimer.start();
                     }
                 }
             }
