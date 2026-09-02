@@ -3,10 +3,9 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Caelestia.Config
 import qs.components
-import qs.components.effects
 import qs.services
 
-StyledRect {
+Rectangle {
     id: root
 
     required property int activeWsId
@@ -21,80 +20,22 @@ StyledRect {
         return i % Config.bar.workspaces.shown;
     }
 
-    property real leading: workspaces.count > 0 ? workspaces.itemAt(currentWsIdx)?.y ?? 0 : 0
-    property real trailing: workspaces.count > 0 ? workspaces.itemAt(currentWsIdx)?.y ?? 0 : 0
-    property real currentSize: workspaces.count > 0 ? (workspaces.itemAt(currentWsIdx) as Workspace)?.size ?? 0 : 0
-    property real offset: Math.min(leading, trailing)
-    property real size: {
-        const s = Math.abs(leading - trailing) + currentSize;
-        if (Config.bar.workspaces.activeTrail && lastWs > currentWsIdx) {
-            const ws = workspaces.itemAt(lastWs) as Workspace;
-            return ws ? Math.min(ws.y + ws.size - offset, s) : 0;
-        }
-        return s;
-    }
+    readonly property var activeItem: workspaces.count > 0 ? workspaces.itemAt(currentWsIdx) : null
 
-    property int cWs
-    property int lastWs
+    property real targetX: (mask.parent.width - width) / 2
+    property real targetY: activeItem ? mask.y + activeItem.y + (activeItem.size - height) / 2 : 0
 
-    onCurrentWsIdxChanged: {
-        lastWs = cWs;
-        cWs = currentWsIdx;
-    }
-
-    clip: true
-    y: offset + mask.y
-    implicitWidth: Tokens.sizes.bar.innerWidth - Tokens.padding.small
-    implicitHeight: size
-    radius: Tokens.rounding.full
+    x: targetX
+    y: targetY
+    width: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall * 2
+    height: width
+    radius: width / 2
     color: Colours.palette.m3primary
+    z: 0
 
-    Colouriser {
-        source: root.mask
-        sourceColor: Colours.palette.m3onSurface
-        colorizationColor: Colours.palette.m3onPrimary
-
-        x: 0
-        y: -parent.offset
-        implicitWidth: root.mask.implicitWidth
-        implicitHeight: root.mask.implicitHeight
-
-        anchors.horizontalCenter: parent.horizontalCenter
-    }
-
-    Behavior on leading {
-        enabled: root.Config.bar.workspaces.activeTrail
-
-        EAnim {}
-    }
-
-    Behavior on trailing {
-        enabled: root.Config.bar.workspaces.activeTrail
-
-        EAnim {
-            duration: Tokens.anim.durations.normal * 2
+    Behavior on y {
+        Anim {
+            type: Anim.Emphasized
         }
-    }
-
-    Behavior on currentSize {
-        enabled: root.Config.bar.workspaces.activeTrail
-
-        EAnim {}
-    }
-
-    Behavior on offset {
-        enabled: !root.Config.bar.workspaces.activeTrail
-
-        EAnim {}
-    }
-
-    Behavior on size {
-        enabled: !root.Config.bar.workspaces.activeTrail
-
-        EAnim {}
-    }
-
-    component EAnim: Anim {
-        type: Anim.Emphasized
     }
 }

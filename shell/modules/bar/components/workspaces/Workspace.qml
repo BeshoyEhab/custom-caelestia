@@ -3,41 +3,76 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Widgets
 import Caelestia.Config
 import qs.components
 import qs.services
-import qs.utils
 
-ColumnLayout {
+Item {
     id: root
 
     required property int index
     required property int activeWsId
     required property var occupied
     required property int groupOffset
+    required property Repeater workspaces
     property var bar
 
-    readonly property bool isWorkspace: true // Flag for finding workspace children
-    // Unanimated prop for others to use as reference
-    readonly property int size: implicitHeight + (hasWindows ? Tokens.padding.extraSmall : 0)
-
+    readonly property bool isWorkspace: true
     readonly property int ws: groupOffset + index + 1
     readonly property bool isOccupied: occupied[ws] ?? false
-    readonly property bool hasWindows: isOccupied && Config.bar.workspaces.showWindows
+    readonly property bool isActive: root.activeWsId === root.ws
+
+    readonly property string appIcon: {
+        Hypr.appIconsVersion;
+        if (!Config.bar.workspaces.showAppIcon || !root.isOccupied)
+            return "";
+        return Hypr.appIconsPerWorkspace[root.ws] ?? "";
+    }
+    readonly property bool showAppIcon: appIcon !== ""
+
+    readonly property real circleSize: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall * 2
+    readonly property int size: circleSize + 2
 
     Layout.alignment: Qt.AlignHCenter
-    Layout.preferredHeight: size
+    Layout.preferredWidth: root.circleSize
+    Layout.preferredHeight: root.size
 
-    spacing: 0
+    // Grey circle background for ALL workspaces
+    Rectangle {
+        id: circleBg
 
-    StyledText {
-        id: indicator
+        anchors.centerIn: parent
+        width: root.circleSize
+        height: root.circleSize
+        radius: width / 2
 
-        Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
-        Layout.preferredHeight: Tokens.sizes.bar.innerWidth - Tokens.padding.small
+        color: root.isOccupied ? Qt.rgba(
+            (Colours.palette.m3primary.r + Colours.tPalette.m3surfaceContainer.r) / 2,
+            (Colours.palette.m3primary.g + Colours.tPalette.m3surfaceContainer.g) / 2,
+            (Colours.palette.m3primary.b + Colours.tPalette.m3surfaceContainer.b) / 2,
+            1
+        ) : "#606060"
+        opacity: root.isOccupied || root.isActive ? 1.0 : 0.5
+
+        Behavior on opacity {
+            Anim { type: Anim.DefaultEffects }
+        }
+    }
+
+    // Workspace number or dot (when no app icon)
+    MaterialIcon {
+        id: numberIndicator
+
+        anchors.centerIn: circleBg
+        visible: !root.showAppIcon
 
         animate: true
         text: {
+            if (Config.bar.workspaces.showEmptyAsNumber)
+                return root.ws.toString();
+            if (!root.isOccupied && !root.isActive)
+                return "\u2022";
             const ws = Hypr.workspaces.values.find(w => w.id === root.ws);
             const wsName = !ws || ws.name == root.ws ? root.ws : ws.name[0];
             let displayName = wsName.toString();
@@ -49,74 +84,26 @@ ColumnLayout {
             const label = Config.bar.workspaces.label || displayName;
             const occupiedLabel = Config.bar.workspaces.occupiedLabel || label;
             const activeLabel = Config.bar.workspaces.activeLabel || (root.isOccupied ? occupiedLabel : label);
-            return root.activeWsId === root.ws ? activeLabel : root.isOccupied ? occupiedLabel : label;
+            return root.isActive ? activeLabel : root.isOccupied ? occupiedLabel : label;
         }
-        color: Config.bar.workspaces.occupiedBg || root.isOccupied || root.activeWsId === root.ws ? Colours.palette.m3onSurface : Colours.layer(Colours.palette.m3outlineVariant, 2)
+        color: root.isActive ? "#ffffff" : (root.isOccupied ? "#cccccc" : "#999999")
         verticalAlignment: Qt.AlignVCenter
         font.family: Tokens.font.workspaces
+        font.pixelSize: root.isOccupied ? undefined : Tokens.sizes.bar.innerWidth * 0.4
     }
 
-    Loader {
-        id: windows
+    // App icon (when available)
+    IconImage {
+        id: appIconDisplay
 
-        asynchronous: true
+        anchors.centerIn: circleBg
+        visible: root.showAppIcon
 
-        Layout.alignment: Qt.AlignHCenter
-        Layout.fillHeight: true
-        Layout.topMargin: -Tokens.sizes.bar.innerWidth / 10
+        implicitSize: Tokens.sizes.bar.innerWidth * 0.55
 
-        visible: active
-        active: root.hasWindows
-
-        sourceComponent: Column {
-            spacing: 0
-
-            add: Transition {
-                Anim {
-                    properties: "scale"
-                    from: 0
-                    to: 1
-                    easing: Tokens.anim.standardDecel
-                }
-            }
-
-            move: Transition {
-                Anim {
-                    properties: "scale"
-                    to: 1
-                    easing: Tokens.anim.standardDecel
-                }
-                Anim {
-                    properties: "x,y"
-                }
-            }
-
-            Repeater {
-                model: ScriptModel {
-                    values: {
-                        const ws = root.ws;
-                        const windows = Hypr.toplevels.values.filter(c => c.workspace?.id === ws);
-                        const maxIcons = root.Config.bar.workspaces.maxWindowIcons;
-                        if (maxIcons <= 0)
-                            return windows;
-                        return windows.slice(0, 1);
-                    }
-                }
-
-                MaterialIcon {
-                    required property var modelData
-
-                    width: Tokens.sizes.bar.innerWidth
-                    horizontalAlignment: Text.AlignHCenter
-                    grade: 0
-                    text: Icons.getAppCategoryIcon(modelData.lastIpcObject.class, "terminal")
-                    color: Colours.palette.m3onSurfaceVariant
-                }
-            }
+        source: {
+            Hypr.appIconsVersion;
+            return root.appIcon ? Quickshell.iconPath(root.appIcon, "image-missing") : "";
         }
-    }
-
-    Behavior on Layout.preferredHeight {
-        Anim {}
     }
 }

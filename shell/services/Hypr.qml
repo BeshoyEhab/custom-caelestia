@@ -39,6 +39,105 @@ Singleton {
 
     property bool hadKeyboard
     property string lastSpecialWorkspace: ""
+    property var appIconsPerWorkspace: ({})
+    property int appIconsVersion: 0
+    property var lastActivePerWorkspace: ({})
+
+    function biggestWindowForWorkspace(wsId: int): var {
+        const toplevels = Hyprland.toplevels?.values ?? [];
+        let biggest = null;
+        let biggestArea = 0;
+        for (const t of toplevels) {
+            if (t.workspace?.id !== wsId)
+                continue;
+            const ipc = t.lastIpcObject;
+            const area = (ipc?.size?.[0] ?? 0) * (ipc?.size?.[1] ?? 0);
+            if (area > biggestArea) {
+                biggestArea = area;
+                biggest = t;
+            }
+        }
+        return biggest;
+    }
+
+    function lookupAppIcon(cls: string): string {
+        if (!cls || cls.length === 0)
+            return "";
+        const entry = DesktopEntries.heuristicLookup(cls);
+        if (entry?.icon && entry.icon.length > 0)
+            return entry.icon;
+        const entry2 = DesktopEntries.heuristicLookup(cls.toLowerCase());
+        if (entry2?.icon && entry2.icon.length > 0)
+            return entry2.icon;
+        return "";
+    }
+
+    function updateAppIcons() {
+        const newIcons = {};
+        const toplevels = Hyprland.toplevels?.values ?? [];
+        const seenWs = new Set();
+        for (const t of toplevels) {
+            const wsId = t.workspace?.id;
+            if (wsId == null || seenWs.has(wsId))
+                continue;
+            seenWs.add(wsId);
+            const cls = t.lastIpcObject?.class ?? "";
+            newIcons[wsId] = lookupAppIcon(cls);
+        }
+        root.appIconsPerWorkspace = newIcons;
+        root.appIconsVersion++;
+    }
+
+    function updateLastActiveIcons() {
+        const newIcons = {};
+        const toplevels = Hyprland.toplevels?.values ?? [];
+        const lastActive = root.lastActivePerWorkspace;
+        for (const wsIdStr of Object.keys(lastActive)) {
+            const wsId = Number(wsIdStr);
+            const lastToplevel = lastActive[wsId];
+            if (lastToplevel && lastToplevel.workspace?.id === wsId) {
+                const cls = lastToplevel.lastIpcObject?.class ?? "";
+                newIcons[wsId] = lookupAppIcon(cls);
+            }
+        }
+        for (const t of toplevels) {
+            const wsId = t.workspace?.id;
+            if (wsId == null || newIcons[wsId])
+                continue;
+            const cls = t.lastIpcObject?.class ?? "";
+            newIcons[wsId] = lookupAppIcon(cls);
+        }
+        root.appIconsPerWorkspace = newIcons;
+        root.appIconsVersion++;
+    }
+
+    Timer {
+        id: focusTracker
+
+        interval: 0
+        onTriggered: root.updateLastActiveIcons()
+    }
+
+    Connections {
+        target: Hyprland.toplevels
+        function onValuesChanged() {
+            focusTracker.restart();
+        }
+    }
+
+    Connections {
+        target: Hyprland
+        function onActiveToplevelChanged() {
+            const t = Hyprland.activeToplevel;
+            if (!t) return;
+            const wsId = t.workspace?.id;
+            if (wsId == null) return;
+            const newLastActive = Object.assign({}, root.lastActivePerWorkspace);
+            newLastActive[wsId] = t;
+            root.lastActivePerWorkspace = newLastActive;
+            root.updateLastActiveIcons();
+        }
+    }
 
     signal configReloaded
 
@@ -136,15 +235,19 @@ Singleton {
             } else if (["workspace", "moveworkspace", "activespecial", "focusedmon"].includes(n)) {
                 Hyprland.refreshWorkspaces();
                 Hyprland.refreshMonitors();
+                focusTracker.start();
             } else if (["openwindow", "closewindow", "movewindow"].includes(n)) {
                 Hyprland.refreshToplevels();
                 Hyprland.refreshWorkspaces();
+                focusTracker.start();
             } else if (n.includes("mon")) {
                 Hyprland.refreshMonitors();
             } else if (n.includes("workspace")) {
                 Hyprland.refreshWorkspaces();
+                focusTracker.start();
             } else if (n.includes("window") || n.includes("group") || ["pin", "fullscreen", "changefloatingmode", "minimize"].includes(n)) {
                 Hyprland.refreshToplevels();
+                focusTracker.start();
             }
         }
 
@@ -161,6 +264,14 @@ Singleton {
         }
 
         target: root.focusedMonitor
+    }
+
+    Connections {
+        function onLastIpcObjectChanged(): void {
+            focusTracker.start();
+        }
+
+        target: root.focusedWorkspace
     }
 
     FileView {
