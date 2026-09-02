@@ -242,13 +242,13 @@ Item {
                 }
                 onReleased: mouse => {
                     const targetWs = root.dragTargetWorkspace;
-                    const wasDrag = targetWs !== -1;
+                    const didDrop = targetWs !== -1 && targetWs !== prevItem.wsId;
                     prevItem.pressed = false;
                     prevItem.Drag.active = false;
                     root.dragSourceWorkspace = -1;
                     root.dragTargetWorkspace = -1;
 
-                    if (wasDrag && targetWs !== prevItem.wsId) {
+                    if (didDrop) {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ address = "0x${prevItem.addr}", workspace = ${targetWs} })` : `movetoworkspace ${targetWs},address:0x${prevItem.addr}`);
                         root.refreshWindows();
                         prevItem.x = prevItem.expectedX;
@@ -260,12 +260,11 @@ Item {
                     prevItem.y = prevItem.expectedY;
 
                     if (!prevItem.toplevel) return;
-                    const a = prevItem.addr;
                     if (mouse.button === Qt.MiddleButton) {
-                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ address = "0x${a}" })` : `closewindow address:0x${a}`);
+                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ address = "0x${prevItem.addr}" })` : `closewindow address:0x${prevItem.addr}`);
                         return;
                     }
-                    Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ address = "0x${a}" })` : `focuswindow address:0x${a}`);
+                    Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ address = "0x${prevItem.addr}" })` : `focuswindow address:0x${prevItem.addr}`);
                     if (prevItem.wsId !== Hypr.activeWsId)
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ workspace = ${prevItem.wsId} })` : `workspace ${prevItem.wsId}`);
                     if (Hypr.usingLua) {
