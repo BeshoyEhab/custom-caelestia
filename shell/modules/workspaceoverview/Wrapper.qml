@@ -43,6 +43,28 @@ Item {
         function onSessionChanged() { if (root.visibilities.session) root.visibilities.workspaceOverview = false; }
     }
 
+    // Block all mouse events from passing through to windows behind
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        hoverEnabled: true
+        preventStealing: true
+        onPressed: mouse => {
+            const lp = mapToItem(cardBg, mouse.x, mouse.y);
+            if (lp.x < 0 || lp.y < 0 || lp.x > cardBg.width || lp.y > cardBg.height) {
+                mouse.accepted = true;
+            } else {
+                mouse.accepted = false;
+            }
+        }
+        onReleased: mouse => {
+            const lp = mapToItem(cardBg, mouse.x, mouse.y);
+            if (lp.x < 0 || lp.y < 0 || lp.x > cardBg.width || lp.y > cardBg.height) {
+                root.visibilities.workspaceOverview = false;
+            }
+        }
+    }
+
     // Floating card background
     StyledRect {
         id: cardBg
@@ -76,27 +98,6 @@ Item {
             cardSpacing: root.cardSpacing
             overviewScale: root.overviewScale
             onClose: root.visibilities.workspaceOverview = false
-        }
-    }
-
-    // Click outside card closes overview
-    MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.AllButtons
-        hoverEnabled: false
-        onPressed: mouse => {
-            const lp = mapToItem(cardBg, mouse.x, mouse.y);
-            if (lp.x < 0 || lp.y < 0 || lp.x > cardBg.width || lp.y > cardBg.height) {
-                mouse.accepted = true;
-            } else {
-                mouse.accepted = false;
-            }
-        }
-        onReleased: mouse => {
-            const lp = mapToItem(cardBg, mouse.x, mouse.y);
-            if (lp.x < 0 || lp.y < 0 || lp.x > cardBg.width || lp.y > cardBg.height) {
-                root.visibilities.workspaceOverview = false;
-            }
         }
     }
 
