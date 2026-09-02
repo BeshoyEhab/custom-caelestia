@@ -45,9 +45,6 @@ Item {
 
     property bool hovered: false
     property bool pressed: false
-    property bool wasDrag: false
-    property real pressX: 0
-    property real pressY: 0
 
     z: Drag.active ? 9999 : 1
     Drag.hotSpot.x: width / 2
@@ -85,37 +82,31 @@ Item {
 
         onPressed: mouse => {
             root.pressed = true;
-            root.wasDrag = false;
-            root.pressX = mouse.x;
-            root.pressY = mouse.y;
             root.Drag.active = true;
             root.Drag.source = root;
             root.Drag.hotSpot.x = mouse.x;
             root.Drag.hotSpot.y = mouse.y;
         }
-        onPositionChanged: mouse => {
-            if (!dragArea.pressed || root.wasDrag) return;
-            const dx = mouse.x - root.pressX;
-            const dy = mouse.y - root.pressY;
-            if (Math.abs(dx) > 1 || Math.abs(dy) > 1)
-                root.wasDrag = true;
-        }
-        onReleased: {
+        onReleased: mouse => {
             const targetWs = root.dragTargetWorkspace;
+            const wasDrag = targetWs !== -1;
             root.pressed = false;
             root.Drag.active = false;
             root.dragTargetWorkspace = -1;
 
-            if (targetWs !== -1 && targetWs !== root.wsId) {
+            if (wasDrag && targetWs !== root.wsId) {
                 Hypr.dispatch(Hypr.usingLua
                     ? `hl.dsp.window.move({ address = "0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}", workspace = ${targetWs} })`
                     : `movetoworkspace ${targetWs},address:0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}`);
+                root.x = Qt.binding(() => root.cellX + root.winOffsetX);
+                root.y = Qt.binding(() => root.cellY + root.winOffsetY);
+                return;
             }
+
             root.x = Qt.binding(() => root.cellX + root.winOffsetX);
             root.y = Qt.binding(() => root.cellY + root.winOffsetY);
-        }
-        onClicked: mouse => {
-            if (root.wasDrag || !root.toplevel) return;
+
+            if (!root.toplevel) return;
             if (mouse.button === Qt.MiddleButton) {
                 Hypr.dispatch(Hypr.usingLua
                     ? `hl.dsp.window.close({ address = "0x${root.toplevel?.lastIpcObject?.address?.toString(16) ?? '0'}" })`
