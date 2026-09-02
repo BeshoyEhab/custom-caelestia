@@ -101,16 +101,6 @@ Region {
         width: panel.width * (1 - root.panels.popoutsWrapper.offsetScale)
     }
 
-    // Workspace overview — capture all input when active
-    Region {
-        visible: root.win.contentItem.visibilities.workspaceOverview
-        x: 0
-        y: 0
-        width: root.win.width
-        height: root.win.height
-        intersection: Intersection.Add
-    }
-
     // Hover areas — always accept input so hover detection works.
     Region {
         property var geom: root.hoverGeom(GlobalConfig.launcher.hoverEdge, GlobalConfig.launcher.hoverWidth, GlobalConfig.launcher.hoverHeight)
