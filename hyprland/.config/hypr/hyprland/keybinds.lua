@@ -22,7 +22,6 @@ hl.bind("SUPER + U", hl.dsp.global("caelestia:utilities"), { description = "Shel
 -- Sidebar
 hl.bind("SUPER + A", hl.dsp.global("caelestia:sidebar"), { description = "Shell: Toggle sidebar" })
 hl.bind("SUPER + B", hl.dsp.global("caelestia:sidebar"))
-hl.bind("SUPER + O", hl.dsp.global("caelestia:sidebar"))
 -- Session
 hl.bind("CTRL + ALT + Delete", hl.dsp.global("caelestia:session"), { description = "Shell: Toggle session menu" })
 -- Presentation mode (disable hover-to-open)
@@ -281,6 +280,9 @@ end)
 hl.bind("SUPER + L", hl.dsp.exec_cmd("loginctl lock-session"), { description = "Session: Lock" })
 hl.bind("CTRL + SHIFT + ALT + SUPER + Delete", hl.dsp.exec_cmd("systemctl poweroff || loginctl poweroff"),
     { description = "Session: Shut down" })
+
+-- ##! Workspace overview
+hl.bind("SUPER + TAB", hl.dsp.global("caelestia:workspaceOverview"), { description = "Workspace: Toggle overview" })
 
 -- ##! Apps
 hl.bind("SUPER + Return", hl.dsp.exec_cmd(terminal), { description = "App: Terminal" })

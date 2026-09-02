@@ -20,6 +20,22 @@ Singleton {
     property alias dnd: props.dnd
 
     property bool loaded
+    property var rawNotifications: []
+    property int loadedCount: 0
+    readonly property bool hasMore: loadedCount < rawNotifications.length
+    property int batchSize: 20
+
+    function loadMore(): bool {
+        if (!hasMore)
+            return false;
+
+        const end = Math.min(loadedCount + batchSize, rawNotifications.length);
+        for (let i = loadedCount; i < end; i++)
+            root.list.push(notifComp.createObject(root, rawNotifications[i]));
+        root.list.sort((a, b) => b.time - a.time);
+        loadedCount = end;
+        return hasMore;
+    }
 
     function hasFullscreen(): bool {
         for (const monitor of Hypr.monitors.values) {
@@ -56,20 +72,17 @@ Singleton {
         id: saveTimer
 
         interval: 1000
-        onTriggered: storage.setText(JSON.stringify(root.notClosed.map(n => ({
-                    time: n.time,
-                    id: n.id,
-                    summary: n.summary,
-                    body: n.body,
-                    appIcon: n.appIcon,
-                    appName: n.appName,
-                    image: n.image,
-                    expireTimeout: n.expireTimeout,
-                    urgency: n.urgency,
-                    resident: n.resident,
-                    hasActionIcons: n.hasActionIcons,
-                    actions: n.actions
-                }))))
+        onTriggered: {
+            const loadedNotifs = root.notClosed.map(n => ({
+                time: n.time, id: n.id, summary: n.summary, body: n.body,
+                appIcon: n.appIcon, appName: n.appName, image: n.image,
+                expireTimeout: n.expireTimeout, urgency: n.urgency,
+                resident: n.resident, hasActionIcons: n.hasActionIcons, actions: n.actions
+            }));
+            const loadedIds = new Set(loadedNotifs.map(n => n.id));
+            const unloaded = root.rawNotifications.slice(root.loadedCount).filter(n => !loadedIds.has(n.id));
+            storage.setText(JSON.stringify([...loadedNotifs, ...unloaded]));
+        }
     }
 
     PersistentProperties {
@@ -98,6 +111,13 @@ Singleton {
                 popup: root.shouldShowPopup(),
                 notification: notif
             });
+            root.rawNotifications.unshift({
+                time: Date.now(), id: notif.id, summary: comp.summary, body: comp.body,
+                appIcon: comp.appIcon, appName: comp.appName, image: comp.image,
+                expireTimeout: comp.expireTimeout, urgency: comp.urgency,
+                resident: comp.resident, hasActionIcons: comp.hasActionIcons, actions: comp.actions
+            });
+            root.loadedCount++;
             root.list = [comp, ...root.list];
         }
     }
@@ -109,9 +129,12 @@ Singleton {
         path: `${Paths.state}/notifs.json`
         onLoaded: {
             const data = JSON.parse(text());
-            for (const notif of data)
-                root.list.push(notifComp.createObject(root, notif));
+            root.rawNotifications = data;
+            const end = Math.min(root.batchSize, data.length);
+            for (let i = 0; i < end; i++)
+                root.list.push(notifComp.createObject(root, data[i]));
             root.list.sort((a, b) => b.time - a.time);
+            root.loadedCount = end;
             root.loaded = true;
         }
         onLoadFailed: err => {
@@ -130,6 +153,8 @@ Singleton {
         onPressed: {
             for (const notif of root.list.slice())
                 notif.close();
+            root.rawNotifications = [];
+            root.loadedCount = 0;
         }
     }
 
@@ -137,6 +162,8 @@ Singleton {
         function clear(): void {
             for (const notif of root.list.slice())
                 notif.close();
+            root.rawNotifications = [];
+            root.loadedCount = 0;
         }
 
         function isDndEnabled(): bool {

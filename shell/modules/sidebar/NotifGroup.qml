@@ -17,6 +17,7 @@ StyledRect {
     required property Props props
     required property Flickable container
     required property DrawerVisibilities visibilities
+    property string clearPhase: "idle"
 
     readonly property list<var> notifs: Notifs.list.filter(n => n.appName === modelData)
     readonly property list<var> activeNotifs: notifs.filter(n => !n.closed)
@@ -54,14 +55,22 @@ StyledRect {
 
     anchors.left: parent?.left
     anchors.right: parent?.right
-    implicitHeight: nonAnimHeight
+    implicitHeight: root.clearPhase === "instant" ? Tokens.sizes.notifs.image + Tokens.padding.medium * 2 : nonAnimHeight
 
     clip: true
     radius: Tokens.rounding.large
     color: Colours.layer(Colours.palette.m3surfaceContainer, 2)
 
+    opacity: root.clearPhase === "instant" ? 0.3 : 1
+
     Behavior on implicitHeight {
         Anim {}
+    }
+
+    Behavior on opacity {
+        Anim {
+            type: root.clearPhase === "instant" ? Anim.DefaultEffects : Anim.Standard
+        }
     }
 
     RowLayout {
@@ -158,6 +167,7 @@ StyledRect {
             id: column
 
             Layout.fillWidth: true
+            visible: root.clearPhase !== "instant"
             spacing: root.expanded ? Math.round(Tokens.spacing.extraSmall) : 0
 
             Behavior on spacing {

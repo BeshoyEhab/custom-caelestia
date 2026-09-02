@@ -13,6 +13,7 @@ LazyListView {
     required property Props props
     required property Flickable container
     required property DrawerVisibilities visibilities
+    property string clearPhase: "idle"
 
     anchors.left: parent?.left
     anchors.right: parent?.right
@@ -123,6 +124,7 @@ LazyListView {
                 props: root.props
                 container: root.container
                 visibilities: root.visibilities
+                clearPhase: root.clearPhase
             }
 
             Behavior on y {

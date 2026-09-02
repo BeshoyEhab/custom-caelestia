@@ -10,6 +10,7 @@ import qs.modules.osd as Osd
 import qs.modules.session as Session
 import qs.modules.sidebar as Sidebar
 import qs.modules.utilities as Utilities
+import qs.modules.workspaceoverview as WorkspaceOverview
 import qs.modules.bar.popouts as BarPopouts
 import qs.modules.utilities.toasts as Toasts
 
@@ -159,5 +160,13 @@ Item {
         anchors.bottom: utilities.top
         anchors.right: parent.right
         anchors.topMargin: -notifications.anchors.topMargin
+    }
+
+    WorkspaceOverview.Wrapper {
+        id: workspaceOverview
+
+        visibilities: root.visibilities
+
+        anchors.fill: parent
     }
 }

@@ -98,6 +98,25 @@ Item {
             popouts.currentName = id.toLowerCase();
             popouts.currentCenter = ch.activeWindowItem.mapToItem(root, 0, ch.activeWindowItem.implicitHeight / 2).y ?? 0;
             popouts.hasCurrent = true;
+        } else if (id === "workspaces" && Config.bar.workspaces.workspacePreviewEnabled) {
+            const workspacesItem = ch.workspacesItem;
+            if (workspacesItem) {
+                const localPos = mapToItem(workspacesItem, 0, pos);
+                const layout = workspacesItem.contentItem?.children[1]?.children[0]; // ColumnLayout > Repeater > Workspace
+                if (layout) {
+                    const child = layout.childAt(localPos.x, localPos.y);
+                    if (child?.isWorkspace) {
+                        popouts.workspacePreviewId = child.ws;
+                        const wsObj = Hypr.workspaces.values.find(w => w.id === child.ws);
+                        popouts.workspacePreviewName = wsObj?.name || child.ws.toString();
+                        popouts.currentName = "workspacepreview";
+                        popouts.currentCenter = child.mapToItem(root, 0, child.implicitHeight / 2).y;
+                        popouts.hasCurrent = true;
+                        return;
+                    }
+                }
+            }
+            popouts.hasCurrent = false;
         }
     }
 

@@ -8,6 +8,7 @@ PersistentProperties {
     property bool dashboard
     property bool utilities
     property bool sidebar
+    property bool workspaceOverview
     property bool launcherHasText
     property bool launcherShortcutActive
 }

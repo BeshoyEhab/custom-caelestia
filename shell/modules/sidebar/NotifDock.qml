@@ -18,6 +18,8 @@ Item {
     required property Props props
     required property DrawerVisibilities visibilities
     readonly property int notifCount: Notifs.list.reduce((acc, n) => n.closed ? acc : acc + 1, 0)
+    property string clearPhase: "idle"
+    property int clearAnimatedRemaining: 3
 
     anchors.fill: parent
     anchors.margins: Tokens.padding.medium
@@ -128,7 +130,12 @@ Item {
 
             flickableDirection: Flickable.VerticalFlick
             contentWidth: width
-            contentHeight: notifList.implicitHeight
+            contentHeight: notifList.implicitHeight + (Notifs.hasMore ? loadIndicator.height + Tokens.spacing.small : 0)
+
+            onContentYChanged: {
+                if (Notifs.hasMore && contentHeight - contentY - height < 200)
+                    Notifs.loadMore();
+            }
 
             StyledScrollBar.vertical: StyledScrollBar {
                 flickable: view
@@ -140,6 +147,46 @@ Item {
                 props: root.props
                 visibilities: root.visibilities
                 container: view
+                clearPhase: root.clearPhase
+            }
+
+            Loader {
+                id: loadIndicator
+
+                anchors.top: notifList.bottom
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.topMargin: Tokens.spacing.small
+
+                active: Notifs.hasMore
+                asynchronous: true
+
+                sourceComponent: RowLayout {
+                    spacing: Tokens.spacing.extraSmall
+
+                    MaterialIcon {
+                        Layout.preferredWidth: Tokens.sizes.bar.innerWidth
+                        Layout.preferredHeight: Tokens.sizes.bar.innerWidth
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        grade: 0
+                        text: "hourglass_top"
+                        color: Colours.palette.m3outlineVariant
+
+                        RotationAnimation on rotation {
+                            running: Notifs.hasMore
+                            from: 0
+                            to: 360
+                            duration: 1000
+                            loops: Animation.Infinite
+                        }
+                    }
+
+                    StyledText {
+                        text: qsTr("Loading more...")
+                        color: Colours.palette.m3outlineVariant
+                        font: Tokens.font.label.medium
+                    }
+                }
             }
         }
     }
@@ -149,24 +196,41 @@ Item {
 
         repeat: true
         triggeredOnStart: true
-        interval: Math.max(15, Math.min(80, 69.8 - 12.3 * Math.log(Notifs.notClosed.length)))
+        interval: root.clearPhase === "instant" ? 5 : Math.max(15, Math.min(80, 69.8 - 12.3 * Math.log(Notifs.notClosed.length)))
         onTriggered: {
-            const first = Notifs.notClosed[0];
-            if (!first) {
+            if (Notifs.notClosed.length === 0) {
+                root.clearPhase = "idle";
                 stop();
                 return;
             }
 
-            const appName = first.appName;
-            let cleared = 0;
-            for (const n of Notifs.notClosed.filter(n => n.appName === appName)) {
-                n.close();
-                cleared++;
-                if (cleared > 30) {
-                    interval = 5;
-                    return;
-                }
+            if (root.clearPhase === "idle") {
+                root.clearAnimatedRemaining = 3;
+                root.clearPhase = "animated";
             }
+
+            // After animated batch, close ALL remaining instantly
+            if (root.clearPhase === "animated" && root.clearAnimatedRemaining <= 0) {
+                root.clearPhase = "instant";
+                for (const n of Notifs.notClosed.slice())
+                    n.close();
+                root.clearPhase = "idle";
+                stop();
+                return;
+            }
+
+            root.clearAnimatedRemaining--;
+
+            // Close one app group with normal timing
+            const first = Notifs.notClosed[0];
+            if (!first) {
+                root.clearPhase = "idle";
+                stop();
+                return;
+            }
+            const appName = first.appName;
+            for (const n of Notifs.notClosed.filter(n => n.appName === appName))
+                n.close();
         }
     }
 

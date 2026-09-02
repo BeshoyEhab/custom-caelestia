@@ -115,6 +115,19 @@ Scope {
     // qmllint disable unresolved-type
     CustomShortcut {
         // qmllint enable unresolved-type
+        name: "workspaceOverview"
+        description: "Toggle workspace overview"
+        onPressed: {
+            if (root.hasFullscreen)
+                return;
+            const visibilities = Visibilities.getForActive();
+            visibilities.workspaceOverview = !visibilities.workspaceOverview;
+        }
+    }
+
+    // qmllint disable unresolved-type
+    CustomShortcut {
+        // qmllint enable unresolved-type
         name: "presentationMode"
         description: "Toggle presentation mode"
         onPressed: PresentationMode.toggle()

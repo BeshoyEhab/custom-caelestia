@@ -35,6 +35,7 @@ ON_CONFLICT="ask"
 BACKUP=false
 DRY_RUN=false
 FORCE=false
+BUILD_PLUGIN=false
 
 usage() {
     cat <<EOF
@@ -52,6 +53,7 @@ ${BOLD}Options:${NC}
   ${CYAN}--backup${NC}           Create safety backups before deploying
   ${CYAN}--dry-run${NC}          Show what would be updated without making changes
   ${CYAN}--force${NC}             Force update — skip mtime check, replace all files
+  ${CYAN}--build${NC}            Rebuild C++ plugin (needed when barconfig.hpp changes)
   ${CYAN}--non-interactive${NC}  Skip prompts (replace on conflict)
   ${CYAN}-h, --help${NC}        Show this help
 EOF
@@ -66,6 +68,7 @@ parse_args() {
             --backup)         BACKUP=true; shift ;;
             --dry-run)        DRY_RUN=true; shift ;;
             --force)          FORCE=true; shift ;;
+            --build)          BUILD_PLUGIN=true; shift ;;
             --non-interactive) ON_CONFLICT="replace"; shift ;;
             -h|--help)        usage ;;
             *)                warn "Unknown option: $1"; shift ;;
@@ -434,6 +437,11 @@ update_quickshell() {
 }
 
 update_plugin() {
+    if [[ "$BUILD_PLUGIN" != "true" ]]; then
+        log "Plugin rebuild skipped (use --build to rebuild C++ plugin)"
+        return
+    fi
+
     log "Checking for C++ plugin source changes..."
     local plugin_src="$MERGED_DIR/shell/plugin/src"
     local build_dir="$MERGED_DIR/build"

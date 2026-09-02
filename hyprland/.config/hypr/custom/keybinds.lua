@@ -60,7 +60,7 @@ hl.bind("SUPER + Period", hl.dsp.exec_cmd("emote --class=emote"))
 
 -- Workspace cycling with Tab
 hl.unbind("SUPER + Tab")
-hl.bind("SUPER + Tab", hl.dsp.focus({ workspace = "r+1" }))
+-- SUPER+Tab now used for workspace overview
 hl.unbind("SUPER + SHIFT + Tab")
 hl.bind("SUPER + SHIFT + Tab", hl.dsp.focus({ workspace = "r-1" }))
 

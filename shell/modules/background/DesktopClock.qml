@@ -22,6 +22,13 @@ Item {
     readonly property color safePrimary: useLightSet ? Colours.palette.m3primaryContainer : Colours.palette.m3primary
     readonly property color safeSecondary: useLightSet ? Colours.palette.m3secondaryContainer : Colours.palette.m3secondary
     readonly property color safeTertiary: useLightSet ? Colours.palette.m3tertiaryContainer : Colours.palette.m3tertiary
+    readonly property color colText: useLightSet ? Colours.palette.m3onSecondaryContainer : Colours.palette.m3onPrimary
+
+    // Vertical mode when clock is on left or right edge
+    readonly property bool isVertical: {
+        const pos = Config.background.desktopClock.position;
+        return pos === "left" || pos === "right";
+    }
 
     implicitWidth: layout.implicitWidth + (Tokens.padding.large * 4 * root.clockScale)
     implicitHeight: layout.implicitHeight + (Tokens.padding.extraLargeIncreased * root.clockScale)
@@ -70,8 +77,10 @@ Item {
             layer.enabled: root.blurEnabled
         }
 
+        // Horizontal mode (default)
         RowLayout {
             id: layout
+            visible: !root.isVertical
 
             anchors.centerIn: parent
             spacing: Tokens.spacing.large * root.clockScale
@@ -79,24 +88,27 @@ Item {
             RowLayout {
                 spacing: Tokens.spacing.small
 
-                StyledText {
+                ClockText {
                     text: Time.hourStr
                     font: Tokens.font.clock.size(Tokens.font.headline.medium.pointSize * 3 * root.clockScale).weight(Font.Bold).build()
                     color: root.safePrimary
+                    Layout.fillWidth: false
                 }
 
-                StyledText {
+                ClockText {
                     text: ":"
                     font: Tokens.font.clock.size(Tokens.font.headline.medium.pointSize * 3 * root.clockScale).build()
                     color: root.safeTertiary
                     opacity: 0.8
                     Layout.topMargin: -Tokens.padding.large * 1.5 * root.clockScale
+                    Layout.fillWidth: false
                 }
 
-                StyledText {
+                ClockText {
                     text: Time.minuteStr
                     font: Tokens.font.clock.size(Tokens.font.headline.medium.pointSize * 3 * root.clockScale).weight(Font.Bold).build()
                     color: root.safeSecondary
+                    Layout.fillWidth: false
                 }
 
                 Loader {
@@ -107,10 +119,11 @@ Item {
                     active: GlobalConfig.services.useTwelveHourClock
                     visible: active
 
-                    sourceComponent: StyledText {
+                    sourceComponent: ClockText {
                         text: Time.amPmStr
                         font: Tokens.font.clock.size(Tokens.font.title.medium.pointSize * root.clockScale).build()
                         color: root.safeSecondary
+                        Layout.fillWidth: false
                     }
                 }
             }
@@ -128,23 +141,84 @@ Item {
             ColumnLayout {
                 spacing: 0
 
-                StyledText {
+                ClockText {
                     text: Time.format("MMMM").toUpperCase()
                     font: Tokens.font.clock.size(Tokens.font.title.medium.pointSize * root.clockScale).letterSpacing(4).weight(Font.Bold).build()
                     color: root.safeSecondary
                 }
 
-                StyledText {
+                ClockText {
                     text: Time.format("dd")
                     font: Tokens.font.clock.size(Tokens.font.headline.medium.pointSize * root.clockScale).letterSpacing(2).weight(Font.Medium).build()
                     color: root.safePrimary
                 }
 
-                StyledText {
+                ClockText {
                     text: Time.format("dddd")
                     font: Tokens.font.clock.size(Tokens.font.body.large.pointSize * root.clockScale).letterSpacing(2).build()
                     color: root.safeSecondary
                 }
+            }
+        }
+
+        // Vertical mode (for left/right positioned clocks)
+        ColumnLayout {
+            id: verticalLayout
+            visible: root.isVertical
+
+            anchors.centerIn: parent
+            spacing: Tokens.spacing.small * root.clockScale
+
+            ClockText {
+                text: Time.hourStr
+                font: Tokens.font.clock.size(Tokens.font.headline.medium.pointSize * 3 * root.clockScale).weight(Font.Bold).build()
+                color: root.safePrimary
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            ClockText {
+                text: Time.minuteStr
+                font: Tokens.font.clock.size(Tokens.font.headline.medium.pointSize * 3 * root.clockScale).weight(Font.Bold).build()
+                color: root.safeSecondary
+                horizontalAlignment: Text.AlignHCenter
+                Layout.topMargin: -Tokens.padding.large * root.clockScale
+            }
+
+            Loader {
+                asynchronous: true
+                active: GlobalConfig.services.useTwelveHourClock
+                visible: active
+
+                sourceComponent: ClockText {
+                    text: Time.amPmStr
+                    font: Tokens.font.clock.size(Tokens.font.title.medium.pointSize * root.clockScale).build()
+                    color: root.safeSecondary
+                    horizontalAlignment: Text.AlignHCenter
+                }
+            }
+
+            StyledRect {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 4 * root.clockScale
+                Layout.leftMargin: Tokens.spacing.large * root.clockScale
+                Layout.rightMargin: Tokens.spacing.large * root.clockScale
+                radius: Tokens.rounding.full
+                color: root.safePrimary
+                opacity: 0.8
+            }
+
+            ClockText {
+                text: Time.format("MMM dd").toUpperCase()
+                font: Tokens.font.clock.size(Tokens.font.title.medium.pointSize * root.clockScale).letterSpacing(2).weight(Font.Bold).build()
+                color: root.safeSecondary
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            ClockText {
+                text: Time.format("dddd")
+                font: Tokens.font.clock.size(Tokens.font.body.large.pointSize * root.clockScale).letterSpacing(1).build()
+                color: root.safeTertiary
+                horizontalAlignment: Text.AlignHCenter
             }
         }
     }
