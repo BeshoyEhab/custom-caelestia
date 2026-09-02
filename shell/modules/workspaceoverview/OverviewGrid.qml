@@ -249,7 +249,7 @@ Item {
                     root.dragTargetWorkspace = -1;
 
                     if (didDrop) {
-                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ address = "0x${prevItem.addr}", workspace = ${targetWs} })` : `movetoworkspace ${targetWs},address:0x${prevItem.addr}`);
+                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ window = "address:0x${prevItem.addr}", workspace = ${targetWs} })` : `movetoworkspace ${targetWs},address:0x${prevItem.addr}`);
                         root.refreshWindows();
                         prevItem.x = prevItem.expectedX;
                         prevItem.y = prevItem.expectedY;
@@ -261,10 +261,10 @@ Item {
 
                     if (!prevItem.toplevel) return;
                     if (mouse.button === Qt.MiddleButton) {
-                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ address = "0x${prevItem.addr}" })` : `closewindow address:0x${prevItem.addr}`);
+                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ window = "address:0x${prevItem.addr}" })` : `closewindow address:0x${prevItem.addr}`);
                         return;
                     }
-                    Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ address = "0x${prevItem.addr}" })` : `focuswindow address:0x${prevItem.addr}`);
+                    Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ window = "address:0x${prevItem.addr}" })` : `focuswindow address:0x${prevItem.addr}`);
                     if (prevItem.wsId !== Hypr.activeWsId)
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ workspace = ${prevItem.wsId} })` : `workspace ${prevItem.wsId}`);
                     if (Hypr.usingLua) {
