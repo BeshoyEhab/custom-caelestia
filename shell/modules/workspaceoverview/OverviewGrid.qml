@@ -330,7 +330,6 @@ Item {
 
                 DropArea {
                     anchors.fill: parent
-                    keys: ["text/plain"]
                     onEntered: {
                         root.dragTargetWorkspace = parent.wsId;
                         parent.isDropTarget = true;
