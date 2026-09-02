@@ -227,25 +227,22 @@ Item {
                 acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                 drag.target: prevItem
 
-                property int lastDropTarget: -1
-
                 onPressed: mouse => {
                     root.dragSourceWorkspace = prevItem.wsId;
+                    root.dragTargetWorkspace = -1;
                     prevItem.pressed = true;
                     prevItem.Drag.active = true;
                     prevItem.Drag.source = prevItem;
                     prevItem.Drag.hotSpot.x = mouse.x;
                     prevItem.Drag.hotSpot.y = mouse.y;
-                    lastDropTarget = -1;
                 }
                 onReleased: mouse => {
-                    const targetWs = lastDropTarget;
+                    const targetWs = root.dragTargetWorkspace;
                     const didDrop = targetWs !== -1 && targetWs !== prevItem.wsId;
                     prevItem.pressed = false;
                     prevItem.Drag.active = false;
                     root.dragSourceWorkspace = -1;
                     root.dragTargetWorkspace = -1;
-                    lastDropTarget = -1;
 
                     if (didDrop) {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ window = "address:0x${prevItem.addr}", workspace = ${targetWs} })` : `movetoworkspace ${targetWs},address:0x${prevItem.addr}`);
