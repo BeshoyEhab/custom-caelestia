@@ -127,6 +127,8 @@ Item {
             if (existing[d.address]) {
                 const item = existing[d.address];
                 item.toplevel = d.toplevel;
+                item.expectedX = newX;
+                item.expectedY = newY;
                 item.x = newX;
                 item.y = newY;
                 item.width = scaledW;
@@ -139,6 +141,8 @@ Item {
                 previewComponent.createObject(previewContainer, {
                     "x": newX,
                     "y": newY,
+                    "expectedX": newX,
+                    "expectedY": newY,
                     "width": scaledW,
                     "height": scaledH,
                     "winClass": d.winClass,
@@ -169,13 +173,21 @@ Item {
             property int wsId: 0
             property bool hovered: false
             property bool pressed: false
-            property bool wasDrag: false
-            property real pressX: 0
-            property real pressY: 0
+            property real expectedX: 0
+            property real expectedY: 0
 
             z: Drag.active ? 9999 : 1
             Drag.hotSpot.x: width / 2
             Drag.hotSpot.y: height / 2
+
+            onXChanged: {
+                if (!pressed && Math.abs(x - expectedX) > 5)
+                    root.refreshWindows();
+            }
+            onYChanged: {
+                if (!pressed && Math.abs(y - expectedY) > 5)
+                    root.refreshWindows();
+            }
 
             ScreencopyView {
                 id: screencopy
@@ -215,40 +227,38 @@ Item {
                 acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                 drag.target: prevItem
 
+                property bool wasDrag: false
+
                 onPressed: mouse => {
                     root.dragSourceWorkspace = prevItem.wsId;
                     prevItem.pressed = true;
-                    prevItem.wasDrag = false;
-                    prevItem.pressX = mouse.x;
-                    prevItem.pressY = mouse.y;
+                    wasDrag = false;
                     prevItem.Drag.active = true;
                     prevItem.Drag.source = prevItem;
                     prevItem.Drag.hotSpot.x = mouse.x;
                     prevItem.Drag.hotSpot.y = mouse.y;
                 }
                 onPositionChanged: mouse => {
-                    if (!prevMouse.pressed || prevItem.wasDrag) return;
-                    const dx = mouse.x - prevItem.pressX;
-                    const dy = mouse.y - prevItem.pressY;
-                    if (Math.abs(dx) > 1 || Math.abs(dy) > 1)
-                        prevItem.wasDrag = true;
+                    if (!prevMouse.pressed) return;
+                    wasDrag = true;
                 }
                 onReleased: {
                     const targetWs = root.dragTargetWorkspace;
+                    const didDrag = wasDrag && (targetWs !== -1);
                     prevItem.pressed = false;
                     prevItem.Drag.active = false;
                     root.dragSourceWorkspace = -1;
                     root.dragTargetWorkspace = -1;
 
-                    if (targetWs !== -1 && targetWs !== prevItem.wsId) {
+                    if (didDrag && targetWs !== prevItem.wsId) {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ address = "0x${prevItem.addr}", workspace = ${targetWs} })` : `movetoworkspace ${targetWs},address:0x${prevItem.addr}`);
                         root.refreshWindows();
                     }
-                    prevItem.x = prevItem.cellX + prevItem.winOffsetX;
-                    prevItem.y = prevItem.cellY + prevItem.winOffsetY;
+                    prevItem.x = prevItem.expectedX;
+                    prevItem.y = prevItem.expectedY;
                 }
                 onClicked: mouse => {
-                    if (prevItem.wasDrag || !prevItem.toplevel) return;
+                    if (wasDrag || !prevItem.toplevel) return;
                     const a = prevItem.addr;
                     if (mouse.button === Qt.MiddleButton) {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ address = "0x${a}" })` : `closewindow address:0x${a}`);
