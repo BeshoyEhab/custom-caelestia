@@ -27,7 +27,8 @@ Item {
     readonly property int groupOffset: Math.floor((root.activeWsId - 1) / root.workspacesShown) * root.workspacesShown
 
     property var windowDataList: []
-    property var dragWindow: null
+    property int dragTargetWorkspace: -1
+    property int dragSourceWorkspace: -1
 
     implicitWidth: columns * root.wsWidth + (columns - 1) * root.cardSpacing
     implicitHeight: rows * root.wsHeight + (rows - 1) * root.cardSpacing
@@ -167,7 +168,11 @@ Item {
             property string addr: ""
             property int wsId: 0
             property bool hovered: false
-            property bool dragging: false
+            property bool pressed: false
+
+            z: Drag.active ? 9999 : 1
+            Drag.hotSpot.x: width / 2
+            Drag.hotSpot.y: height / 2
 
             ScreencopyView {
                 id: screencopy
@@ -192,122 +197,70 @@ Item {
                 z: 1
                 anchors.fill: parent
                 radius: Tokens.rounding.medium
-                color: "transparent"
-                border.width: prevItem.hovered || prevItem.dragging ? 2 : 0
-                border.color: Colours.palette.m3primary
+                color: prevItem.pressed ? Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.3) :
+                    prevItem.hovered ? Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.15) :
+                    Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.05)
+                border.width: 1
+                border.color: Qt.rgba(Colours.palette.m3outline.r, Colours.palette.m3outline.g, Colours.palette.m3outline.b, 0.12)
             }
 
             MouseArea {
                 id: prevMouse
                 anchors.fill: parent
                 hoverEnabled: true
-                preventStealing: true
-                cursorShape: prevItem.dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+                cursorShape: Drag.active ? Qt.ClosedHandCursor : Qt.PointingHandCursor
                 acceptedButtons: Qt.LeftButton | Qt.MiddleButton
-
-                property real pressX: 0
-                property real pressY: 0
-                property bool wasDrag: false
-                property bool wasDragSession: false
-                property bool wasMouseDrag: false
-                property real startX: 0
-                property real startY: 0
-
-                Timer {
-                    id: longPressTimer
-                    interval: 400
-                    onTriggered: {
-                        if (prevMouse.pressed) {
-                            wasDragSession = true;
-                            prevItem.dragging = true;
-                            root.dragWindow = { addr: prevItem.addr, wsId: prevItem.wsId };
-                            prevItem.z = 999;
-                        }
-                    }
-                }
-
-                onEntered: prevItem.hovered = true
-                onExited: prevItem.hovered = false
+                drag.target: prevItem
 
                 onPressed: mouse => {
-                    const gp = mapToItem(previewContainer, mouse.x, mouse.y);
-                    pressX = gp.x;
-                    pressY = gp.y;
-                    startX = prevItem.x;
-                    startY = prevItem.y;
-                    wasDrag = false;
-                    wasDragSession = false;
-                    wasMouseDrag = false;
-                    prevItem.dragging = false;
-                    mouse.accepted = true;
-                    longPressTimer.start();
+                    root.dragSourceWorkspace = prevItem.wsId;
+                    prevItem.pressed = true;
+                    prevItem.Drag.active = true;
+                    prevItem.Drag.source = prevItem;
+                    prevItem.Drag.hotSpot.x = mouse.x;
+                    prevItem.Drag.hotSpot.y = mouse.y;
                 }
-                onPositionChanged: mouse => {
-                    if (!prevMouse.pressed) return;
-                    const gp = mapToItem(previewContainer, mouse.x, mouse.y);
-                    const dx = gp.x - pressX;
-                    const dy = gp.y - pressY;
-                    if (!wasDrag && !prevItem.dragging && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) {
-                        wasDrag = true;
-                        wasDragSession = true;
-                        wasMouseDrag = true;
-                        longPressTimer.stop();
-                        prevItem.dragging = true;
-                        root.dragWindow = { addr: prevItem.addr, wsId: prevItem.wsId };
-                        prevItem.z = 999;
-                    }
-                    if (prevItem.dragging) {
-                        prevItem.x = startX + dx;
-                        prevItem.y = startY + dy;
+                onReleased: {
+                    const targetWs = root.dragTargetWorkspace;
+                    prevItem.pressed = false;
+                    prevItem.Drag.active = false;
+                    root.dragSourceWorkspace = -1;
+                    root.dragTargetWorkspace = -1;
+
+                    if (targetWs !== -1 && targetWs !== prevItem.wsId) {
+                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ address = "0x${prevItem.addr}", workspace = ${targetWs} })` : `movetoworkspace ${targetWs},address:0x${prevItem.addr}`);
+                        root.refreshWindows();
                     }
                 }
-                onReleased: mouse => {
-                    longPressTimer.stop();
+                onClicked: mouse => {
+                    if (!prevItem.toplevel) return;
                     const a = prevItem.addr;
-                    if (wasMouseDrag && prevItem.dragging) {
-                        const cx = prevItem.x + prevItem.width / 2;
-                        const cy = prevItem.y + prevItem.height / 2;
-                        const targetWs = root.cellAtPos(cx, cy);
-                        if (targetWs !== -1 && targetWs !== prevItem.wsId)
-                            Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ address = "0x${a}", workspace = ${targetWs} })` : `movetoworkspace ${targetWs},address:0x${a}`);
-                        prevItem.dragging = false;
-                        prevItem.z = 1;
-                        prevItem.x = startX;
-                        prevItem.y = startY;
-                        root.dragWindow = null;
+                    if (mouse.button === Qt.MiddleButton) {
+                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ address = "0x${a}" })` : `closewindow address:0x${a}`);
                         return;
                     }
-                    if (!wasDragSession) {
-                        if (root.dragWindow) {
-                            if (root.dragWindow.addr !== a) {
-                                Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ address = "0x${root.dragWindow.addr}", workspace = ${prevItem.wsId} })` : `movetoworkspace ${prevItem.wsId},address:0x${root.dragWindow.addr}`);
-                            }
-                            root.dragWindow = null;
-                            root.close();
-                            return;
+                    Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ address = "0x${a}" })` : `focuswindow address:0x${a}`);
+                    if (prevItem.wsId !== Hypr.activeWsId)
+                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ workspace = ${prevItem.wsId} })` : `workspace ${prevItem.wsId}`);
+                    if (Hypr.usingLua) {
+                        const ipc = prevItem.toplevel?.lastIpcObject;
+                        if (ipc) {
+                            const mon = Hypr.focusedMonitor?.lastIpcObject;
+                            const mx = mon?.x ?? 0;
+                            const my = mon?.y ?? 0;
+                            const cx = mx + (ipc.at?.[0] ?? 0) + (ipc.size?.[0] ?? 0) / 2;
+                            const cy = my + (ipc.at?.[1] ?? 0) + (ipc.size?.[1] ?? 0) / 2;
+                            Hypr.dispatch(`hl.dsp.cursor.move({x=${Math.round(cx)},y=${Math.round(cy)}})`);
                         }
-                        if (prevMouse.pressedButtons === Qt.MiddleButton) {
-                            Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ address = "0x${a}" })` : `closewindow address:0x${a}`);
-                            return;
-                        }
-                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ address = "0x${a}" })` : `focuswindow address:0x${a}`);
-                        if (prevItem.wsId !== Hypr.activeWsId)
-                            Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ workspace = ${prevItem.wsId} })` : `workspace ${prevItem.wsId}`);
-                        if (Hypr.usingLua) {
-                            const ipc = prevItem.toplevel?.lastIpcObject;
-                            if (ipc) {
-                                const mon = Hypr.focusedMonitor?.lastIpcObject;
-                                const mx = mon?.x ?? 0;
-                                const my = mon?.y ?? 0;
-                                const cx = mx + (ipc.at?.[0] ?? 0) + (ipc.size?.[0] ?? 0) / 2;
-                                const cy = my + (ipc.at?.[1] ?? 0) + (ipc.size?.[1] ?? 0) / 2;
-                                Hypr.dispatch(`hl.dsp.cursor.move({x=${Math.round(cx)},y=${Math.round(cy)}})`);
-                            }
-                        }
-                        root.close();
                     }
+                    root.close();
                 }
+                onEntered: prevItem.hovered = true
+                onExited: prevItem.hovered = false
             }
+
+            Behavior on x { Anim { type: Anim.FastSpatial } }
+            Behavior on y { Anim { type: Anim.FastSpatial } }
         }
     }
 
@@ -339,12 +292,8 @@ Item {
                     hoverEnabled: false
 
                     onClicked: {
-                        if (root.dragWindow) {
-                            const addr = root.dragWindow.addr;
-                            const targetWs = parent.wsId;
-                            if (targetWs !== root.dragWindow.wsId)
-                                Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ address = "0x${addr}", workspace = ${targetWs} })` : `movetoworkspace ${targetWs},address:0x${addr}`);
-                            root.dragWindow = null;
+                        if (root.dragTargetWorkspace !== -1) {
+                            root.dragTargetWorkspace = -1;
                             root.close();
                             return;
                         }
@@ -356,13 +305,14 @@ Item {
                 DropArea {
                     anchors.fill: parent
                     keys: ["text/plain"]
-                    onEntered: parent.isDropTarget = true
-                    onExited: parent.isDropTarget = false
-                    onDropped: drop => {
+                    onEntered: {
+                        root.dragTargetWorkspace = parent.wsId;
+                        parent.isDropTarget = true;
+                    }
+                    onExited: {
+                        if (root.dragTargetWorkspace === parent.wsId)
+                            root.dragTargetWorkspace = -1;
                         parent.isDropTarget = false;
-                        const addr = drop.text;
-                        if (addr)
-                            Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ address = "${addr}", workspace = ${parent.wsId} })` : `movetoworkspace ${parent.wsId},address:${addr}`);
                     }
                 }
 
