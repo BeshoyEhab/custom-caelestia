@@ -238,7 +238,9 @@ Item {
                 id: screencopy
                 anchors.fill: parent
                 captureSource: root.overviewOpen ? (prevItem.toplevel?.wayland ?? null) : null
-                live: true
+                // Freeze captures while dragging: less GPU churn exactly when
+                // the compositor animates the move, and a stable drag image.
+                live: root.dragSourceWorkspace === -1
             }
 
             IconImage {
@@ -253,10 +255,13 @@ Item {
                 source: Icons.getAppIcon(prevItem.winClass, "image-missing")
             }
 
-            // Hover close badge (touchpad-friendly; right-click also closes)
+            // Hover close badge (touchpad-friendly; right-click also closes).
+            // Visibility also keys off the badge's own hover: otherwise the
+            // badge steals hover from the window, hides itself, hover
+            // returns, and it flickers in a loop.
             Rectangle {
                 z: 5
-                visible: prevItem.hovered && !prevItem.pressed
+                visible: (prevItem.hovered || closeMouse.containsMouse) && !prevItem.pressed
                 anchors {
                     top: parent.top
                     left: parent.left
@@ -276,6 +281,7 @@ Item {
                 }
 
                 MouseArea {
+                    id: closeMouse
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
