@@ -13,7 +13,20 @@ Toast::Toast(const QString& title, const QString& message, const QString& icon, 
     , m_icon(icon)
     , m_type(type)
     , m_timeout(timeout) {
-    QTimer::singleShot(timeout, this, &Toast::close);
+    if (timeout <= 0) {
+        switch (m_type) {
+        case Type::Warning:
+            m_timeout = 7000;
+            break;
+        case Type::Error:
+            m_timeout = 10000;
+            break;
+        default:
+            m_timeout = 5000;
+            break;
+        }
+    }
+    QTimer::singleShot(m_timeout, this, &Toast::close);
 
     if (m_icon.isEmpty()) {
         switch (m_type) {
@@ -28,20 +41,6 @@ Toast::Toast(const QString& title, const QString& message, const QString& icon, 
             break;
         default:
             m_icon = "info";
-            break;
-        }
-    }
-
-    if (timeout <= 0) {
-        switch (m_type) {
-        case Type::Warning:
-            m_timeout = 7000;
-            break;
-        case Type::Error:
-            m_timeout = 10000;
-            break;
-        default:
-            m_timeout = 5000;
             break;
         }
     }

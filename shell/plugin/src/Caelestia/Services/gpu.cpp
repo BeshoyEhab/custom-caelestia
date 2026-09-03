@@ -191,7 +191,9 @@ void Gpu::readGenericUsage() {
 }
 
 void Gpu::startNvidiaUsage() {
-    if (m_nvidiaProc) {
+    // Stop fork-execing nvidia-smi every tick once it has failed repeatedly
+    // (missing/broken binary). A later success resets the counter.
+    if (m_nvidiaProc || m_nvidiaFailures >= 3) {
         return;
     }
     m_nvidiaProc = new QProcess(this);
@@ -202,12 +204,18 @@ void Gpu::startNvidiaUsage() {
 
         const QList<QByteArray> parts = out.split(',');
         if (parts.size() < 2) {
+            ++m_nvidiaFailures;
             return;
         }
         bool ok1 = false;
         bool ok2 = false;
         const qreal usage = parts.at(0).trimmed().toDouble(&ok1) / 100.0;
         const qreal temp = parts.at(1).trimmed().toDouble(&ok2);
+        if (!ok1 && !ok2) {
+            ++m_nvidiaFailures;
+            return;
+        }
+        m_nvidiaFailures = 0;
         if (ok1 && std::abs(usage - m_percentage) > 0.0001) {
             m_percentage = usage;
             Q_EMIT percentageChanged();

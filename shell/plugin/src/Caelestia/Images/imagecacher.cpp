@@ -19,9 +19,19 @@ namespace caelestia::images {
 namespace {
 
 QString sha256sum(const QString& path) {
+    // Keyed by path + mtime + size so edited files don't serve stale hashes.
+    // Guarded: called from both the UI thread and QThreadPool workers.
     static QHash<QString, QString> s_cache;
-    if (const auto it = s_cache.constFind(path); it != s_cache.constEnd())
-        return *it;
+    static QMutex s_mutex;
+
+    const QFileInfo info(path);
+    const QString key = path + u'|' + QString::number(info.lastModified().toMSecsSinceEpoch()) + u'|'
+        + QString::number(info.size());
+    {
+        const QMutexLocker locker(&s_mutex);
+        if (const auto it = s_cache.constFind(key); it != s_cache.constEnd())
+            return *it;
+    }
 
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
@@ -34,7 +44,8 @@ QString sha256sum(const QString& path) {
     file.close();
 
     const QString result = hash.result().toHex();
-    s_cache.insert(path, result);
+    const QMutexLocker locker(&s_mutex);
+    s_cache.insert(key, result);
     return result;
 }
 
@@ -114,7 +125,7 @@ void ImageCacher::runJob(const QString& sourcePath, const QString& cachePath, co
         return;
     }
 
-    Qt::AspectRatioMode scaleMode;
+    Qt::AspectRatioMode scaleMode = Qt::IgnoreAspectRatio;
     switch (fillMode) {
     case FillMode::Crop:
         scaleMode = Qt::KeepAspectRatioByExpanding;
@@ -123,6 +134,7 @@ void ImageCacher::runJob(const QString& sourcePath, const QString& cachePath, co
         scaleMode = Qt::KeepAspectRatio;
         break;
     case FillMode::Stretch:
+    default:
         scaleMode = Qt::IgnoreAspectRatio;
         break;
     }

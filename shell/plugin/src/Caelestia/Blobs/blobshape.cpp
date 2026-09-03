@@ -234,19 +234,21 @@ void BlobShape::updatePolish() {
         m_cachedMyIndex = -1;
 
     // Compute pairwise exclude masks. Bit j in entry i is set iff rect i excludes rect j
-    // or rect j excludes rect i. The shader uses this to avoid smin between excluded pairs.
+    // or rect j excludes rect i. The shader only reads the first 16 rects, so only
+    // those participate (also keeps the 1u << j shift in range).
     const auto cachedCount = m_cachedRects.size();
+    const auto maskCount = qMin(cachedCount, qsizetype(16));
     for (qsizetype i = 0; i < cachedCount; ++i) {
-        int mask = 0;
+        unsigned int mask = 0;
         BlobShape* si = rectShapes[i];
-        for (qsizetype j = 0; j < cachedCount; ++j) {
+        for (qsizetype j = 0; j < maskCount; ++j) {
             if (j == i)
                 continue;
             BlobShape* sj = rectShapes[j];
             if (si->isExcluded(sj) || sj->isExcluded(si))
-                mask |= (1 << j);
+                mask |= (1u << static_cast<unsigned int>(j));
         }
-        m_cachedRects[i].excludeMask = mask;
+        m_cachedRects[i].excludeMask = static_cast<int>(mask);
     }
 
     // Cache inverted rect data

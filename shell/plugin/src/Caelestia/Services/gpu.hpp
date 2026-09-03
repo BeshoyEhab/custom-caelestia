@@ -73,6 +73,7 @@ private:
     QProcess* m_typeProc = nullptr;
     QProcess* m_nameProc = nullptr;
     QProcess* m_nvidiaProc = nullptr;
+    int m_nvidiaFailures = 0;
 };
 
 } // namespace caelestia::services
