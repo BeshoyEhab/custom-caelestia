@@ -300,8 +300,10 @@ Item {
                             }
                         }
                         if (target) {
+                            const globalPos = prevItem.mapToGlobal(mouse.x, mouse.y);
                             Hypr.dispatch(`hl.dsp.focus({ window = "address:0x${srcAddr}" })`);
                             Hypr.dispatch(`hl.dsp.window.swap({ target = "address:0x${target.addr}" })`);
+                            Hypr.dispatch(`hl.dsp.cursor.move({x=${Math.round(globalPos.x)},y=${Math.round(globalPos.y)}})`);
                             root.refreshWindows();
                             return;
                         }
