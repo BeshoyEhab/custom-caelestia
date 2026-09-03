@@ -33,8 +33,12 @@ void CavaProcessor::process() {
     // Process in data via cava
     cava_execute(m_in, count, m_out, m_plan);
 
-    // Apply monstercat filter
-    QVector<double> values(m_bars);
+    // Apply monstercat filter into a reused scratch buffer: no allocation on
+    // quiet ticks, and only one copy on ticks where the output changed.
+    if (m_scratch.size() != m_bars) {
+        m_scratch.resize(m_bars);
+    }
+    QVector<double>& values = m_scratch;
 
     // Left to right pass
     const double inv = 1.0 / 1.5;
@@ -53,7 +57,7 @@ void CavaProcessor::process() {
 
     // Update values
     if (values != m_values) {
-        m_values = std::move(values);
+        m_values = values;
         emit valuesChanged(m_values);
     }
 }

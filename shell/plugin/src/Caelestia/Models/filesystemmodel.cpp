@@ -424,11 +424,11 @@ void FileSystemModel::applyChanges(const QSet<QString>& removedPaths, const QSet
     int insertStart = -1;
     QList<FileSystemEntry*> batchItems;
     for (const auto& entry : std::as_const(newEntries)) {
-        const auto it = std::lower_bound(
-            m_entries.begin(), m_entries.end(), entry, [this](const FileSystemEntry* a, const FileSystemEntry* b) {
-                return compareEntries(a, b);
-            });
-        const auto row = static_cast<int>(it - m_entries.begin());
+        const auto lowerBound = [this](const FileSystemEntry* a, const FileSystemEntry* b) {
+            return compareEntries(a, b);
+        };
+        const auto it = std::lower_bound(m_entries.begin(), m_entries.end(), entry, lowerBound);
+        auto row = static_cast<int>(it - m_entries.begin());
 
         if (insertStart == -1) {
             insertStart = row;
@@ -442,6 +442,9 @@ void FileSystemModel::applyChanges(const QSet<QString>& removedPaths, const QSet
             }
             endInsertRows();
 
+            // The flush shifted rows: recompute against the updated list
+            const auto it2 = std::lower_bound(m_entries.begin(), m_entries.end(), entry, lowerBound);
+            row = static_cast<int>(it2 - m_entries.begin());
             insertStart = row;
             batchItems.clear();
             batchItems << entry;

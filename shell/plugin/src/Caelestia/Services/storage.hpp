@@ -4,6 +4,7 @@
 #include "tickingservice.hpp"
 
 #include <qbytearrayview.h>
+#include <qhash.h>
 #include <qqmlintegration.h>
 #include <qqmllist.h>
 #include <qvariant.h>
@@ -49,6 +50,10 @@ private:
 
     QList<DiskInfo*> m_disks;
     QPointer<DiskInfo> m_manualPrimaryDisk;
+    // Device path -> physical disks. Resolving needs stat() + a /sys walk, but
+    // the mapping only changes when devices appear/disappear, so cache it.
+    // New devices always miss and resolve fresh; stale entries are never queried.
+    QHash<QByteArray, QStringList> m_diskCache;
 };
 
 } // namespace caelestia::services

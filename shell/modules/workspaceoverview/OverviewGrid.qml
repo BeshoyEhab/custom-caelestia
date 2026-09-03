@@ -29,6 +29,38 @@ Item {
     property var windowDataList: []
     property int dragTargetWorkspace: -1
     property int dragSourceWorkspace: -1
+    property real pendingCursorX: 0
+    property real pendingCursorY: 0
+
+    // Hyprland applies dispatches asynchronously: a refresh issued right after
+    // a move/swap reads stale IPC state and snaps previews back. Re-sync on a
+    // delay instead (also covers dispatches like swap that emit no event).
+    Timer {
+        id: resyncTimer
+        interval: 200
+        repeat: true
+        property int ticks: 0
+        onTriggered: {
+            root.refreshWindows();
+            ticks++;
+            if (ticks >= 3)
+                stop();
+        }
+    }
+
+    // focus warps the cursor (possibly deferred past our dispatches), so put
+    // it back at the release point slightly later instead of immediately.
+    Timer {
+        id: cursorRestoreTimer
+        interval: 150
+        repeat: false
+        onTriggered: Hypr.dispatch(`hl.dsp.cursor.move({x=${Math.round(root.pendingCursorX)},y=${Math.round(root.pendingCursorY)}})`)
+    }
+
+    function scheduleResync(): void {
+        resyncTimer.ticks = 0;
+        resyncTimer.restart();
+    }
 
     implicitWidth: columns * root.wsWidth + (columns - 1) * root.cardSpacing
     implicitHeight: rows * root.wsHeight + (rows - 1) * root.cardSpacing
@@ -79,7 +111,11 @@ Item {
         windowDataList = newList;
     }
 
-    onOverviewOpenChanged: refreshWindows()
+    onOverviewOpenChanged: {
+        if (!overviewOpen)
+            resyncTimer.stop();
+        refreshWindows();
+    }
     onActiveWsIdChanged: { if (overviewOpen) refreshWindows(); }
     onGroupOffsetChanged: { if (overviewOpen) refreshWindows(); }
     Component.onCompleted: { if (overviewOpen) refreshWindows(); }
@@ -248,9 +284,7 @@ Item {
 
                     if (didDrop) {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ window = "address:0x${prevItem.addr}", workspace = ${targetWs}, follow = false })` : `movetowsilent ${targetWs},address:0x${prevItem.addr}`);
-                        root.refreshWindows();
-                        prevItem.x = prevItem.expectedX;
-                        prevItem.y = prevItem.expectedY;
+                        root.scheduleResync();
                         return;
                     }
 
@@ -278,7 +312,7 @@ Item {
                         const moveX = Math.round(percentageX * scrW);
                         const moveY = Math.round(percentageY * scrH);
                         Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${srcAddr}" })`);
-                        root.refreshWindows();
+                        root.scheduleResync();
                         return;
                     }
 
@@ -297,10 +331,12 @@ Item {
                         }
                         if (target) {
                             const globalPos = prevItem.mapToGlobal(mouse.x, mouse.y);
+                            root.pendingCursorX = globalPos.x;
+                            root.pendingCursorY = globalPos.y;
                             Hypr.dispatch(`hl.dsp.focus({ window = "address:0x${srcAddr}" })`);
                             Hypr.dispatch(`hl.dsp.window.swap({ target = "address:0x${target.addr}" })`);
-                            Hypr.dispatch(`hl.dsp.cursor.move({x=${Math.round(globalPos.x)},y=${Math.round(globalPos.y)}})`);
-                            root.refreshWindows();
+                            root.scheduleResync();
+                            cursorRestoreTimer.restart();
                             return;
                         }
                     }

@@ -243,7 +243,11 @@ void Storage::tick() {
 
     for (auto it = byDevice.constBegin(); it != byDevice.constEnd(); ++it) {
         const DeviceEntry& e = it.value();
-        const QStringList disks = resolveToPhysicalDisks(QString::fromLocal8Bit(e.device));
+        auto cacheIt = m_diskCache.constFind(e.device);
+        if (cacheIt == m_diskCache.constEnd()) {
+            cacheIt = m_diskCache.insert(e.device, resolveToPhysicalDisks(QString::fromLocal8Bit(e.device)));
+        }
+        const QStringList& disks = *cacheIt;
         if (disks.isEmpty()) {
             continue;
         }

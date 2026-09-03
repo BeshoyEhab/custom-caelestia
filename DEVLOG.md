@@ -1,5 +1,34 @@
 # Development Log
 
+## Sep 3, 2026 — Overview DnD: delayed resync instead of sync refresh
+
+**Symptom:** after any drag-and-drop (cross-workspace move, floating
+reposition, tiled swap), previews showed stale positions until some other
+action triggered an overview reload; cursor also jumped to the window center
+on swap release.
+
+**Root cause:** `refreshWindows()` reads Hypr IPC state synchronously, but the
+compositor applies dispatches asynchronously — rebuilding right after a
+dispatch re-renders stale data and snaps previews back. Self-healing then
+depended on Hypr emitting an event we listen to (`swap` emits none). The
+cursor jump: `focus` warps the cursor, and an immediate `cursor.move` restore
+can lose to a deferred warp.
+
+**Fixes applied (`OverviewGrid.qml`):**
+- New `resyncTimer` (3 × 200 ms) + `scheduleResync()`: all drop paths
+  (cross-workspace, floating, swap) schedule delayed re-syncs instead of
+  refreshing synchronously. No more snap-back; swap heals without events.
+- Swap path stores the true release point (`mapToGlobal`) and restores it via
+  a 150 ms single-shot `cursorRestoreTimer`, after any deferred warp lands.
+- `resyncTimer` stops when the overview closes.
+
+**Optimizations (same session):**
+- `storage.cpp`: cache device → physical-disk mapping (was stat()+/sys walk
+  per device per tick); new devices always miss and resolve fresh.
+- `cavaprovider.cpp`: reused scratch buffer — zero alloc/copy on quiet ticks.
+- `filesystemmodel.cpp`: recompute insert row after each batch flush (stale
+  ranges misordered non-contiguous inserts).
+
 ## Sep 3, 2026 — Repo-wide audit: correctness, perf, reliability fixes
 
 **Scope:** C++ plugin (`shell/plugin/src/`), QML (`shell/modules/`), `deploy.sh`, docs.

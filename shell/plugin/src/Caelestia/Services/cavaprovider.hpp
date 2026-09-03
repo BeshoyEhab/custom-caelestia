@@ -28,6 +28,7 @@ private:
 
     int m_bars;
     QVector<double> m_values;
+    QVector<double> m_scratch;
 
     void reload();
     void initCava();
