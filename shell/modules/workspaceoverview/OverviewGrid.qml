@@ -99,16 +99,16 @@ Item {
     property string verifySnapshot: ""
     property int verifyTries: 0
 
-    // Drop debounce: some touchpads deliver release twice for one gesture.
-    // A duplicate would re-dispatch a move on an already-moved window and
-    // race the layout (frozen half-painted windows). Swallow same-window
-    // drops inside the window; legit re-drags are slower than this.
+    // Drop debounce: some touchpads deliver release twice for one gesture,
+    // and re-dropping the same window while its slide animation still runs
+    // races the layout (frozen half-painted windows). Swallow same-window
+    // drops inside the window; windowsMove runs ~300ms so 500ms is safe.
     property string lastDropAddr: ""
     property real lastDropTime: 0
 
     function dropAllowed(addr: string): bool {
         const now = Date.now();
-        if (addr === lastDropAddr && now - lastDropTime < 300)
+        if (addr === lastDropAddr && now - lastDropTime < 500)
             return false;
         lastDropAddr = addr;
         lastDropTime = now;
