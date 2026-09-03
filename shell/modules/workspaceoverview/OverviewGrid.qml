@@ -264,21 +264,50 @@ Item {
                         return;
                     }
 
-                    const wsCol = (prevItem.wsId - 1 - root.groupOffset) % root.columns;
-                    const wsRow = Math.floor((prevItem.wsId - 1 - root.groupOffset) / root.columns);
-                    const xOffset = wsCol * (root.wsWidth + root.cardSpacing);
-                    const yOffset = wsRow * (root.wsHeight + root.cardSpacing);
-                    const percentageX = Math.min(1, Math.max(0, (prevItem.x - xOffset) / root.wsWidth));
-                    const percentageY = Math.min(1, Math.max(0, (prevItem.y - yOffset) / root.wsHeight));
-                    const scrW = QsWindow.window?.screen?.width ?? 1920;
-                    const scrH = QsWindow.window?.screen?.height ?? 1080;
-                    const moveX = Math.round(percentageX * scrW);
-                    const moveY = Math.round(percentageY * scrH);
+                    const srcAddr = prevItem.addr;
+                    const srcWs = prevItem.wsId;
                     const isFloating = prevItem.toplevel?.lastIpcObject?.floating ?? false;
-                    if (!isFloating)
-                        Hypr.dispatch(`hl.dsp.window.float({ window = "address:0x${prevItem.addr}" })`);
-                    Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${prevItem.addr}" })`);
-                    root.refreshWindows();
+                    const isFullscreen = (prevItem.toplevel?.lastIpcObject?.fullscreen ?? 0) !== 0;
+
+                    if (isFloating && !isFullscreen) {
+                        const wsCol = (srcWs - 1 - root.groupOffset) % root.columns;
+                        const wsRow = Math.floor((srcWs - 1 - root.groupOffset) / root.columns);
+                        const xOffset = wsCol * (root.wsWidth + root.cardSpacing);
+                        const yOffset = wsRow * (root.wsHeight + root.cardSpacing);
+                        const percentageX = Math.min(1, Math.max(0, (prevItem.x - xOffset) / root.wsWidth));
+                        const percentageY = Math.min(1, Math.max(0, (prevItem.y - yOffset) / root.wsHeight));
+                        const scrW = QsWindow.window?.screen?.width ?? 1920;
+                        const scrH = QsWindow.window?.screen?.height ?? 1080;
+                        const moveX = Math.round(percentageX * scrW);
+                        const moveY = Math.round(percentageY * scrH);
+                        Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${srcAddr}" })`);
+                        root.refreshWindows();
+                        return;
+                    }
+
+                    if (!isFloating && !isFullscreen) {
+                        const cx = prevItem.x + prevItem.width / 2;
+                        const cy = prevItem.y + prevItem.height / 2;
+                        let target = null;
+                        for (let i = 0; i < previewContainer.children.length; i++) {
+                            const c = previewContainer.children[i];
+                            if (c.addr === srcAddr || c.wsId !== srcWs) continue;
+                            if (c.toplevel?.lastIpcObject?.floating ?? false) continue;
+                            if ((c.toplevel?.lastIpcObject?.fullscreen ?? 0) !== 0) continue;
+                            if (cx >= c.x && cx <= c.x + c.width && cy >= c.y && cy <= c.y + c.height) {
+                                if (!target || (c.z ?? 0) >= (target.z ?? 0)) target = c;
+                            }
+                        }
+                        if (target) {
+                            Hypr.dispatch(`hl.dsp.focus({ window = "address:0x${srcAddr}" })`);
+                            Hypr.dispatch(`hl.dsp.window.swap({ target = "address:0x${target.addr}" })`);
+                            root.refreshWindows();
+                            return;
+                        }
+                    }
+
+                    prevItem.x = prevItem.expectedX;
+                    prevItem.y = prevItem.expectedY;
                 }
                 onClicked: mouse => {
                     if (prevItem.wasDragged) return;
