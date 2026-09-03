@@ -79,26 +79,33 @@ Item {
         windowDataList = newList;
     }
 
-    onOverviewOpenChanged: refreshWindows()
+    onOverviewOpenChanged: {
+        if (!overviewOpen)
+            releaseTimer.stop();
+        refreshWindows();
+    }
     onActiveWsIdChanged: { if (overviewOpen) refreshWindows(); }
     onGroupOffsetChanged: { if (overviewOpen) refreshWindows(); }
     Component.onCompleted: { if (overviewOpen) refreshWindows(); }
 
     // Same-workspace moves change geometry without changing the toplevel set,
-    // so onValuesChanged never fires for them (and directional moves emit no
-    // socket event we listen to). Poll while open so the view can't go stale.
-    // Rebuilds are visual no-ops when nothing changed (items reused by addr,
-    // identical assignments emit no signals). Paused mid-drag so a rebuild
-    // can't yank the item out from under the cursor.
+    // so onValuesChanged may never fire for them. One rebuild shortly after
+    // release reconciles with Hypr truth (alongside the explicit
+    // Hyprland.refreshToplevels() at each drop site). Skipped if a new drag
+    // already started, so it can't yank the item mid-gesture.
     Timer {
-        id: pollTimer
-        interval: 500
-        repeat: true
-        running: root.overviewOpen
+        id: releaseTimer
+        interval: 50
+        repeat: false
         onTriggered: {
             if (root.dragSourceWorkspace === -1)
                 root.refreshWindows();
         }
+    }
+
+    function scheduleReleaseRefresh(): void {
+        releaseTimer.restart();
+    }
     }
 
     Connections {
@@ -281,6 +288,7 @@ Item {
                         // triggers our rebuild. No timers, no guessing.
                         Hyprland.refreshToplevels();
                         Hyprland.refreshWorkspaces();
+                        root.scheduleReleaseRefresh();
                         return;
                     }
 
@@ -312,6 +320,7 @@ Item {
                         prevItem.expectedY = prevItem.y;
                         prevItem.wasDragged = true;
                         Hyprland.refreshToplevels();
+                        root.scheduleReleaseRefresh();
                         return;
                     }
 
@@ -332,6 +341,7 @@ Item {
                             prevItem.expectedY = prevItem.y;
                             prevItem.wasDragged = true;
                             Hyprland.refreshToplevels();
+                            root.scheduleReleaseRefresh();
                             return;
                         }
                     }
