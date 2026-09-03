@@ -130,16 +130,31 @@ hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true, description =
 hl.bind("SUPER + mouse:274", hl.dsp.window.drag(), { mouse = true })
 hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true, description = "Window: Resize" })
 
+-- Keyboard focus also warps the cursor to the newly focused window.
+-- (Hyprland won't do this itself with cursor:no_warps, which the overview
+-- drag-and-drop relies on.) Geometry comes from the Lua window object as
+-- { x, y } tables; bail out quietly if they are unavailable.
+local function focusAndFollow(dir, description)
+    return function()
+        hl.dispatch(hl.dsp.focus({ direction = dir }))
+        local w = hl.get_active_window()
+        if w == nil then return end
+        local at, size = w.at, w.size
+        if at == nil or size == nil or at.x == nil or size.x == nil then return end
+        hl.dispatch(hl.dsp.cursor.move({ x = at.x + size.x / 2, y = at.y + size.y / 2 }))
+    end
+end
+
 for i = 1, 4 do
     local arrowkey = { "Left", "Right", "Up", "Down" }
     local focusdir = { "l", "r", "u", "d" }
-    hl.bind("SUPER + " .. arrowkey[i], hl.dsp.focus({ direction = focusdir[i] }),
+    hl.bind("SUPER + " .. arrowkey[i], focusAndFollow(focusdir[i]),
         { description = "Window: Focus " .. arrowkey[i] })
 end
 for i = 1, 2 do
     local arrowkey = { "BracketLeft", "BracketRight" }
     local focusdir = { "l", "r" }
-    hl.bind("SUPER + " .. arrowkey[i], hl.dsp.focus({ direction = focusdir[i] }))
+    hl.bind("SUPER + " .. arrowkey[i], focusAndFollow(focusdir[i]))
 end
 
 for i = 1, 4 do
