@@ -99,6 +99,22 @@ Item {
     property string verifySnapshot: ""
     property int verifyTries: 0
 
+    // Drop debounce: some touchpads deliver release twice for one gesture.
+    // A duplicate would re-dispatch a move on an already-moved window and
+    // race the layout (frozen half-painted windows). Swallow same-window
+    // drops inside the window; legit re-drags are slower than this.
+    property string lastDropAddr: ""
+    property real lastDropTime: 0
+
+    function dropAllowed(addr: string): bool {
+        const now = Date.now();
+        if (addr === lastDropAddr && now - lastDropTime < 300)
+            return false;
+        lastDropAddr = addr;
+        lastDropTime = now;
+        return true;
+    }
+
     Timer {
         id: verifyTimer
         interval: 150
@@ -398,6 +414,11 @@ Item {
                     root.dragTargetWorkspace = -1;
 
                     if (didDrop) {
+                        if (!root.dropAllowed(prevItem.addr)) {
+                            prevItem.x = prevItem.expectedX;
+                            prevItem.y = prevItem.expectedY;
+                            return;
+                        }
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ window = "address:0x${prevItem.addr}", workspace = ${targetWs}, follow = false })` : `movetowsilent ${targetWs},address:0x${prevItem.addr}`);
                         if (Hypr.usingLua) {
                             // Place within the target workspace relative to the
@@ -469,6 +490,11 @@ Item {
                         const percentageY = Math.min(1, Math.max(0, (prevItem.y - yOffset) / root.wsHeight));
                         const moveX = Math.round(percentageX * scrW);
                         const moveY = Math.round(percentageY * scrH);
+                        if (!root.dropAllowed(srcAddr)) {
+                            prevItem.x = prevItem.expectedX;
+                            prevItem.y = prevItem.expectedY;
+                            return;
+                        }
                         Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${srcAddr}" })`);
                         prevItem.expectedX = prevItem.x;
                         prevItem.expectedY = prevItem.y;
@@ -490,6 +516,11 @@ Item {
                         if (Math.abs(dx) > 20 || Math.abs(dy) > 20)
                             dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "r" : "l") : (dy > 0 ? "d" : "u");
                         if (dir !== "") {
+                            if (!root.dropAllowed(srcAddr)) {
+                                prevItem.x = prevItem.expectedX;
+                                prevItem.y = prevItem.expectedY;
+                                return;
+                            }
                             Hypr.dispatch(`hl.dsp.window.move({ window = "address:0x${srcAddr}", direction = "${dir}" })`);
                             prevItem.expectedX = prevItem.x;
                             prevItem.expectedY = prevItem.y;
