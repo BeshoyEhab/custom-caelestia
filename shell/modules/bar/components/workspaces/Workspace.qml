@@ -47,7 +47,12 @@ Item {
         height: root.circleSize
         radius: width / 2
 
-        color: root.isOccupied ? Colours.palette.m3primaryContainer : Colours.palette.m3surfaceContainerHighest
+        color: root.isOccupied ? Qt.rgba(
+            (Colours.palette.m3primary.r + Colours.tPalette.m3surfaceContainer.r) / 2,
+            (Colours.palette.m3primary.g + Colours.tPalette.m3surfaceContainer.g) / 2,
+            (Colours.palette.m3primary.b + Colours.tPalette.m3surfaceContainer.b) / 2,
+            1
+        ) : Colours.palette.m3surfaceContainerHighest
         opacity: root.isOccupied || root.isActive ? 1.0 : 0.5
 
         Behavior on opacity {

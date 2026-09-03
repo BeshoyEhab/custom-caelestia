@@ -82,7 +82,12 @@ StyledClippingRect {
                 height: root.circleSize
                 radius: width / 2
 
-                color: isOccupied ? Colours.palette.m3primaryContainer : Colours.palette.m3surfaceContainerHighest
+                color: isOccupied ? Qt.rgba(
+                    (Colours.palette.m3primary.r + Colours.tPalette.m3surfaceContainer.r) / 2,
+                    (Colours.palette.m3primary.g + Colours.tPalette.m3surfaceContainer.g) / 2,
+                    (Colours.palette.m3primary.b + Colours.tPalette.m3surfaceContainer.b) / 2,
+                    1
+                ) : Colours.palette.m3surfaceContainerHighest
                 opacity: isOccupied || isActive ? 1.0 : 0.5
                 z: 0
 

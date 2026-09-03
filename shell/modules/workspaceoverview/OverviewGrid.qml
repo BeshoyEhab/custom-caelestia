@@ -81,7 +81,7 @@ Item {
 
     onOverviewOpenChanged: {
         if (!overviewOpen)
-            releaseTimer.stop();
+            verifyTimer.stop();
         refreshWindows();
     }
     onActiveWsIdChanged: { if (overviewOpen) refreshWindows(); }
@@ -89,23 +89,45 @@ Item {
     Component.onCompleted: { if (overviewOpen) refreshWindows(); }
 
     // Same-workspace moves change geometry without changing the toplevel set,
-    // so onValuesChanged may never fire for them. One backstop rebuild after
-    // release, past the window animation so mid-flight geometry isn't
-    // captured (alongside the explicit Hyprland.refreshToplevels() at each
-    // drop site). Skipped if a new drag already started, so it can't yank
-    // the item mid-gesture.
+    // so onValuesChanged may never fire for them, and a single delayed read
+    // can still race the compositor. Verify-then-stop: snapshot the moved
+    // window pre-drop, rebuild until its data changes (and reaches the
+    // target workspace on cross-ws moves), max 5 passes. Usually stops on
+    // the first pass; never polls forever.
+    property string verifyAddr: ""
+    property int verifyTargetWs: -1
+    property string verifySnapshot: ""
+    property int verifyTries: 0
+
     Timer {
-        id: releaseTimer
+        id: verifyTimer
         interval: 150
-        repeat: false
+        repeat: true
         onTriggered: {
-            if (root.dragSourceWorkspace === -1)
-                root.refreshWindows();
+            if (root.dragSourceWorkspace !== -1 || root.verifyAddr === "") {
+                stop();
+                return;
+            }
+            root.refreshWindows();
+            root.verifyTries++;
+            const d = windowDataList.find(w => w.address === root.verifyAddr);
+            const cur = d ? JSON.stringify([d.wsId, d.posX, d.posY, d.sizeX, d.sizeY]) : "";
+            const changed = cur !== root.verifySnapshot;
+            const placed = root.verifyTargetWs === -1 || (d && d.wsId === root.verifyTargetWs);
+            if ((changed && placed) || root.verifyTries >= 5) {
+                stop();
+                root.verifyAddr = "";
+            }
         }
     }
 
-    function scheduleReleaseRefresh(): void {
-        releaseTimer.restart();
+    function armVerify(addr: string, targetWs: int): void {
+        const d = windowDataList.find(w => w.address === addr);
+        root.verifyAddr = addr;
+        root.verifyTargetWs = targetWs;
+        root.verifySnapshot = d ? JSON.stringify([d.wsId, d.posX, d.posY, d.sizeX, d.sizeY]) : "";
+        root.verifyTries = 0;
+        verifyTimer.restart();
     }
 
     Connections {
@@ -332,7 +354,7 @@ Item {
                     onClicked: {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ window = "address:0x${prevItem.addr}" })` : `closewindow address:0x${prevItem.addr}`);
                         Hyprland.refreshToplevels();
-                        root.scheduleReleaseRefresh();
+                        root.armVerify(prevItem.addr, -1);
                     }
                 }
             }
@@ -428,7 +450,7 @@ Item {
                         // triggers our rebuild. No timers, no guessing.
                         Hyprland.refreshToplevels();
                         Hyprland.refreshWorkspaces();
-                        root.scheduleReleaseRefresh();
+                        root.armVerify(prevItem.addr, targetWs);
                         return;
                     }
 
@@ -460,7 +482,7 @@ Item {
                         prevItem.expectedY = prevItem.y;
                         prevItem.wasDragged = true;
                         Hyprland.refreshToplevels();
-                        root.scheduleReleaseRefresh();
+                        root.armVerify(srcAddr, -1);
                         return;
                     }
 
@@ -481,7 +503,7 @@ Item {
                             prevItem.expectedY = prevItem.y;
                             prevItem.wasDragged = true;
                             Hyprland.refreshToplevels();
-                            root.scheduleReleaseRefresh();
+                            root.armVerify(srcAddr, -1);
                             return;
                         }
                     }
@@ -495,7 +517,7 @@ Item {
                     if (mouse.button === Qt.MiddleButton || mouse.button === Qt.RightButton) {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ window = "address:0x${prevItem.addr}" })` : `closewindow address:0x${prevItem.addr}`);
                         Hyprland.refreshToplevels();
-                        root.scheduleReleaseRefresh();
+                        root.armVerify(prevItem.addr, -1);
                         return;
                     }
                     Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ window = "address:0x${prevItem.addr}" })` : `focuswindow address:0x${prevItem.addr}`);
