@@ -135,15 +135,31 @@ Item {
         }
     }
 
+    StyledRect {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: Tokens.padding.medium
+        anchors.rightMargin: Tokens.padding.medium
+        y: message.y - Tokens.padding.small
+        height: message.implicitHeight + Tokens.padding.small * 2
+        scale: message.scale
+        opacity: message.opacity
+        visible: opacity > 0.01
+        radius: Tokens.rounding.full
+        color: Colours.palette.m3errorContainer
+    }
+
     StyledText {
         id: message
 
         anchors.left: parent.left
         anchors.right: parent.right
+        anchors.leftMargin: Tokens.padding.large
+        anchors.rightMargin: Tokens.padding.large
 
         scale: 0.7
         opacity: 0
-        color: Colours.palette.m3error
+        color: Colours.palette.m3onErrorContainer
 
         font: Tokens.font.body.small
         horizontalAlignment: Qt.AlignHCenter

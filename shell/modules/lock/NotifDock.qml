@@ -35,7 +35,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
 
-        radius: Tokens.rounding.medium
+        radius: Tokens.rounding.extraLarge
         color: "transparent"
 
         Loader {
@@ -52,6 +52,7 @@ ColumnLayout {
                     source: Paths.absolutePath(Config.paths.lockNoNotifsPic)
                     fillMode: Image.PreserveAspectFit
                     sourceSize.width: clipRect.width * 0.8 * ((QsWindow.window as QsWindow)?.devicePixelRatio ?? 1)
+                    Layout.maximumHeight: clipRect.height * 0.55
 
                     layer.enabled: true
                     layer.effect: Colouriser {
@@ -63,7 +64,7 @@ ColumnLayout {
                 StyledText {
                     Layout.alignment: Qt.AlignHCenter
                     text: Config.lock.hideNotifs ? qsTr("Unlock for Notifications") : qsTr("No Notifications")
-                    color: Colours.palette.m3outlineVariant
+                    color: Colours.palette.m3onSurfaceVariant
                     font: Tokens.font.mono.builders.large.weight(Font.Medium).build()
                 }
             }
