@@ -155,9 +155,9 @@ Item {
                 width: root.wsWidth
                 height: root.wsHeight
                 radius: Tokens.rounding.large
-                color: "transparent"
-                border.width: (isCellActive || isDropTarget) ? 3 : 2
-                border.color: (isCellActive || isDropTarget) ? Colours.palette.m3primary : "#444"
+                color: isDropTarget ? Qt.rgba(Colours.palette.m3tertiary.r, Colours.palette.m3tertiary.g, Colours.palette.m3tertiary.b, 0.22) : "transparent"
+                border.width: isDropTarget ? 3 : 2
+                border.color: isDropTarget ? Colours.palette.m3tertiary : isCellActive ? Colours.palette.m3primary : Colours.palette.m3outlineVariant
             }
         }
     }
@@ -230,8 +230,8 @@ Item {
 
         Rectangle {
             id: prevItem
-            radius: Tokens.rounding.medium
-            color: "#1a1a2e"
+            radius: Tokens.rounding.large
+            color: Colours.palette.m3surfaceContainerHigh
             clip: true
 
             property string winClass: ""
@@ -273,16 +273,29 @@ Item {
                 live: root.dragSourceWorkspace === -1
             }
 
-            IconImage {
+            Item {
                 z: 1
                 anchors {
                     top: parent.top
                     right: parent.right
-                    margins: 4
+                    margins: Tokens.spacing.extraSmall
                 }
-                visible: true
-                implicitSize: Math.min(parent.width, parent.height) * 0.2
-                source: Icons.getAppIcon(prevItem.winClass, "image-missing")
+                width: 26
+                height: 26
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: Tokens.rounding.full
+                    color: Qt.rgba(Colours.palette.m3surfaceContainer.r, Colours.palette.m3surfaceContainer.g, Colours.palette.m3surfaceContainer.b, 0.85)
+                    border.width: 1
+                    border.color: Qt.rgba(Colours.palette.m3outline.r, Colours.palette.m3outline.g, Colours.palette.m3outline.b, 0.25)
+                }
+
+                IconImage {
+                    anchors.centerIn: parent
+                    implicitSize: 18
+                    source: Icons.getAppIcon(prevItem.winClass, "image-missing")
+                }
             }
 
             // Hover close badge (touchpad-friendly; right-click also closes).
@@ -297,17 +310,17 @@ Item {
                     left: parent.left
                     margins: 4
                 }
-                width: 22
-                height: 22
-                radius: 11
+                width: 28
+                height: 28
+                radius: Tokens.rounding.full
                 color: Colours.palette.m3error
+                border.width: 1
+                border.color: Qt.rgba(Colours.palette.m3onError.r, Colours.palette.m3onError.g, Colours.palette.m3onError.b, 0.3)
 
-                Text {
+                MaterialIcon {
                     anchors.centerIn: parent
-                    text: "×"
+                    text: "close"
                     color: Colours.palette.m3onError
-                    font.pixelSize: 14
-                    font.bold: true
                 }
 
                 MouseArea {
@@ -327,7 +340,7 @@ Item {
             Rectangle {
                 z: 1
                 anchors.fill: parent
-                radius: Tokens.rounding.medium
+                radius: Tokens.rounding.large
                 color: prevItem.pressed ? Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.3) :
                     prevItem.hovered ? Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.15) :
                     Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.05)
@@ -339,7 +352,7 @@ Item {
                 id: prevMouse
                 anchors.fill: parent
                 hoverEnabled: true
-                cursorShape: Drag.active ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+                cursorShape: Drag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
                 // RightButton = two-finger tap on touchpads → close (same as middle-click)
                 acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
                 drag.target: prevItem
@@ -529,9 +542,7 @@ Item {
                 width: root.wsWidth
                 height: root.wsHeight
                 radius: Tokens.rounding.large
-                color: isDropTarget ? "#3d3d3d" : isCellActive ? Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.14) : (root.dragSourceWorkspace !== -1 ? "#202020" : "#2a2a2a")
-                border.width: (isCellActive || isDropTarget) ? 3 : 2
-                border.color: (isCellActive || isDropTarget) ? Colours.palette.m3primary : "#444"
+                color: isDropTarget ? Colours.palette.m3surfaceContainerHigh : isCellActive ? Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.14) : isEmpty ? Colours.palette.m3surfaceContainerLow : (root.dragSourceWorkspace === wsId ? Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.08) : (root.dragSourceWorkspace !== -1 ? Colours.palette.m3surfaceContainerLow : Colours.palette.m3surfaceContainer))
 
                 MouseArea {
                     anchors.fill: parent

@@ -21,7 +21,7 @@ Item {
     readonly property int columns: Config.bar.workspaces.overviewColumns ?? 5
     readonly property real overviewScale: Config.bar.workspaces.overviewScale ?? 0.18
 
-    readonly property real cardPadding: 20
+    readonly property real cardPadding: Tokens.padding.largeIncreased
     readonly property real cardSpacing: 10
     readonly property real wsWidth: (QsWindow.window?.width ?? 1920) * overviewScale
     readonly property real wsHeight: (QsWindow.window?.height ?? 1080) * overviewScale
@@ -102,6 +102,16 @@ Item {
     }
 
     Keys.onEscapePressed: root.visibilities.workspaceOverview = false
+
+    // Which workspace page is shown (groups of rows*columns), plus hint
+    Text {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: cardBg.bottom
+        anchors.topMargin: Tokens.spacing.small
+        text: qsTr("Workspaces %1–%2 · Esc to close").arg(root.activeWsId - (root.activeWsId - 1) % (root.rows * root.columns)).arg(root.activeWsId - (root.activeWsId - 1) % (root.rows * root.columns) + root.rows * root.columns - 1)
+        color: Colours.palette.m3onSurfaceVariant
+        font: Tokens.font.body.small
+    }
 
     Behavior on opacity {
         Anim {
