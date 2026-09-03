@@ -8,6 +8,8 @@ real colour swatches instead of hardcoded approximations.
 from caelestia.utils.material import get_colours_for_image
 from caelestia.utils.paths import atomic_dump, scheme_data_dir, scheme_path
 from caelestia.utils.scheme import get_scheme, get_scheme_flavours, read_colours_from_file, scheme_variants
+import os
+from pathlib import Path
 
 
 class _TempScheme:
@@ -56,8 +58,7 @@ def main():
                     data["flavourColours"][flavour] = read_colours_from_file(path)
 
     atomic_dump(scheme_path, data)
-    qs_state = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "quickshell/caelestia/scheme.json")
-    os.makedirs(os.path.dirname(qs_state), exist_ok=True)
+    qs_state = Path(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state"))) / "quickshell/caelestia/scheme.json"
     atomic_dump(qs_state, data)
 
 

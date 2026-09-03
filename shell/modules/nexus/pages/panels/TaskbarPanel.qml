@@ -10,6 +10,13 @@ PageBase {
     title: qsTr("Taskbar")
     isSubPage: true
 
+    readonly property list<MenuItem> edgeItems: [
+        MenuItem { text: qsTr("Left") },
+        MenuItem { text: qsTr("Right") },
+        MenuItem { text: qsTr("Top") },
+        MenuItem { text: qsTr("Bottom") }
+    ]
+
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
@@ -46,6 +53,21 @@ PageBase {
             to: 200
             stepSize: 5
             onMoved: v => GlobalConfig.bar.dragThreshold = v
+        }
+
+        // Position
+        SectionHeader {
+            text: qsTr("Position")
+        }
+
+        SelectRow {
+            first: true
+            last: true
+            label: qsTr("Screen edge")
+            subtext: qsTr("Takes effect after restarting the shell")
+            menuItems: root.edgeItems
+            active: root.edgeItems[GlobalConfig.bar.positioningEdge] ?? root.edgeItems[0]
+            onSelected: item => GlobalConfig.bar.positioningEdge = root.edgeItems.indexOf(item)
         }
 
         // Components
