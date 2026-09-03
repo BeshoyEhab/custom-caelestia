@@ -10,9 +10,10 @@ Item {
 
     required property ShellScreen screen
     required property real borderThickness
+    required property bool barIsRight
 
     readonly property alias content: content
-    property real offsetScale: x > 0 || content.hasCurrent ? 0 : 1
+    property real offsetScale: (barIsRight ? x < parent.width : x > 0) || content.hasCurrent ? 0 : 1
 
     visible: width > 0 && height > 0
     clip: true
@@ -20,7 +21,7 @@ Item {
     implicitWidth: content.implicitWidth * (1 - offsetScale)
     implicitHeight: content.implicitHeight
 
-    x: content.isDetached ? (parent.width - content.nonAnimWidth) / 2 : 0
+    x: content.isDetached ? (parent.width - content.nonAnimWidth) / 2 : barIsRight ? parent.width - width : 0
     y: {
         if (content.isDetached)
             return (parent.height - content.nonAnimHeight) / 2;
@@ -59,7 +60,9 @@ Item {
         offsetScale: root.offsetScale
 
         anchors.verticalCenter: parent.verticalCenter
-        anchors.left: parent.left
-        anchors.leftMargin: (-implicitWidth - 5) * root.offsetScale
+        anchors.left: root.barIsRight ? undefined : parent.left
+        anchors.right: root.barIsRight ? parent.right : undefined
+        anchors.leftMargin: root.barIsRight ? undefined : (-implicitWidth - 5) * root.offsetScale
+        anchors.rightMargin: root.barIsRight ? (-implicitWidth - 5) * root.offsetScale : undefined
     }
 }

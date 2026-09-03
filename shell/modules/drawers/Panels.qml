@@ -130,6 +130,7 @@ Item {
 
         screen: root.screen
         borderThickness: root.borderThickness
+        barIsRight: root.barIsRight
     }
 
     Utilities.Wrapper {

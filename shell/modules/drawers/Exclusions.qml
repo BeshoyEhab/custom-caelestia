@@ -12,21 +12,28 @@ Scope {
     required property ShellScreen screen
     required property Bar.BarWrapper bar
 
+    // The bar's zone follows its edge; the other three edges keep a thin
+    // border zone. (Two zones must never share an edge.)
+    readonly property int barEdge: GlobalConfig.bar.positioningEdge
+
     ExclusionZone {
-        anchors.left: true
+        anchors.left: barEdge === 0
+        anchors.right: barEdge === 1
+        anchors.top: barEdge === 2
+        anchors.bottom: barEdge === 3
         exclusiveZone: root.bar.exclusiveZone
     }
 
     ExclusionZone {
-        anchors.top: true
+        anchors.top: barEdge !== 2
     }
 
     ExclusionZone {
-        anchors.right: true
+        anchors.right: barEdge !== 1
     }
 
     ExclusionZone {
-        anchors.bottom: true
+        anchors.bottom: barEdge !== 3
     }
 
     component ExclusionZone: StyledWindow {
