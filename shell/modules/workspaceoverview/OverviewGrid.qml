@@ -419,21 +419,13 @@ Item {
                             } else if (!isFullscreen) {
                                 const dx = (prevItem.x + prevItem.width / 2) - (tX + root.wsWidth / 2);
                                 const dy = (prevItem.y + prevItem.height / 2) - (tY + root.wsHeight / 2);
-                                // Corner drops need two layout steps (e.g. right
-                                // then down for bottom-right); edge drops need one.
-                                const dirs = [];
-                                if (Math.abs(dx) > 20 || Math.abs(dy) > 20) {
-                                    if (Math.abs(dx) > Math.abs(dy)) {
-                                        dirs.push(dx > 0 ? "r" : "l");
-                                        if (Math.abs(dy) > 20)
-                                            dirs.push(dy > 0 ? "d" : "u");
-                                    } else {
-                                        dirs.push(dy > 0 ? "d" : "u");
-                                        if (Math.abs(dx) > 20)
-                                            dirs.push(dx > 0 ? "r" : "l");
-                                    }
-                                }
-                                for (const dir of dirs)
+                                // Single nudge along the dominant axis. A second
+                                // chained dispatch raced the layout reflow and
+                                // left windows stuck half-sized until resized.
+                                let dir = "";
+                                if (Math.abs(dx) > 20 || Math.abs(dy) > 20)
+                                    dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "r" : "l") : (dy > 0 ? "d" : "u");
+                                if (dir !== "")
                                     Hypr.dispatch(`hl.dsp.window.move({ window = "address:0x${prevItem.addr}", direction = "${dir}" })`);
                             }
                         }
