@@ -96,7 +96,7 @@ Item {
     // the item mid-gesture.
     Timer {
         id: releaseTimer
-        interval: 400
+        interval: 150
         repeat: false
         onTriggered: {
             if (root.dragSourceWorkspace === -1)
