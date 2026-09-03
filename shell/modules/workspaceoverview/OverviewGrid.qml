@@ -245,6 +245,7 @@ Item {
                 onReleased: mouse => {
                     const targetWs = root.dragTargetWorkspace;
                     const didDrop = targetWs !== -1 && targetWs !== prevItem.wsId;
+                    console.log(`[Overview] onReleased: targetWs=${targetWs}, didDrop=${didDrop}, wasDragged=${prevItem.wasDragged}, addr=${prevItem.addr}`);
                     prevItem.pressed = false;
                     prevItem.Drag.active = false;
                     root.dragSourceWorkspace = -1;
@@ -274,6 +275,7 @@ Item {
                     const scrH = QsWindow.window?.screen?.height ?? 1080;
                     const moveX = Math.round(percentageX * scrW);
                     const moveY = Math.round(percentageY * scrH);
+                    console.log(`[Overview] Same-ws move: prevX=${prevItem.x}, prevY=${prevItem.y}, wsCol=${wsCol}, wsRow=${wsRow}, xOffset=${xOffset}, yOffset=${yOffset}, pctX=${percentageX}, pctY=${percentageY}, moveX=${moveX}, moveY=${moveY}, scrW=${scrW}, scrH=${scrH}, usingLua=${Hypr.usingLua}`);
                     Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${prevItem.addr}" })`);
                     root.refreshWindows();
                 }
