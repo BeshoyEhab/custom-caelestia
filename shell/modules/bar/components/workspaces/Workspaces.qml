@@ -16,7 +16,7 @@ StyledClippingRect {
     property var bar
 
     readonly property bool onSpecial: (GlobalConfig.bar.workspaces.perMonitorWorkspaces ? Hypr.monitorFor(screen) : Hypr.focusedMonitor)?.lastIpcObject.specialWorkspace?.name !== ""
-    readonly property int activeWsId: GlobalConfig.bar.workspaces.perMonitorWorkspaces ? (Hypr.monitorFor(screen).activeWorkspace?.id ?? 1) : Hypr.activeWsId
+    readonly property int activeWsId: GlobalConfig.bar.workspaces.perMonitorWorkspaces ? (Hypr.monitorFor(screen)?.activeWorkspace?.id ?? 1) : Hypr.activeWsId
 
     readonly property var occupied: {
         const occ = {};
@@ -24,7 +24,7 @@ StyledClippingRect {
             occ[ws.id] = ws.lastIpcObject.windows > 0;
         return occ;
     }
-    readonly property int groupOffset: Math.floor((activeWsId - 1) / Config.bar.workspaces.shown) * Config.bar.workspaces.shown
+    readonly property int groupOffset: Math.floor((activeWsId - 1) / Math.max(1, Config.bar.workspaces.shown)) * Math.max(1, Config.bar.workspaces.shown)
 
     readonly property real itemStep: circleSize + 2
     readonly property real circleSize: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall * 2

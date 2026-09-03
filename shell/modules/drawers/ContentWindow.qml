@@ -21,14 +21,14 @@ StyledWindow {
 
     readonly property HyprlandMonitor monitor: Hypr.monitorFor(screen)
     readonly property bool hasSpecialWorkspace: (monitor?.lastIpcObject.specialWorkspace?.name.length ?? 0) > 0
-    readonly property bool hasFullscreenOnNormalWs: monitor?.activeWorkspace?.toplevels.values.some(t => t.lastIpcObject.fullscreen > 1) ?? false
+    readonly property bool hasFullscreenOnNormalWs: monitor?.activeWorkspace?.toplevels.values.some(t => (t.lastIpcObject?.fullscreen ?? 0) > 1) ?? false
     readonly property bool hasFullscreen: {
         if (hasSpecialWorkspace) {
             const specialName = monitor?.lastIpcObject.specialWorkspace?.name;
             if (!specialName)
                 return false;
             const specialWs = Hypr.workspaces.values.find(ws => ws.name === specialName);
-            return specialWs?.toplevels.values.some(t => t.lastIpcObject.fullscreen > 1) ?? false;
+            return specialWs?.toplevels.values.some(t => (t.lastIpcObject?.fullscreen ?? 0) > 1) ?? false;
         }
         return hasFullscreenOnNormalWs;
     }
@@ -61,7 +61,7 @@ StyledWindow {
         for (const panel of ["dashboard", "launcher", "session", "sidebar"])
             if (contentItem.Config[panel].enabled)
                 thresholds.push(contentItem.Config[panel].dragThreshold);
-        return Math.max(...thresholds);
+        return thresholds.length ? Math.max(...thresholds) : 0;
     }
 
     onHasFullscreenChanged: {

@@ -184,14 +184,10 @@ Item {
             onXChanged: {
                 if (pressed && Math.abs(x - expectedX) > 5)
                     wasDragged = true;
-                if (!pressed && Math.abs(x - expectedX) > 5)
-                    root.refreshWindows();
             }
             onYChanged: {
                 if (pressed && Math.abs(y - expectedY) > 5)
                     wasDragged = true;
-                if (!pressed && Math.abs(y - expectedY) > 5)
-                    root.refreshWindows();
             }
 
             ScreencopyView {

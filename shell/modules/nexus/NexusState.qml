@@ -7,7 +7,7 @@ QtObject {
     property bool isWindow
     property bool animatingContainer
     property int currentPageIdx
-    property list<int> subPageIdxStack
+    property var subPageIdxStack: []
     property bool searchOpen
 
     property string selectedWallpaperCategory
@@ -20,14 +20,14 @@ QtObject {
     signal subPageClosed
 
     function openSubPage(idx: int): void {
-        subPageIdxStack.push(idx);
+        subPageIdxStack = [...subPageIdxStack, idx];
         subPageOpened(idx);
     }
 
     function closeSubPage(): void {
         subPageClosed();
-        subPageIdxStack.pop();
+        subPageIdxStack = subPageIdxStack.slice(0, -1);
     }
 
-    onCurrentPageIdxChanged: subPageIdxStack.length = 0
+    onCurrentPageIdxChanged: subPageIdxStack = []
 }
