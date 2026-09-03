@@ -90,13 +90,13 @@ Item {
 
     // Same-workspace moves change geometry without changing the toplevel set,
     // so onValuesChanged may never fire for them. One backstop rebuild after
-    // release reads the model once the explicit refreshToplevels() round-trip
-    // has landed (50ms proved too short). The optimistic expectedX/Y update
-    // at each drop site already provides the instant feedback. Skipped if a
-    // new drag already started, so it can't yank the item mid-gesture.
+    // release, past the window animation so mid-flight geometry isn't
+    // captured (alongside the explicit Hyprland.refreshToplevels() at each
+    // drop site). Skipped if a new drag already started, so it can't yank
+    // the item mid-gesture.
     Timer {
         id: releaseTimer
-        interval: 150
+        interval: 400
         repeat: false
         onTriggered: {
             if (root.dragSourceWorkspace === -1)
@@ -217,6 +217,13 @@ Item {
             z: Drag.active ? 9999 : 1
             Drag.hotSpot.x: width / 2
             Drag.hotSpot.y: height / 2
+            scale: pressed ? 1.05 : 1
+
+            Behavior on scale {
+                Anim {
+                    type: Anim.FastSpatial
+                }
+            }
 
             onXChanged: {
                 if (pressed && Math.abs(x - expectedX) > 5)
@@ -244,6 +251,41 @@ Item {
                 visible: true
                 implicitSize: Math.min(parent.width, parent.height) * 0.2
                 source: Icons.getAppIcon(prevItem.winClass, "image-missing")
+            }
+
+            // Hover close badge (touchpad-friendly; right-click also closes)
+            Rectangle {
+                z: 5
+                visible: prevItem.hovered && !prevItem.pressed
+                anchors {
+                    top: parent.top
+                    left: parent.left
+                    margins: 4
+                }
+                width: 22
+                height: 22
+                radius: 11
+                color: Colours.palette.m3error
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "×"
+                    color: Colours.palette.m3onError
+                    font.pixelSize: 14
+                    font.bold: true
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    acceptedButtons: Qt.LeftButton
+                    onClicked: {
+                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ window = "address:0x${prevItem.addr}" })` : `closewindow address:0x${prevItem.addr}`);
+                        Hyprland.refreshToplevels();
+                        root.scheduleReleaseRefresh();
+                    }
+                }
             }
 
             Rectangle {
@@ -451,9 +493,9 @@ Item {
                 width: root.wsWidth
                 height: root.wsHeight
                 radius: Tokens.rounding.large
-                color: "#2a2a2a"
-                border.width: isCellActive ? 3 : 2
-                border.color: isCellActive ? Colours.palette.m3primary : (isDropTarget ? Colours.palette.m3primary : "#444")
+                color: isDropTarget ? "#3d3d3d" : isCellActive ? Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.14) : (root.dragSourceWorkspace !== -1 ? "#202020" : "#2a2a2a")
+                border.width: (isCellActive || isDropTarget) ? 3 : 2
+                border.color: (isCellActive || isDropTarget) ? Colours.palette.m3primary : "#444"
 
                 MouseArea {
                     anchors.fill: parent
@@ -485,10 +527,9 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text: parent.wsId.toString()
-                    color: parent.isCellActive ? Colours.palette.m3onPrimary : "#ffffff"
-                    font.pixelSize: Math.min(parent.width, parent.height) * (parent.isEmpty ? 0.45 : 0.3)
+                    color: "#999999"
+                    font.pixelSize: Math.min(parent.width, parent.height) * 0.35
                     font.weight: Font.Bold
-                    opacity: parent.isEmpty ? 0.55 : 0.15
                 }
             }
         }
