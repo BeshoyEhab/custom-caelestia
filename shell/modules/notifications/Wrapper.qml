@@ -11,7 +11,7 @@ Item {
     property alias utilitiesPanel: content.utilitiesPanel
 
     visible: height > 0
-    anchors.topMargin: -5
+    anchors.topMargin: -Tokens.spacing.extraSmall
     implicitWidth: Math.max(sidebarPanel.width, content.implicitWidth)
     implicitHeight: content.implicitHeight
 

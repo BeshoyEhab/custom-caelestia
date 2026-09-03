@@ -41,6 +41,7 @@ StyledRect {
     }
 
     MouseArea {
+        id: mouse
         property int startY
 
         anchors.fill: parent
@@ -98,6 +99,7 @@ StyledRect {
             anchors.margins: Tokens.padding.medium
 
             implicitHeight: root.nonAnimHeight
+            opacity: 1 - Math.abs(root.x) / Math.max(1, root.implicitWidth) * 0.5
 
             Behavior on implicitHeight {
                 Anim {}
@@ -487,8 +489,8 @@ StyledRect {
                         isRound: true
                         shapeMorph: true
                         fillWidth: true
-                        inactiveColour: root.modelData.urgency === NotificationUrgency.Critical ? Colours.palette.m3secondary : Colours.layer(Colours.palette.m3surfaceContainerHighest, 2)
-                        inactiveOnColour: root.modelData.urgency === NotificationUrgency.Critical ? Colours.palette.m3onSecondary : Colours.palette.m3onSurfaceVariant
+                    inactiveColour: root.modelData.urgency === NotificationUrgency.Critical ? Colours.palette.m3secondaryContainer : Colours.layer(Colours.palette.m3surfaceContainerHighest, 2)
+                    inactiveOnColour: root.modelData.urgency === NotificationUrgency.Critical ? Colours.palette.m3onSecondaryContainer : Colours.palette.m3onSurfaceVariant
                         text: modelData.text
                         onClicked: modelData.invoke()
 
@@ -522,6 +524,17 @@ StyledRect {
                         interval: 3000
                     }
                 }
+            }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: root.radius
+            color: Colours.palette.m3onSurface
+            opacity: mouse.containsMouse && !mouse.pressed ? 0.08 : 0
+
+            Behavior on opacity {
+                Anim {}
             }
         }
     }

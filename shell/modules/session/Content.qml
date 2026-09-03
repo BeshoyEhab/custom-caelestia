@@ -23,6 +23,7 @@ Column {
 
         icon: Config.session.icons.logout
         command: Config.session.commands.logout
+        label: qsTr("Log out")
 
         KeyNavigation.down: shutdown
 
@@ -43,6 +44,7 @@ Column {
 
         icon: Config.session.icons.shutdown
         command: Config.session.commands.shutdown
+        label: qsTr("Shut down")
 
         KeyNavigation.up: logout
         KeyNavigation.down: hibernate
@@ -65,6 +67,7 @@ Column {
 
         icon: Config.session.icons.hibernate
         command: Config.session.commands.hibernate
+        label: qsTr("Hibernate")
 
         KeyNavigation.up: shutdown
         KeyNavigation.down: reboot
@@ -75,6 +78,7 @@ Column {
 
         icon: Config.session.icons.reboot
         command: Config.session.commands.reboot
+        label: qsTr("Reboot")
 
         KeyNavigation.up: hibernate
     }
@@ -83,6 +87,7 @@ Column {
         id: button
 
         required property list<string> command
+        required property string label
 
         implicitWidth: Tokens.sizes.session.button
         implicitHeight: Tokens.sizes.session.button
@@ -92,6 +97,16 @@ Column {
         radius: pressed ? Tokens.rounding.medium : activeFocus ? Tokens.rounding.extraLarge : Tokens.rounding.largeIncreased
         font: Tokens.font.icon.builders.large.scale(1.3).build()
         onClicked: Quickshell.execDetached(button.command)
+
+        Loader {
+            active: true
+            sourceComponent: Component {
+                Tooltip {
+                    target: button
+                    text: button.label
+                }
+            }
+        }
 
         Keys.onEnterPressed: Quickshell.execDetached(button.command)
         Keys.onReturnPressed: Quickshell.execDetached(button.command)
