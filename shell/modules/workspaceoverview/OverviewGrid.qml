@@ -437,8 +437,6 @@ Item {
                                 const moveX = Math.round(Math.min(1, Math.max(0, (prevItem.x - tX) / root.wsWidth)) * scrW);
                                 const moveY = Math.round(Math.min(1, Math.max(0, (prevItem.y - tY) / root.wsHeight)) * scrH);
                                 Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${prevItem.addr}" })`);
-                                // DISABLED(maximize experiment): Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${prevItem.addr}", mode = "maximized", action = "set" })`);
-                                // DISABLED(maximize experiment): Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${prevItem.addr}", action = "unset" })`);
                             } else if (!isFullscreen) {
                                 const dx = (prevItem.x + prevItem.width / 2) - (tX + root.wsWidth / 2);
                                 const dy = (prevItem.y + prevItem.height / 2) - (tY + root.wsHeight / 2);
@@ -450,8 +448,6 @@ Item {
                                     dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "r" : "l") : (dy > 0 ? "d" : "u");
                                 if (dir !== "") {
                                     Hypr.dispatch(`hl.dsp.window.move({ window = "address:0x${prevItem.addr}", direction = "${dir}" })`);
-                                    // DISABLED(maximize experiment): Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${prevItem.addr}", mode = "maximized", action = "set" })`);
-                                    // DISABLED(maximize experiment): Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${prevItem.addr}", action = "unset" })`);
                                 }
                             }
                         }
@@ -501,8 +497,6 @@ Item {
                             return;
                         }
                         Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${srcAddr}" })`);
-                        // DISABLED(maximize experiment): Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${srcAddr}", mode = "maximized", action = "set" })`);
-                        // DISABLED(maximize experiment): Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${srcAddr}", action = "unset" })`);
                         prevItem.expectedX = prevItem.x;
                         prevItem.expectedY = prevItem.y;
                         prevItem.wasDragged = true;
@@ -529,8 +523,6 @@ Item {
                                 return;
                             }
                             Hypr.dispatch(`hl.dsp.window.move({ window = "address:0x${srcAddr}", direction = "${dir}" })`);
-                            // DISABLED(maximize experiment): Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${srcAddr}", mode = "maximized", action = "set" })`);
-                            // DISABLED(maximize experiment): Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${srcAddr}", action = "unset" })`);
                             prevItem.expectedX = prevItem.x;
                             prevItem.expectedY = prevItem.y;
                             prevItem.wasDragged = true;
