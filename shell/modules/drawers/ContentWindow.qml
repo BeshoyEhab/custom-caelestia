@@ -312,10 +312,10 @@ StyledWindow {
         BarWrapper {
             id: bar
 
-            anchors.top: root.barIsVertical ? parent.top : undefined
-            anchors.bottom: root.barIsVertical ? parent.bottom : undefined
-            anchors.left: !root.barIsVertical ? parent.left : undefined
-            anchors.right: !root.barIsVertical ? parent.right : undefined
+            anchors.top: (root.barIsVertical || root.barIsTop) ? parent.top : undefined
+            anchors.bottom: (root.barIsVertical || root.barIsBottom) ? parent.bottom : undefined
+            anchors.left: (root.barIsLeft || !root.barIsVertical) ? parent.left : undefined
+            anchors.right: (root.barIsRight || !root.barIsVertical) ? parent.right : undefined
 
             screen: root.screen
             visibilities: visibilities
