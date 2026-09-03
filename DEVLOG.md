@@ -1,5 +1,17 @@
 # Development Log
 
+## Sep 3, 2026 — Tiled DnD: directional nudge replaces float-experiment + swap
+
+**Tried:** float tiled window on drag start, re-tile on release hoping the
+layout keeps the drop position. Result: inconsistent — on re-tile the layout
+decides the position and drop coordinates are discarded. Reverted.
+
+**Now:** same-workspace tiled drops nudge the window one slot through the
+layout toward the drop point (`window.move({ window, direction })`, dominant
+axis past 20px). One window-targeted dispatch: no `focus` (so no cursor
+warp), no cursor hacks, no float flicker, stays tiled. Exact positional
+insert remains impossible (no Hyprland dispatcher for it).
+
 ## Sep 3, 2026 — Overview DnD: delayed resync instead of sync refresh
 
 **Symptom:** after any drag-and-drop (cross-workspace move, floating
