@@ -259,6 +259,7 @@ Item {
                     }
 
                     const isFloating = prevItem.toplevel?.lastIpcObject?.floating ?? false;
+                    console.log(`[Overview] Same-ws release: isFloating=${isFloating}, addr=${prevItem.addr}, wsId=${prevItem.wsId}, x=${prevItem.x}, y=${prevItem.y}, expectedX=${prevItem.expectedX}, expectedY=${prevItem.expectedY}`);
                     if (!isFloating || !Hypr.usingLua) {
                         prevItem.x = prevItem.expectedX;
                         prevItem.y = prevItem.expectedY;
@@ -273,7 +274,10 @@ Item {
                     const percentageY = (prevItem.y - yOffset) / root.wsHeight;
                     const scrW = QsWindow.window?.screen?.width ?? 1920;
                     const scrH = QsWindow.window?.screen?.height ?? 1080;
-                    Hypr.dispatch(`hl.dsp.window.move({ x = "${percentageX * scrW}", y = "${percentageY * scrH}", window = "address:0x${prevItem.addr}" })`);
+                    const moveX = Math.round(percentageX * scrW);
+                    const moveY = Math.round(percentageY * scrH);
+                    console.log(`[Overview] Floating move: wsCol=${wsCol}, wsRow=${wsRow}, xOffset=${xOffset}, yOffset=${yOffset}, pctX=${percentageX}, pctY=${percentageY}, moveX=${moveX}, moveY=${moveY}, scrW=${scrW}, scrH=${scrH}`);
+                    Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${prevItem.addr}" })`);
                     root.refreshWindows();
                 }
                 onClicked: mouse => {
