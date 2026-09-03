@@ -120,7 +120,7 @@ Item {
         target: Hypr
         // Toplevel state (float/fullscreen/pin/group) changed without
         // changing the set: rebuild so live external changes show.
-        function onToplevelsChanged() {
+        function onToplevelDataChanged() {
             if (root.overviewOpen && root.dragSourceWorkspace === -1)
                 root.refreshWindows();
         }
