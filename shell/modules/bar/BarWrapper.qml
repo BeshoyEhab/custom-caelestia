@@ -26,11 +26,13 @@ Item {
 
     readonly property int clampedWidth: Math.max(Config.border.minThickness, implicitWidth)
     readonly property int padding: Math.max(Tokens.padding.small, Config.border.thickness)
+    // Bar thickness across the short axis (width for vertical bars, height
+    // for horizontal ones). contentWidth keeps its name for compatibility.
     readonly property int contentWidth: Tokens.sizes.bar.innerWidth + padding * 2
     readonly property int exclusiveZone: {
         if (disabled || (!Config.bar.persistent && !visibilities.bar))
             return Config.border.thickness;
-        return isVertical ? contentWidth : contentWidth;
+        return contentWidth;
     }
     readonly property bool shouldBeVisible: !hideForFullscreen && !disabled && (Config.bar.persistent || visibilities.bar || isHovered)
 
@@ -53,7 +55,8 @@ Item {
     }
 
     visible: isVertical ? width > Config.border.thickness : height > Config.border.thickness
-    implicitWidth: root.shouldBeVisible ? root.contentWidth : Config.border.thickness
+    implicitWidth: root.isVertical ? (root.shouldBeVisible ? root.contentWidth : Config.border.thickness) : parent.width
+    implicitHeight: root.isVertical ? 0 : (root.shouldBeVisible ? root.contentWidth : Config.border.thickness)
     opacity: 1 - slideProgress
 
     // Slide content on/off screen (elements move with the bar)
@@ -64,6 +67,13 @@ Item {
         return root.isRight ? slide : -slide;
     }
 
+    y: {
+        if (root.isVertical)
+            return 0;
+        const slide = (root.contentWidth + 5) * root.slideProgress;
+        return root.isBottom ? slide : -slide;
+    }
+
     Behavior on slideProgress {
         Anim {}
     }
@@ -72,18 +82,23 @@ Item {
         Anim {}
     }
 
+    Behavior on implicitHeight {
+        Anim {}
+    }
+
     Loader {
         id: content
 
         anchors.top: parent.top
-        anchors.bottom: parent.bottom
+        anchors.bottom: root.isVertical ? parent.bottom : undefined
         anchors.left: parent.left
-        anchors.right: root.isRight ? parent.right : undefined
+        anchors.right: (root.isRight || !root.isVertical) ? parent.right : undefined
 
         active: root.shouldBeVisible || root.keepActive
 
         sourceComponent: Bar {
-            width: root.contentWidth
+            width: root.isVertical ? root.contentWidth : content.width
+            height: root.isVertical ? content.height : root.contentWidth
             screen: root.screen
             visibilities: root.visibilities
             popouts: root.popouts // qmllint disable incompatible-type

@@ -23,37 +23,51 @@ Item {
         if (!Config.bar.tray.compact)
             return;
 
-        for (let i = 0; i < topRepeater.count; i++) {
-            const loader = topRepeater.itemAt(i);
-            const tray = loader?.trayItem;
-            if (tray)
-                tray.expanded = false;
-        }
-        for (let i = 0; i < bottomRepeater.count; i++) {
-            const loader = bottomRepeater.itemAt(i);
-            const tray = loader?.trayItem;
-            if (tray)
-                tray.expanded = false;
+        for (const repeater of [topRepeater, bottomRepeater, leftRepeater, rightRepeater]) {
+            for (let i = 0; i < repeater.count; i++) {
+                const tray = repeater.itemAt(i)?.trayItem;
+                if (tray)
+                    tray.expanded = false;
+            }
         }
     }
 
+    // pos is a coordinate along the bar's main axis (y when vertical, x when horizontal)
     function findEntry(pos: real): var {
         // Check active window first
-        const awWrapper = activeWindowLoader.item;
+        const awLoader = root.isVertical ? activeWindowLoader : horizontalActiveWindowLoader;
+        const awWrapper = awLoader.item;
         if (awWrapper) {
-            const localPos = awWrapper.mapFromItem(root, 0, pos);
-            if (localPos.y >= 0 && localPos.y < awWrapper.height) {
-                return {
-                    entryId: "activeWindow",
-                    activeWindowItem: awWrapper.activeWindowItem
-                };
+            if (root.isVertical) {
+                const localPos = awWrapper.mapFromItem(root, 0, pos);
+                if (localPos.y >= 0 && localPos.y < awWrapper.height) {
+                    return {
+                        entryId: "activeWindow",
+                        activeWindowItem: awWrapper.activeWindowItem
+                    };
+                }
+            } else {
+                const localPos = awWrapper.mapFromItem(root, pos, 0);
+                if (localPos.x >= 0 && localPos.x < awWrapper.width) {
+                    return {
+                        entryId: "activeWindow",
+                        activeWindowItem: awWrapper.activeWindowItem
+                    };
+                }
             }
         }
-        const topEntry = topLayout.childAt(topLayout.width / 2, topLayout.mapFromItem(root, 0, pos).y);
-        if (topEntry?.entryId)
-            return topEntry;
-        const bottomEntry = bottomLayout.childAt(bottomLayout.width / 2, bottomLayout.mapFromItem(root, 0, pos).y);
-        return bottomEntry;
+        if (root.isVertical) {
+            const topEntry = topLayout.childAt(topLayout.width / 2, topLayout.mapFromItem(root, 0, pos).y);
+            if (topEntry?.entryId)
+                return topEntry;
+            const bottomEntry = bottomLayout.childAt(bottomLayout.width / 2, bottomLayout.mapFromItem(root, 0, pos).y);
+            return bottomEntry;
+        }
+        const leftEntry = leftLayout.childAt(leftLayout.mapFromItem(root, pos, 0).x, leftLayout.height / 2);
+        if (leftEntry?.entryId)
+            return leftEntry;
+        const rightEntry = rightLayout.childAt(rightLayout.mapFromItem(root, pos, 0).x, rightLayout.height / 2);
+        return rightEntry;
     }
 
     function checkPopout(pos: real): void {
@@ -129,7 +143,7 @@ Item {
                 Hypr.dispatch(Hypr.usingLua ? `hl.dsp.workspace.toggle_special("${specialWs.slice(8)}")` : `togglespecialworkspace ${specialWs.slice(8)}`);
             else if (angleDelta.y < 0 || (GlobalConfig.bar.workspaces.perMonitorWorkspaces ? mon.activeWorkspace?.id : Hypr.activeWsId) > 1)
                 Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ workspace = "r${angleDelta.y > 0 ? "-" : "+"}1" })` : `workspace r${angleDelta.y > 0 ? "-" : "+"}1`);
-        } else if (pos < screen.height / 2 && Config.bar.scrollActions.volume) {
+        } else if (pos < (root.isVertical ? screen.height : screen.width) / 2 && Config.bar.scrollActions.volume) {
             if (angleDelta.y > 0)
                 Audio.incrementVolume();
             else if (angleDelta.y < 0)
@@ -149,6 +163,7 @@ Item {
     ColumnLayout {
         id: topLayout
 
+        visible: root.isVertical
         anchors.top: parent.top
         anchors.topMargin: root.vPadding
         anchors.horizontalCenter: parent.horizontalCenter
@@ -160,22 +175,45 @@ Item {
             id: topRepeater
 
             model: ScriptModel {
-                values: Config.bar.entries.filter(e => (e.enabled ?? true) && root.topEntries.includes(e.id))
+                values: root.isVertical ? Config.bar.entries.filter(e => (e.enabled ?? true) && root.topEntries.includes(e.id)) : []
             }
 
             delegate: TopLoader {}
         }
     }
 
+    RowLayout {
+        id: leftLayout
+
+        visible: !root.isVertical
+        anchors.left: parent.left
+        anchors.leftMargin: root.vPadding
+        anchors.verticalCenter: parent.verticalCenter
+        height: root.height
+
+        spacing: Tokens.spacing.medium
+
+        Repeater {
+            id: leftRepeater
+
+            model: ScriptModel {
+                values: !root.isVertical ? Config.bar.entries.filter(e => (e.enabled ?? true) && root.topEntries.includes(e.id)) : []
+            }
+
+            delegate: LeftLoader {}
+        }
+    }
+
     Loader {
         id: activeWindowLoader
 
+        visible: root.isVertical
         anchors.top: topLayout.bottom
         anchors.bottom: bottomLayout.top
         anchors.horizontalCenter: parent.horizontalCenter
         width: root.width
 
-        active: true
+        active: root.isVertical
 
         clip: true
 
@@ -201,9 +239,47 @@ Item {
         }
     }
 
+    Loader {
+        id: horizontalActiveWindowLoader
+
+        visible: !root.isVertical
+        anchors.left: leftLayout.right
+        anchors.right: rightLayout.left
+        anchors.verticalCenter: parent.verticalCenter
+        height: root.height
+
+        active: !root.isVertical
+
+        clip: true
+
+        sourceComponent: RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: root.vPadding
+            anchors.rightMargin: root.vPadding
+            property alias activeWindowItem: activeWindow
+            readonly property int availableWidth: width
+
+            Item { Layout.fillWidth: true }
+
+            ActiveWindow {
+                id: activeWindow
+                bar: root
+                monitor: Brightness.getMonitorForScreen(root.screen)
+                Layout.fillHeight: true
+                Layout.alignment: Qt.AlignVCenter
+                // Vertical-oriented component; capped to fit until the
+                // horizontal variant lands (see docs/plans/bar-position.md)
+                width: Math.min(implicitWidth, availableWidth)
+            }
+
+            Item { Layout.fillWidth: true }
+        }
+    }
+
     ColumnLayout {
         id: bottomLayout
 
+        visible: root.isVertical
         anchors.bottom: parent.bottom
         anchors.bottomMargin: root.vPadding
         anchors.horizontalCenter: parent.horizontalCenter
@@ -215,10 +291,32 @@ Item {
             id: bottomRepeater
 
             model: ScriptModel {
-                values: Config.bar.entries.filter(e => (e.enabled ?? true) && root.bottomEntries.includes(e.id))
+                values: root.isVertical ? Config.bar.entries.filter(e => (e.enabled ?? true) && root.bottomEntries.includes(e.id)) : []
             }
 
             delegate: BottomLoader {}
+        }
+    }
+
+    RowLayout {
+        id: rightLayout
+
+        visible: !root.isVertical
+        anchors.right: parent.right
+        anchors.rightMargin: root.vPadding
+        anchors.verticalCenter: parent.verticalCenter
+        height: root.height
+
+        spacing: Tokens.spacing.medium
+
+        Repeater {
+            id: rightRepeater
+
+            model: ScriptModel {
+                values: !root.isVertical ? Config.bar.entries.filter(e => (e.enabled ?? true) && root.bottomEntries.includes(e.id)) : []
+            }
+
+            delegate: RightLoader {}
         }
     }
 
@@ -260,7 +358,26 @@ Item {
 
         Layout.alignment: Qt.AlignHCenter
 
-        active: true
+        active: root.isVertical
+
+        sourceComponent: {
+            switch (entryId) {
+            case "logo": return logoComp
+            case "workspaces": return workspacesComp
+            default: return null
+            }
+        }
+    }
+
+    component LeftLoader: Loader {
+        required property var modelData
+
+        readonly property string entryId: modelData.id
+        property var trayItem: item as Tray
+
+        Layout.alignment: Qt.AlignVCenter
+
+        active: !root.isVertical
 
         sourceComponent: {
             switch (entryId) {
@@ -280,7 +397,29 @@ Item {
 
         Layout.alignment: Qt.AlignHCenter
 
-        active: true
+        active: root.isVertical
+
+        sourceComponent: {
+            switch (entryId) {
+            case "tray": return trayComp
+            case "clock": return clockComp
+            case "statusIcons": return statusIconsComp
+            case "power": return powerComp
+            default: return null
+            }
+        }
+    }
+
+    component RightLoader: Loader {
+        required property var modelData
+
+        readonly property string entryId: modelData.id
+        property var trayItem: item as Tray
+        property var statusIconsItem: item as StatusIcons
+
+        Layout.alignment: Qt.AlignVCenter
+
+        active: !root.isVertical
 
         sourceComponent: {
             switch (entryId) {
