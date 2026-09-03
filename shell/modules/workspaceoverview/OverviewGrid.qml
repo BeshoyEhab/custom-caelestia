@@ -132,6 +132,36 @@ Item {
         z: 1
     }
 
+    // Border overlay: cell borders must paint above window previews
+    // (previews live at z:1 and would otherwise swallow them, leaving
+    // sharp preview corners sticking over the rounded frame).
+    // Plain Rectangles take no mouse events, so cells stay interactive.
+    Item {
+        anchors.fill: parent
+        z: 2
+
+        Repeater {
+            model: root.workspacesShown
+
+            Rectangle {
+                required property int index
+
+                property int wsId: root.groupOffset + index + 1
+                property bool isCellActive: Number(wsId) === Number(root.activeWsId)
+                property bool isDropTarget: root.dragTargetWorkspace === wsId
+
+                x: (index % root.columns) * (root.wsWidth + root.cardSpacing)
+                y: Math.floor(index / root.columns) * (root.wsHeight + root.cardSpacing)
+                width: root.wsWidth
+                height: root.wsHeight
+                radius: Tokens.rounding.large
+                color: "transparent"
+                border.width: (isCellActive || isDropTarget) ? 3 : 2
+                border.color: (isCellActive || isDropTarget) ? Colours.palette.m3primary : "#444"
+            }
+        }
+    }
+
     onWindowDataListChanged: {
         const existing = {};
         for (let i = 0; i < previewContainer.children.length; i++) {
