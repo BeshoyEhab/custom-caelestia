@@ -30,22 +30,6 @@ Item {
     property int dragTargetWorkspace: -1
     property int dragSourceWorkspace: -1
 
-    // Hyprland applies dispatches asynchronously: a refresh issued right after
-    // a move/swap reads stale IPC state and snaps previews back. Re-sync once
-    // on a short delay instead (also covers dispatches like swap that emit
-    // no healing event). Single shot on purpose: repeats rebuild every live
-    // capture and stutter.
-    Timer {
-        id: resyncTimer
-        interval: 50
-        repeat: false
-        onTriggered: root.refreshWindows()
-    }
-
-    function scheduleResync(): void {
-        resyncTimer.restart();
-    }
-
     implicitWidth: columns * root.wsWidth + (columns - 1) * root.cardSpacing
     implicitHeight: rows * root.wsHeight + (rows - 1) * root.cardSpacing
 
@@ -95,11 +79,7 @@ Item {
         windowDataList = newList;
     }
 
-    onOverviewOpenChanged: {
-        if (!overviewOpen)
-            resyncTimer.stop();
-        refreshWindows();
-    }
+    onOverviewOpenChanged: refreshWindows()
     onActiveWsIdChanged: { if (overviewOpen) refreshWindows(); }
     onGroupOffsetChanged: { if (overviewOpen) refreshWindows(); }
     Component.onCompleted: { if (overviewOpen) refreshWindows(); }
@@ -261,7 +241,6 @@ Item {
                 onReleased: mouse => {
                     const targetWs = root.dragTargetWorkspace;
                     const didDrop = targetWs !== -1 && targetWs !== prevItem.wsId;
-                    console.log(`[OverviewDbg] released addr=${prevItem.addr} didDrop=${didDrop} targetWs=${targetWs} wasDragged=${prevItem.wasDragged}`);
                     prevItem.pressed = false;
                     prevItem.Drag.active = false;
                     root.dragSourceWorkspace = -1;
@@ -277,7 +256,11 @@ Item {
                         // A drop is not a click, even a short one: suppress onClicked,
                         // which would otherwise focus/navigate/close the overview.
                         prevItem.wasDragged = true;
-                        root.scheduleResync();
+                        // Force fresh IPC state; the reply updates
+                        // Hypr.toplevels/workspaces, whose onValuesChanged
+                        // triggers our rebuild. No timers, no guessing.
+                        Hyprland.refreshToplevels();
+                        Hyprland.refreshWorkspaces();
                         return;
                     }
 
@@ -308,7 +291,7 @@ Item {
                         prevItem.expectedX = prevItem.x;
                         prevItem.expectedY = prevItem.y;
                         prevItem.wasDragged = true;
-                        root.scheduleResync();
+                        Hyprland.refreshToplevels();
                         return;
                     }
 
@@ -328,7 +311,7 @@ Item {
                             prevItem.expectedX = prevItem.x;
                             prevItem.expectedY = prevItem.y;
                             prevItem.wasDragged = true;
-                            root.scheduleResync();
+                            Hyprland.refreshToplevels();
                             return;
                         }
                     }
@@ -337,7 +320,6 @@ Item {
                     prevItem.y = prevItem.expectedY;
                 }
                 onClicked: mouse => {
-                    console.log(`[OverviewDbg] clicked addr=${prevItem.addr} wasDragged=${prevItem.wasDragged} button=${mouse.button}`);
                     if (prevItem.wasDragged) return;
                     if (!prevItem.toplevel) return;
                     if (mouse.button === Qt.MiddleButton) {

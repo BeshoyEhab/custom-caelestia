@@ -210,7 +210,10 @@ hl.config({
     zoom_factor = 1,
     zoom_rigid = false,
     zoom_disable_aa = true,
-    hotspot_padding = 1
+    hotspot_padding = 1,
+    -- Don't teleport the cursor on focus/move dispatches (e.g. overview
+    -- drag-and-drop). The cursor stays exactly where the user released it.
+    no_warps = true
   },
 
   xwayland = {
