@@ -1,4 +1,5 @@
 import QtQuick
+import Caelestia.Config
 import qs.components
 
 Item {
