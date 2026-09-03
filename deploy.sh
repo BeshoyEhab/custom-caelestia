@@ -58,6 +58,7 @@ fi
 echo "Restarting shell..."
 killall qs 2>/dev/null
 sleep 0.5
-# setsid detaches so the shell survives the parent terminal/session ending
-setsid qs -c caelestia >/dev/null 2>&1 < /dev/null &
+# setsid detaches so the shell survives the parent terminal/session ending.
+# Startup output goes to a log (never /dev/null) so failed launches stay visible.
+setsid qs -c caelestia > /tmp/qs-deploy.log 2>&1 < /dev/null &
 echo "Done."
