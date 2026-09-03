@@ -245,7 +245,6 @@ Item {
                 onReleased: mouse => {
                     const targetWs = root.dragTargetWorkspace;
                     const didDrop = targetWs !== -1 && targetWs !== prevItem.wsId;
-                    console.log(`[Overview] onReleased: targetWs=${targetWs}, didDrop=${didDrop}, wasDragged=${prevItem.wasDragged}, addr=${prevItem.addr}`);
                     prevItem.pressed = false;
                     prevItem.Drag.active = false;
                     root.dragSourceWorkspace = -1;
@@ -269,13 +268,15 @@ Item {
                     const wsRow = Math.floor((prevItem.wsId - 1 - root.groupOffset) / root.columns);
                     const xOffset = wsCol * (root.wsWidth + root.cardSpacing);
                     const yOffset = wsRow * (root.wsHeight + root.cardSpacing);
-                    const percentageX = (prevItem.x - xOffset) / root.wsWidth;
-                    const percentageY = (prevItem.y - yOffset) / root.wsHeight;
+                    const percentageX = Math.min(1, Math.max(0, (prevItem.x - xOffset) / root.wsWidth));
+                    const percentageY = Math.min(1, Math.max(0, (prevItem.y - yOffset) / root.wsHeight));
                     const scrW = QsWindow.window?.screen?.width ?? 1920;
                     const scrH = QsWindow.window?.screen?.height ?? 1080;
                     const moveX = Math.round(percentageX * scrW);
                     const moveY = Math.round(percentageY * scrH);
-                    console.log(`[Overview] Same-ws move: prevX=${prevItem.x}, prevY=${prevItem.y}, wsCol=${wsCol}, wsRow=${wsRow}, xOffset=${xOffset}, yOffset=${yOffset}, pctX=${percentageX}, pctY=${percentageY}, moveX=${moveX}, moveY=${moveY}, scrW=${scrW}, scrH=${scrH}, usingLua=${Hypr.usingLua}`);
+                    const isFloating = prevItem.toplevel?.lastIpcObject?.floating ?? false;
+                    if (!isFloating)
+                        Hypr.dispatch(`hl.dsp.window.float({ window = "address:0x${prevItem.addr}" })`);
                     Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${prevItem.addr}" })`);
                     root.refreshWindows();
                 }
