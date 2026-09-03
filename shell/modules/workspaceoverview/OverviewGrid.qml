@@ -261,6 +261,7 @@ Item {
                 onReleased: mouse => {
                     const targetWs = root.dragTargetWorkspace;
                     const didDrop = targetWs !== -1 && targetWs !== prevItem.wsId;
+                    console.log(`[OverviewDbg] released addr=${prevItem.addr} didDrop=${didDrop} targetWs=${targetWs} wasDragged=${prevItem.wasDragged}`);
                     prevItem.pressed = false;
                     prevItem.Drag.active = false;
                     root.dragSourceWorkspace = -1;
@@ -268,6 +269,11 @@ Item {
 
                     if (didDrop) {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ window = "address:0x${prevItem.addr}", workspace = ${targetWs}, follow = false })` : `movetowsilent ${targetWs},address:0x${prevItem.addr}`);
+                        // Optimistic: show the window where it was dropped
+                        // instantly; the resync reconciles with Hypr truth.
+                        prevItem.wsId = targetWs;
+                        prevItem.expectedX = prevItem.x;
+                        prevItem.expectedY = prevItem.y;
                         // A drop is not a click, even a short one: suppress onClicked,
                         // which would otherwise focus/navigate/close the overview.
                         prevItem.wasDragged = true;
@@ -299,6 +305,8 @@ Item {
                         const moveX = Math.round(percentageX * scrW);
                         const moveY = Math.round(percentageY * scrH);
                         Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${srcAddr}" })`);
+                        prevItem.expectedX = prevItem.x;
+                        prevItem.expectedY = prevItem.y;
                         prevItem.wasDragged = true;
                         root.scheduleResync();
                         return;
@@ -317,6 +325,8 @@ Item {
                             dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "r" : "l") : (dy > 0 ? "d" : "u");
                         if (dir !== "") {
                             Hypr.dispatch(`hl.dsp.window.move({ window = "address:0x${srcAddr}", direction = "${dir}" })`);
+                            prevItem.expectedX = prevItem.x;
+                            prevItem.expectedY = prevItem.y;
                             prevItem.wasDragged = true;
                             root.scheduleResync();
                             return;
@@ -327,6 +337,7 @@ Item {
                     prevItem.y = prevItem.expectedY;
                 }
                 onClicked: mouse => {
+                    console.log(`[OverviewDbg] clicked addr=${prevItem.addr} wasDragged=${prevItem.wasDragged} button=${mouse.button}`);
                     if (prevItem.wasDragged) return;
                     if (!prevItem.toplevel) return;
                     if (mouse.button === Qt.MiddleButton) {
