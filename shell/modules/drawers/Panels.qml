@@ -22,10 +22,10 @@ Item {
     required property Bar.BarWrapper bar
     required property real borderThickness
 
-    readonly property bool barIsLeft: Config.bar.positioningEdge === 0
-    readonly property bool barIsRight: Config.bar.positioningEdge === 1
-    readonly property bool barIsTop: Config.bar.positioningEdge === 2
-    readonly property bool barIsBottom: Config.bar.positioningEdge === 3
+    readonly property bool barIsLeft: GlobalConfig.bar.positioningEdge === 0
+    readonly property bool barIsRight: GlobalConfig.bar.positioningEdge === 1
+    readonly property bool barIsTop: GlobalConfig.bar.positioningEdge === 2
+    readonly property bool barIsBottom: GlobalConfig.bar.positioningEdge === 3
 
     readonly property alias osd: osd
     readonly property alias osdWrapper: osdWrapper

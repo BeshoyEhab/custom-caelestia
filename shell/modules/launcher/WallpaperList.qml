@@ -23,7 +23,7 @@ PathView {
             return 0;
 
         // Screen width - 4x outer rounding - 2x max side thickness (cause centered)
-        const barIsVertical = Config.bar.positioningEdge === 0 || Config.bar.positioningEdge === 1;
+        const barIsVertical = GlobalConfig.bar.positioningEdge === 0 || GlobalConfig.bar.positioningEdge === 1;
         const barMargins = barIsVertical ? Math.max(Config.border.thickness, panels.bar.implicitWidth) : Config.border.thickness;
         let outerMargins = 0;
         if (panels.popouts.hasCurrent && panels.popouts.currentCenter + panels.popouts.nonAnimHeight / 2 > screen.height - content.implicitHeight - Config.border.thickness * 2)

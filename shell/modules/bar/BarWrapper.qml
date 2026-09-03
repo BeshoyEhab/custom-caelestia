@@ -18,9 +18,9 @@ Item {
     readonly property bool disabled: Strings.testRegexList(Config.bar.excludedScreens, screen.name)
 
     // Edge-aware: 0=Left, 1=Right (vertical bar), 2=Top, 3=Bottom (horizontal bar)
-    readonly property bool isVertical: Config.bar.positioningEdge === 0 || Config.bar.positioningEdge === 1
-    readonly property bool isRight: Config.bar.positioningEdge === 1
-    readonly property bool isBottom: Config.bar.positioningEdge === 3
+    readonly property bool isVertical: GlobalConfig.bar.positioningEdge === 0 || GlobalConfig.bar.positioningEdge === 1
+    readonly property bool isRight: GlobalConfig.bar.positioningEdge === 1
+    readonly property bool isBottom: GlobalConfig.bar.positioningEdge === 3
     // Fullscreen hides the bar unless the user opted into overlap
     readonly property bool hideForFullscreen: root.fullscreen && !Config.general.showOverFullscreen
 

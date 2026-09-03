@@ -23,10 +23,10 @@ CustomMouseArea {
     // Fullscreen yields input to the app unless overlap is opted into
     readonly property bool hideForFullscreen: fullscreen && !Config.general.showOverFullscreen
 
-    readonly property bool barIsLeft: Config.bar.positioningEdge === 0
-    readonly property bool barIsRight: Config.bar.positioningEdge === 1
-    readonly property bool barIsTop: Config.bar.positioningEdge === 2
-    readonly property bool barIsBottom: Config.bar.positioningEdge === 3
+    readonly property bool barIsLeft: GlobalConfig.bar.positioningEdge === 0
+    readonly property bool barIsRight: GlobalConfig.bar.positioningEdge === 1
+    readonly property bool barIsTop: GlobalConfig.bar.positioningEdge === 2
+    readonly property bool barIsBottom: GlobalConfig.bar.positioningEdge === 3
     readonly property bool barIsVertical: barIsLeft || barIsRight
     readonly property real barThickness: barIsVertical ? bar.implicitWidth : bar.implicitHeight
     readonly property real barClampedThickness: barIsVertical ? bar.clampedWidth : bar.clampedHeight

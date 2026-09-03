@@ -12,10 +12,10 @@ Region {
     required property Panels panels
     required property var win
 
-    readonly property bool barIsLeft: win.contentItem.Config.bar.positioningEdge === 0
-    readonly property bool barIsRight: win.contentItem.Config.bar.positioningEdge === 1
-    readonly property bool barIsTop: win.contentItem.Config.bar.positioningEdge === 2
-    readonly property bool barIsBottom: win.contentItem.Config.bar.positioningEdge === 3
+    readonly property bool barIsLeft: GlobalConfig.bar.positioningEdge === 0
+    readonly property bool barIsRight: GlobalConfig.bar.positioningEdge === 1
+    readonly property bool barIsTop: GlobalConfig.bar.positioningEdge === 2
+    readonly property bool barIsBottom: GlobalConfig.bar.positioningEdge === 3
     readonly property real barOffsetX: barIsLeft ? bar.implicitWidth : 0
     readonly property real barOffsetY: barIsTop ? bar.implicitHeight : 0
 

@@ -40,10 +40,10 @@ StyledWindow {
     readonly property real shadowOpacity: 0.7 * (1 - fsTransitionProg)
     readonly property real borderLayoutThickness: hasFullscreen ? 0 : contentItem.Config.border.thickness
 
-    readonly property bool barIsLeft: contentItem.Config.bar.positioningEdge === 0
-    readonly property bool barIsRight: contentItem.Config.bar.positioningEdge === 1
-    readonly property bool barIsTop: contentItem.Config.bar.positioningEdge === 2
-    readonly property bool barIsBottom: contentItem.Config.bar.positioningEdge === 3
+    readonly property bool barIsLeft: GlobalConfig.bar.positioningEdge === 0
+    readonly property bool barIsRight: GlobalConfig.bar.positioningEdge === 1
+    readonly property bool barIsTop: GlobalConfig.bar.positioningEdge === 2
+    readonly property bool barIsBottom: GlobalConfig.bar.positioningEdge === 3
     readonly property bool barIsVertical: barIsLeft || barIsRight
     readonly property real barOffsetX: barIsLeft ? bar.implicitWidth : 0
     readonly property real barOffsetY: barIsTop ? bar.implicitHeight : 0

@@ -147,13 +147,13 @@ void ConfigObject::syncFromGlobal(ConfigObject* global) {
     // Connect batched change signal (single connection per ConfigObject pair)
     connect(global, &ConfigObject::propertiesChanged, this, &ConfigObject::onGlobalPropertiesChanged);
 
-    // Initial sync: copy all non-loaded property values from global
+    // Initial sync: copy all non-loaded property values from global.
+    // Global-only keys are included for READS (overlays must reflect them);
+    // they are still never persisted (see toJsonObject) and live updates
+    // arrive via onGlobalPropertiesChanged.
     for (int i = basePropertyOffset(); i < meta->propertyCount(); ++i) {
         auto prop = meta->property(i);
         const auto key = QString::fromUtf8(prop.name());
-
-        if (isGlobalOnly(key))
-            continue;
 
         auto current = prop.read(this);
         auto* subObj = current.value<ConfigObject*>();
@@ -188,9 +188,6 @@ void ConfigObject::resyncFromGlobal() {
     for (int i = basePropertyOffset(); i < meta->propertyCount(); ++i) {
         auto prop = meta->property(i);
         const auto key = QString::fromUtf8(prop.name());
-
-        if (isGlobalOnly(key))
-            continue;
 
         auto current = prop.read(this);
         auto* subObj = current.value<ConfigObject*>();
@@ -278,7 +275,7 @@ void ConfigObject::resetOption(const QString& name) {
 
 void ConfigObject::onGlobalPropertiesChanged(const QMap<QString, QVariant>& changed) {
     for (auto it = changed.begin(); it != changed.end(); ++it) {
-        if (m_loadedKeys.contains(it.key()) || isGlobalOnly(it.key()))
+        if (m_loadedKeys.contains(it.key()))
             continue;
 
         int idx = metaObject()->indexOfProperty(it.key().toUtf8().constData());

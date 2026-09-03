@@ -16,7 +16,7 @@ Item {
     required property BarPopouts.Wrapper popouts
     required property bool fullscreen
 
-    readonly property bool isVertical: Config.bar.positioningEdge === 0 || Config.bar.positioningEdge === 1
+    readonly property bool isVertical: GlobalConfig.bar.positioningEdge === 0 || GlobalConfig.bar.positioningEdge === 1
     readonly property int vPadding: Tokens.padding.large
 
     function closeTray(): void {

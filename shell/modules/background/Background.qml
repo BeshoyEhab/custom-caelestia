@@ -60,8 +60,8 @@ Variants {
             active: Config.background.desktopClock.enabled
 
             anchors.margins: Tokens.padding.extraLargeIncreased
-            anchors.leftMargin: Tokens.padding.extraLargeIncreased + (Config.bar.positioningEdge === 0 ? Tokens.sizes.bar.innerWidth + Math.max(Tokens.padding.small, Config.border.thickness) : Math.max(Tokens.padding.small, Config.border.thickness))
-            anchors.topMargin: Tokens.padding.extraLargeIncreased + (Config.bar.positioningEdge === 2 ? Tokens.sizes.bar.innerWidth + Math.max(Tokens.padding.small, Config.border.thickness) : Math.max(Tokens.padding.small, Config.border.thickness))
+            anchors.leftMargin: Tokens.padding.extraLargeIncreased + (GlobalConfig.bar.positioningEdge === 0 ? Tokens.sizes.bar.innerWidth + Math.max(Tokens.padding.small, Config.border.thickness) : Math.max(Tokens.padding.small, Config.border.thickness))
+            anchors.topMargin: Tokens.padding.extraLargeIncreased + (GlobalConfig.bar.positioningEdge === 2 ? Tokens.sizes.bar.innerWidth + Math.max(Tokens.padding.small, Config.border.thickness) : Math.max(Tokens.padding.small, Config.border.thickness))
 
             state: Config.background.desktopClock.position
             states: [
