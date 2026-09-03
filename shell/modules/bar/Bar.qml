@@ -181,8 +181,8 @@ Item {
 
         sourceComponent: ColumnLayout {
             anchors.fill: parent
-            anchors.topMargin: 15
-            anchors.bottomMargin: 15
+            anchors.topMargin: root.vPadding
+            anchors.bottomMargin: root.vPadding
             property alias activeWindowItem: activeWindow
             readonly property int availableHeight: height
 

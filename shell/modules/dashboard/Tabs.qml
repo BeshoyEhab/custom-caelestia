@@ -59,7 +59,7 @@ Item {
         id: indicator
 
         anchors.top: bar.bottom
-        anchors.topMargin: 5
+        anchors.topMargin: Tokens.spacing.extraSmall
 
         implicitWidth: {
             const tab = bar.currentItem;
@@ -68,7 +68,7 @@ Item {
             const width = (root.nonAnimWidth - bar.spacing * (bar.count - 1)) / bar.count;
             return width;
         }
-        implicitHeight: 3
+        implicitHeight: Tokens.sizes.dashboard.tabIndicatorThickness ?? 3
 
         x: {
             const tab = bar.currentItem;

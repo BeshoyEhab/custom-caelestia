@@ -17,7 +17,7 @@ Item {
     readonly property Brightness.Monitor monitor: Brightness.getMonitorForScreen(root.screen)
     readonly property bool shouldBeActive: visibilities.osd && Config.osd.enabled && !(visibilities.utilities && Config.utilities.enabled)
     property real offsetScale: shouldBeActive ? 0 : 1
-    property real sidebarOffset: sidebarOrSessionVisible ? 12 : 0
+    property real sidebarOffset: sidebarOrSessionVisible ? Tokens.spacing.medium : 0
 
     property real volume
     property bool muted
@@ -39,7 +39,7 @@ Item {
     }
 
     visible: offsetScale < 1
-    anchors.rightMargin: (-implicitWidth - 5 - sidebarOffset) * offsetScale
+    anchors.rightMargin: (-implicitWidth - Tokens.spacing.extraSmall - sidebarOffset) * offsetScale
     implicitWidth: Math.min(content.implicitWidth, screen?.width ?? 1920)
     implicitHeight: Math.min(content.implicitHeight, screen?.height ?? 1080)
     opacity: 1 - offsetScale

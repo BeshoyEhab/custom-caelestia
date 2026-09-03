@@ -162,7 +162,9 @@ Item {
             anchors.right: parent.right
             anchors.rightMargin: root.padding
 
-            width: search.text ? implicitWidth : implicitWidth / 2
+            width: implicitWidth
+            visible: search.text !== ""
+            enabled: search.text !== ""
             opacity: {
                 if (!search.text)
                     return 0;

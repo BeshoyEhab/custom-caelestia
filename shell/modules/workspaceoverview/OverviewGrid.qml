@@ -574,7 +574,8 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text: parent.wsId.toString()
-                    color: "#999999"
+                    // Same token as the bar indicator's empty-workspace number
+                    color: Colours.palette.m3onSurfaceVariant
                     font.pixelSize: Math.min(parent.width, parent.height) * 0.35
                     font.weight: Font.Bold
                 }
