@@ -37,7 +37,7 @@ Item {
     // capture and stutter.
     Timer {
         id: resyncTimer
-        interval: 250
+        interval: 50
         repeat: false
         onTriggered: root.refreshWindows()
     }
@@ -268,6 +268,9 @@ Item {
 
                     if (didDrop) {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ window = "address:0x${prevItem.addr}", workspace = ${targetWs}, follow = false })` : `movetowsilent ${targetWs},address:0x${prevItem.addr}`);
+                        // A drop is not a click, even a short one: suppress onClicked,
+                        // which would otherwise focus/navigate/close the overview.
+                        prevItem.wasDragged = true;
                         root.scheduleResync();
                         return;
                     }
@@ -296,6 +299,7 @@ Item {
                         const moveX = Math.round(percentageX * scrW);
                         const moveY = Math.round(percentageY * scrH);
                         Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${srcAddr}" })`);
+                        prevItem.wasDragged = true;
                         root.scheduleResync();
                         return;
                     }
@@ -318,6 +322,7 @@ Item {
                             Hypr.dispatch(`hl.dsp.focus({ window = "address:0x${srcAddr}" })`);
                             Hypr.dispatch(`hl.dsp.window.swap({ target = "address:0x${target.addr}" })`);
                             Hypr.dispatch(`hl.dsp.cursor.move({x=${Math.round(globalPos.x)},y=${Math.round(globalPos.y)}})`);
+                            prevItem.wasDragged = true;
                             root.scheduleResync();
                             return;
                         }
