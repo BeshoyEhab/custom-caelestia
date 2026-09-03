@@ -252,8 +252,23 @@ Item {
                         return;
                     }
 
-                    prevItem.x = prevItem.expectedX;
-                    prevItem.y = prevItem.expectedY;
+                    const isFloating = prevItem.toplevel?.lastIpcObject?.floating ?? false;
+                    if (!isFloating || !Hypr.usingLua) {
+                        prevItem.x = prevItem.expectedX;
+                        prevItem.y = prevItem.expectedY;
+                    } else {
+                        const wsCol = (prevItem.wsId - 1 - root.groupOffset) % root.columns;
+                        const wsRow = Math.floor((prevItem.wsId - 1 - root.groupOffset) / root.columns);
+                        const xOffset = wsCol * (root.wsWidth + root.cardSpacing);
+                        const yOffset = wsRow * (root.wsHeight + root.cardSpacing);
+                        const percentageX = (prevItem.x - xOffset) / root.wsWidth;
+                        const percentageY = (prevItem.y - yOffset) / root.wsHeight;
+                        const scrW = QsWindow.window?.screen?.width ?? 1920;
+                        const scrH = QsWindow.window?.screen?.height ?? 1080;
+                        Hypr.dispatch(`hl.dsp.window.move({ x = "${percentageX * scrW}", y = "${percentageY * scrH}", window = "address:0x${prevItem.addr}" })`);
+                        root.refreshWindows();
+                        return;
+                    }
 
                     if (!prevItem.toplevel) return;
                     if (mouse.button === Qt.MiddleButton) {
