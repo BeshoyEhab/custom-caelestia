@@ -403,6 +403,8 @@ Item {
                     if (!prevItem.toplevel) return;
                     if (mouse.button === Qt.MiddleButton || mouse.button === Qt.RightButton) {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ window = "address:0x${prevItem.addr}" })` : `closewindow address:0x${prevItem.addr}`);
+                        Hyprland.refreshToplevels();
+                        root.scheduleReleaseRefresh();
                         return;
                     }
                     Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ window = "address:0x${prevItem.addr}" })` : `focuswindow address:0x${prevItem.addr}`);
@@ -444,6 +446,7 @@ Item {
                 property int wsId: root.groupOffset + index + 1
                 property bool isCellActive: Number(wsId) === Number(root.activeWsId)
                 property bool isDropTarget: false
+                property bool isEmpty: !root.windowDataList.some(d => d.wsId === wsId)
 
                 width: root.wsWidth
                 height: root.wsHeight
@@ -483,9 +486,9 @@ Item {
                     anchors.centerIn: parent
                     text: parent.wsId.toString()
                     color: parent.isCellActive ? Colours.palette.m3onPrimary : "#ffffff"
-                    font.pixelSize: Math.min(parent.width, parent.height) * 0.3
+                    font.pixelSize: Math.min(parent.width, parent.height) * (parent.isEmpty ? 0.45 : 0.3)
                     font.weight: Font.Bold
-                    opacity: 0.15
+                    opacity: parent.isEmpty ? 0.55 : 0.15
                 }
             }
         }
