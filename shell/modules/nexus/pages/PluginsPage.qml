@@ -15,6 +15,7 @@ PageBase {
     title: qsTr("Plugins")
 
     property var pluginStates: ({})
+    property bool checking: true
 
     readonly property list<var> plugins: [
         {
@@ -117,6 +118,7 @@ PageBase {
                         }
                     }
                     root.pluginStates = newStates;
+                    root.checking = false;
                 }
             }
         }
@@ -124,6 +126,14 @@ PageBase {
         SectionHeader {
             first: true
             text: qsTr("Plugins")
+        }
+
+        StyledText {
+            Layout.fillWidth: true
+            visible: root.checking
+            text: qsTr("Checking plugins…")
+            color: Colours.palette.m3outline
+            font: Tokens.font.label.small
         }
 
         Repeater {

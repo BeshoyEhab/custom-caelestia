@@ -217,12 +217,8 @@ PageBase {
                 return menuItems[0];
             }
             onSelected: {
-                if (item.text === qsTr("Fit"))
-                    GlobalConfig.background.wallpaperMode = "fit";
-                else if (item.text === qsTr("Stretch"))
-                    GlobalConfig.background.wallpaperMode = "stretch";
-                else
-                    GlobalConfig.background.wallpaperMode = "crop";
+                const idx = menuItems.indexOf(item);
+                GlobalConfig.background.wallpaperMode = idx === 1 ? "fit" : idx === 2 ? "stretch" : "crop";
             }
         }
 
@@ -285,12 +281,8 @@ PageBase {
                 return menuItems[0];
             }
             onSelected: {
-                if (item.text === qsTr("Light"))
-                    GlobalConfig.services.forceMode = "light";
-                else if (item.text === qsTr("Dark"))
-                    GlobalConfig.services.forceMode = "dark";
-                else
-                    GlobalConfig.services.forceMode = "";
+                const idx = menuItems.indexOf(item);
+                GlobalConfig.services.forceMode = idx === 1 ? "light" : idx === 2 ? "dark" : "";
             }
         }
     }

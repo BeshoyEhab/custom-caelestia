@@ -62,6 +62,7 @@ PageBase {
             valueLabel: Math.round(value * 100) + "%"
             value: Audio.sourceVolume
             enabled: !Audio.sourceMuted
+            wheelStep: 0.05
             onMoved: v => Audio.setSourceVolume(v)
         }
 

@@ -15,6 +15,7 @@ PageBase {
     title: qsTr("Updates")
 
     property bool checking: false
+    property string busyAction: ""
     property string lastCheck: ""
     property string statusText: ""
     property bool scriptAvailable: false
@@ -42,6 +43,7 @@ PageBase {
             onRunningChanged: {
                 if (!running) {
                     root.checking = false;
+                    root.busyAction = "";
                     root.lastCheck = new Date().toLocaleDateString();
                     if (exitCode === 0) {
                         root.statusText = qsTr("Up to date");
@@ -64,6 +66,7 @@ PageBase {
             onRunningChanged: {
                 if (!running) {
                     root.checking = false;
+                    root.busyAction = "";
                     root.lastCheck = new Date().toLocaleDateString();
                     root.statusText = exitCode === 0 ? qsTr("Update complete") : qsTr("Update failed");
                 }
@@ -76,6 +79,7 @@ PageBase {
             onRunningChanged: {
                 if (!running) {
                     root.checking = false;
+                    root.busyAction = "";
                     root.statusText = exitCode === 0 ? qsTr("Deployment complete") : qsTr("Deployment failed");
                 }
             }
@@ -148,6 +152,7 @@ PageBase {
                 disabled: root.checking
                 onClicked: {
                     root.checking = true;
+                    root.busyAction = "check";
                     root.statusText = qsTr("Checking...");
                     updateCheckProc.running = true;
                 }
@@ -182,7 +187,7 @@ PageBase {
 
                     StyledText {
                         Layout.fillWidth: true
-                        visible: root.checking && root.statusText === qsTr("Checking...")
+                        visible: root.busyAction === "check"
                         text: root.statusText
                         color: Colours.palette.m3outline
                         font: Tokens.font.label.small
@@ -200,6 +205,7 @@ PageBase {
                 disabled: root.checking
                 onClicked: {
                     root.checking = true;
+                    root.busyAction = "update";
                     root.statusText = qsTr("Updating...");
                     updateRunProc.running = true;
                 }
@@ -234,7 +240,7 @@ PageBase {
 
                     StyledText {
                         Layout.fillWidth: true
-                        visible: root.checking && root.statusText === qsTr("Updating...")
+                        visible: root.busyAction === "update"
                         text: root.statusText
                         color: Colours.palette.m3outline
                         font: Tokens.font.label.small
@@ -252,6 +258,7 @@ PageBase {
                 disabled: root.checking
                 onClicked: {
                     root.checking = true;
+                    root.busyAction = "deploy";
                     root.statusText = qsTr("Deploying...");
                     deployRunProc.running = true;
                 }
@@ -286,7 +293,7 @@ PageBase {
 
                     StyledText {
                         Layout.fillWidth: true
-                        visible: root.checking && root.statusText === qsTr("Deploying...")
+                        visible: root.busyAction === "deploy"
                         text: root.statusText
                         color: Colours.palette.m3outline
                         font: Tokens.font.label.small

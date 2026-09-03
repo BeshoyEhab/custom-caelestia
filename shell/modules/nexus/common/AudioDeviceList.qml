@@ -18,7 +18,6 @@ ItemList {
 
     signal selected(node: PwNode)
 
-    last: true
     showList: true
 
     model: ScriptModel {

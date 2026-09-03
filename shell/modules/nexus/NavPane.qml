@@ -15,6 +15,17 @@ ColumnLayout {
 
     spacing: Tokens.spacing.large
 
+    // Two-step destructive confirm: first click arms (icon swap + timeout),
+    // second click executes. Deleting shell.json is irreversible.
+    property bool confirmReset: false
+
+    Timer {
+        id: confirmResetTimer
+        interval: 3000
+        repeat: false
+        onTriggered: root.confirmReset = false
+    }
+
     SearchBar {
         Layout.fillWidth: true
         nState: root.nState
@@ -32,9 +43,16 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.margins: Tokens.padding.large
         Layout.topMargin: 0
-        icon: "restart_alt"
-        type: IconButton.Tonal
-        onClicked: resetAllProc.running = true
+        icon: root.confirmReset ? "warning" : "restart_alt"
+        type: root.confirmReset ? IconButton.Filled : IconButton.Tonal
+        onClicked: {
+            if (root.confirmReset)
+                resetAllProc.running = true;
+            else {
+                root.confirmReset = true;
+                confirmResetTimer.restart();
+            }
+        }
     }
 
     Process {

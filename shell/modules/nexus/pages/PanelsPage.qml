@@ -29,6 +29,13 @@ PageBase {
         }
 
         NavRow {
+            icon: "apps"
+            label: qsTr("Launcher")
+            status: Config.launcher.enabled ? qsTr("Enabled") : qsTr("Disabled")
+            onClicked: root.nState.openSubPage(3)
+        }
+
+        NavRow {
             icon: "dock_to_right"
             label: qsTr("Sidebar")
             status: Config.sidebar.enabled ? qsTr("Enabled") : qsTr("Disabled")
@@ -42,14 +49,6 @@ PageBase {
             subtext: qsTr("Keep panels and overview usable above fullscreen windows")
             checked: Config.general.showOverFullscreen
             onToggled: GlobalConfig.general.showOverFullscreen = checked
-        }
-
-        NavRow {
-            last: true
-            icon: "dock_to_right"
-            label: qsTr("Sidebar")
-            status: Config.sidebar.enabled ? qsTr("Enabled") : qsTr("Disabled")
-            onClicked: root.nState.openSubPage(4)
         }
     }
 }

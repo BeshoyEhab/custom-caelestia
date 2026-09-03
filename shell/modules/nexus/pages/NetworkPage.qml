@@ -182,10 +182,20 @@ PageBase {
 
                                 MouseArea {
                                     anchors.fill: parent
-                                    enabled: network.modelData.active || Nmcli.hasSavedProfile(network.modelData.ssid)
                                     onClicked: {
-                                        nState.selectedNetwork = network.modelData;
-                                        root.nState.openSubPage(1);
+                                        const net = network.modelData;
+                                        const secured = (net.security ?? "") !== "" && net.security !== "--";
+                                        if (secured && !net.active && !Nmcli.hasSavedProfile(net.ssid)) {
+                                            passwordModal.targetNetwork = net;
+                                            passwordModal.showPassword = false;
+                                            passwordModal.connecting = false;
+                                            passwordModal.errorText = "";
+                                            passwordInput.text = "";
+                                            passwordModal.visible = true;
+                                        } else {
+                                            nState.selectedNetwork = net;
+                                            root.nState.openSubPage(1);
+                                        }
                                     }
                                 }
                             }
@@ -262,10 +272,13 @@ PageBase {
         z: 100
 
         property var targetNetwork: null
+        property bool showPassword: false
+        property bool connecting: false
+        property string errorText: ""
 
         Rectangle {
             anchors.fill: parent
-            color: "#80000000"
+            color: Colours.palette.m3scrim
 
             MouseArea {
                 anchors.fill: parent
@@ -292,24 +305,47 @@ PageBase {
                     Layout.fillWidth: true
                 }
 
-                StyledRect {
+                RowLayout {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 36
-                    color: Colours.layer(Colours.palette.m3surfaceContainer, 2)
-                    radius: Tokens.rounding.medium
-                    border.width: 1
-                    border.color: passwordInput.activeFocus ? Colours.palette.m3primary : Qt.alpha(Colours.palette.m3outline, 0.3)
+                    spacing: Tokens.spacing.small
 
-                    StyledTextField {
-                        id: passwordInput
-                        anchors.fill: parent
-                        anchors.leftMargin: Tokens.padding.medium
-                        anchors.rightMargin: Tokens.padding.medium
-                        placeholderText: qsTr("Password")
-                        echoMode: TextField.Password
-                        verticalAlignment: TextInput.AlignVCenter
-                        onAccepted: modalConnectBtn.clicked()
+                    StyledRect {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 36
+                        color: Colours.layer(Colours.palette.m3surfaceContainer, 2)
+                        radius: Tokens.rounding.medium
+                        border.width: 1
+                        border.color: passwordInput.activeFocus ? Colours.palette.m3primary : Qt.alpha(Colours.palette.m3outline, 0.3)
+
+                        StyledTextField {
+                            id: passwordInput
+                            anchors.fill: parent
+                            anchors.leftMargin: Tokens.padding.medium
+                            anchors.rightMargin: 40
+                            placeholderText: qsTr("Password")
+                            echoMode: passwordModal.showPassword ? TextField.Normal : TextField.Password
+                            verticalAlignment: TextInput.AlignVCenter
+                            onAccepted: modalConnectBtn.clicked()
+                        }
+
+                        IconButton {
+                            anchors.right: parent.right
+                            anchors.rightMargin: Tokens.padding.extraSmall
+                            anchors.verticalCenter: parent.verticalCenter
+                            icon: passwordModal.showPassword ? "visibility" : "visibility_off"
+                            type: IconButton.Text
+                            onClicked: passwordModal.showPassword = !passwordModal.showPassword
+                        }
                     }
+                }
+
+                StyledText {
+                    Layout.fillWidth: true
+                    visible: passwordModal.errorText !== ""
+                    text: passwordModal.errorText
+                    color: Colours.palette.m3error
+                    font: Tokens.font.body.small
+                    wrapMode: Text.WordWrap
                 }
 
                 RowLayout {
@@ -319,24 +355,37 @@ PageBase {
                     TextButton {
                         Layout.fillWidth: true
                         text: qsTr("Cancel")
+                        enabled: !passwordModal.connecting
                         onClicked: {
                             passwordModal.visible = false;
                             passwordInput.text = "";
+                            passwordModal.showPassword = false;
+                            passwordModal.errorText = "";
                         }
                     }
 
                     TextButton {
                         id: modalConnectBtn
                         Layout.fillWidth: true
-                        text: qsTr("Connect")
+                        text: passwordModal.connecting ? qsTr("Connecting…") : qsTr("Connect")
+                        enabled: !passwordModal.connecting && passwordInput.text !== ""
                         inactiveColour: Colours.palette.m3primaryContainer
                         inactiveOnColour: Colours.palette.m3onPrimaryContainer
 
                         onClicked: {
                             const pw = passwordInput.text;
-                            passwordModal.visible = false;
-                            passwordInput.text = "";
-                            NetworkConnection.connectWithPassword(passwordModal.targetNetwork, pw, null);
+                            passwordModal.connecting = true;
+                            passwordModal.errorText = "";
+                            NetworkConnection.connectWithPassword(passwordModal.targetNetwork, pw, result => {
+                                passwordModal.connecting = false;
+                                if (result && result.success) {
+                                    passwordModal.visible = false;
+                                    passwordInput.text = "";
+                                    passwordModal.showPassword = false;
+                                } else {
+                                    passwordModal.errorText = qsTr("Failed to connect. Check the password and try again.");
+                                }
+                            });
                         }
                     }
                 }

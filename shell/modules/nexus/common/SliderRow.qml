@@ -15,6 +15,9 @@ ConnectedRect {
     property alias label: label.text
     property alias valueLabel: valueLabel.text
     property real value
+    // Wheel step as a fraction of the range. Non-positive falls back to the
+    // global audio increment (correct for volume sliders; pass explicit for rest).
+    property real wheelStep: 0
 
     signal moved(value: real)
 
@@ -61,8 +64,9 @@ ConnectedRect {
             }
 
             CustomMouseArea {
+                property real wheelStep: root.wheelStep
                 function onWheel(event: WheelEvent): void {
-                    const step = GlobalConfig.services.audioIncrement;
+                    const step = wheelStep > 0 ? wheelStep : GlobalConfig.services.audioIncrement;
                     if (event.angleDelta.y > 0)
                         root.moved(Math.min(1, root.value + step));
                     else if (event.angleDelta.y < 0)
