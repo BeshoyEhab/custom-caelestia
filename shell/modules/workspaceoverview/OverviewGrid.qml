@@ -84,9 +84,29 @@ Item {
     onGroupOffsetChanged: { if (overviewOpen) refreshWindows(); }
     Component.onCompleted: { if (overviewOpen) refreshWindows(); }
 
+    // Same-workspace moves change geometry without changing the toplevel set,
+    // so onValuesChanged never fires for them (and directional moves emit no
+    // socket event we listen to). Poll while open so the view can't go stale.
+    // Rebuilds are visual no-ops when nothing changed (items reused by addr,
+    // identical assignments emit no signals). Paused mid-drag so a rebuild
+    // can't yank the item out from under the cursor.
+    Timer {
+        id: pollTimer
+        interval: 500
+        repeat: true
+        running: root.overviewOpen
+        onTriggered: {
+            if (root.dragSourceWorkspace === -1)
+                root.refreshWindows();
+        }
+    }
+
     Connections {
         target: Hypr.toplevels
-        function onValuesChanged() { root.refreshWindows(); }
+        function onValuesChanged() {
+            if (root.dragSourceWorkspace === -1)
+                root.refreshWindows();
+        }
     }
 
     Item {
