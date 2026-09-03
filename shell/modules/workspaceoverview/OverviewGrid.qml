@@ -269,18 +269,22 @@ Item {
                     const isFloating = prevItem.toplevel?.lastIpcObject?.floating ?? false;
                     const isFullscreen = (prevItem.toplevel?.lastIpcObject?.fullscreen ?? 0) !== 0;
 
+                    const wsCol = (srcWs - 1 - root.groupOffset) % root.columns;
+                    const wsRow = Math.floor((srcWs - 1 - root.groupOffset) / root.columns);
+                    const xOffset = wsCol * (root.wsWidth + root.cardSpacing);
+                    const yOffset = wsRow * (root.wsHeight + root.cardSpacing);
+                    const scrW = QsWindow.window?.screen?.width ?? 1920;
+                    const scrH = QsWindow.window?.screen?.height ?? 1080;
+                    const cursorX = Math.round(Math.min(scrW - 1, Math.max(0, (prevItem.x - xOffset + mouse.x) / root.wsWidth * scrW)));
+                    const cursorY = Math.round(Math.min(scrH - 1, Math.max(0, (prevItem.y - yOffset + mouse.y) / root.wsHeight * scrH)));
+
                     if (isFloating && !isFullscreen) {
-                        const wsCol = (srcWs - 1 - root.groupOffset) % root.columns;
-                        const wsRow = Math.floor((srcWs - 1 - root.groupOffset) / root.columns);
-                        const xOffset = wsCol * (root.wsWidth + root.cardSpacing);
-                        const yOffset = wsRow * (root.wsHeight + root.cardSpacing);
                         const percentageX = Math.min(1, Math.max(0, (prevItem.x - xOffset) / root.wsWidth));
                         const percentageY = Math.min(1, Math.max(0, (prevItem.y - yOffset) / root.wsHeight));
-                        const scrW = QsWindow.window?.screen?.width ?? 1920;
-                        const scrH = QsWindow.window?.screen?.height ?? 1080;
                         const moveX = Math.round(percentageX * scrW);
                         const moveY = Math.round(percentageY * scrH);
                         Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${srcAddr}" })`);
+                        Hypr.dispatch(`hl.dsp.cursor.move({x=${cursorX},y=${cursorY}})`);
                         root.refreshWindows();
                         return;
                     }
@@ -301,6 +305,7 @@ Item {
                         if (target) {
                             Hypr.dispatch(`hl.dsp.focus({ window = "address:0x${srcAddr}" })`);
                             Hypr.dispatch(`hl.dsp.window.swap({ target = "address:0x${target.addr}" })`);
+                            Hypr.dispatch(`hl.dsp.cursor.move({x=${cursorX},y=${cursorY}})`);
                             root.refreshWindows();
                             return;
                         }
