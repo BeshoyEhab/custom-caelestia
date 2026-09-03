@@ -274,6 +274,33 @@ Item {
 
                     if (didDrop) {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ window = "address:0x${prevItem.addr}", workspace = ${targetWs}, follow = false })` : `movetowsilent ${targetWs},address:0x${prevItem.addr}`);
+                        if (Hypr.usingLua) {
+                            // Place within the target workspace relative to the
+                            // drop point: floating windows go to the exact
+                            // drop coordinates; tiled windows nudge one layout
+                            // slot toward it (stays tiled, no focus change).
+                            const isFloating = prevItem.toplevel?.lastIpcObject?.floating ?? false;
+                            const isFullscreen = (prevItem.toplevel?.lastIpcObject?.fullscreen ?? 0) !== 0;
+                            const tCol = (targetWs - 1 - root.groupOffset) % root.columns;
+                            const tRow = Math.floor((targetWs - 1 - root.groupOffset) / root.columns);
+                            const tX = tCol * (root.wsWidth + root.cardSpacing);
+                            const tY = tRow * (root.wsHeight + root.cardSpacing);
+                            if (isFloating && !isFullscreen) {
+                                const scrW = QsWindow.window?.screen?.width ?? 1920;
+                                const scrH = QsWindow.window?.screen?.height ?? 1080;
+                                const moveX = Math.round(Math.min(1, Math.max(0, (prevItem.x - tX) / root.wsWidth)) * scrW);
+                                const moveY = Math.round(Math.min(1, Math.max(0, (prevItem.y - tY) / root.wsHeight)) * scrH);
+                                Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${prevItem.addr}" })`);
+                            } else if (!isFullscreen) {
+                                const dx = (prevItem.x + prevItem.width / 2) - (tX + root.wsWidth / 2);
+                                const dy = (prevItem.y + prevItem.height / 2) - (tY + root.wsHeight / 2);
+                                let dir = "";
+                                if (Math.abs(dx) > 20 || Math.abs(dy) > 20)
+                                    dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "r" : "l") : (dy > 0 ? "d" : "u");
+                                if (dir !== "")
+                                    Hypr.dispatch(`hl.dsp.window.move({ window = "address:0x${prevItem.addr}", direction = "${dir}" })`);
+                            }
+                        }
                         // Optimistic: show the window where it was dropped
                         // instantly; the resync reconciles with Hypr truth.
                         prevItem.wsId = targetWs;
