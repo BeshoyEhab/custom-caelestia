@@ -12,6 +12,8 @@ Item {
     required property ShellScreen screen
     required property DrawerVisibilities visibilities
     required property bool sidebarOrSessionVisible
+    // True when docked to the left edge (bar on the right)
+    property bool dockLeft: false
 
     property bool hovered
     readonly property Brightness.Monitor monitor: Brightness.getMonitorForScreen(root.screen)
@@ -39,7 +41,8 @@ Item {
     }
 
     visible: offsetScale < 1
-    anchors.rightMargin: (-implicitWidth - Tokens.spacing.extraSmall - sidebarOffset) * offsetScale
+    anchors.rightMargin: dockLeft ? 0 : (-implicitWidth - Tokens.spacing.extraSmall - sidebarOffset) * offsetScale
+    anchors.leftMargin: dockLeft ? (-implicitWidth - Tokens.spacing.extraSmall - sidebarOffset) * offsetScale : 0
     implicitWidth: Math.min(content.implicitWidth, screen?.width ?? 1920)
     implicitHeight: Math.min(content.implicitHeight, screen?.height ?? 1080)
     opacity: 1 - offsetScale
@@ -90,7 +93,8 @@ Item {
         id: content
 
         anchors.verticalCenter: parent.verticalCenter
-        anchors.left: parent.left
+        anchors.left: root.dockLeft ? undefined : parent.left
+        anchors.right: root.dockLeft ? parent.right : undefined
 
         asynchronous: true
         active: root.shouldBeActive || root.visible

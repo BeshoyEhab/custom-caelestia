@@ -51,8 +51,10 @@ Item {
         id: osdWrapper
 
         anchors.verticalCenter: parent.verticalCenter
-        anchors.right: parent.right
+        anchors.right: root.barIsRight ? undefined : parent.right
+        anchors.left: root.barIsRight ? parent.left : undefined
         anchors.rightMargin: sessionWrapper.anchors.rightMargin + session.width * (1 - session.offsetScale)
+        anchors.leftMargin: sessionWrapper.anchors.leftMargin + session.width * (1 - session.offsetScale)
         clip: sidebar.visible || session.visible
 
         implicitWidth: Math.min(osd.implicitWidth, screen?.width ?? 1920) * (1 - osd.offsetScale)
@@ -64,6 +66,7 @@ Item {
             screen: root.screen
             visibilities: root.visibilities
             sidebarOrSessionVisible: sidebar.visible || session.visible
+            dockLeft: root.barIsRight
 
             anchors.verticalCenter: parent.verticalCenter
             anchors.right: parent.right
@@ -80,15 +83,18 @@ Item {
         utilitiesPanel: utilities
 
         anchors.top: parent.top
-        anchors.right: parent.right
+        anchors.right: root.barIsRight ? undefined : parent.right
+        anchors.left: root.barIsRight ? parent.left : undefined
     }
 
     Item {
         id: sessionWrapper
 
         anchors.verticalCenter: parent.verticalCenter
-        anchors.right: parent.right
-        anchors.rightMargin: sidebar.width * (1 - sidebar.offsetScale)
+        anchors.right: root.barIsRight ? undefined : parent.right
+        anchors.left: root.barIsRight ? parent.left : undefined
+        anchors.rightMargin: root.barIsRight ? 0 : sidebar.width * (1 - sidebar.offsetScale)
+        anchors.leftMargin: root.barIsRight ? sidebar.width * (1 - sidebar.offsetScale) : 0
         clip: sidebar.visible
 
         implicitWidth: session.implicitWidth * (1 - session.offsetScale)
@@ -99,6 +105,7 @@ Item {
 
             visibilities: root.visibilities
             sidebarVisible: sidebar.visible
+            dockLeft: root.barIsRight
 
             anchors.verticalCenter: parent.verticalCenter
             anchors.right: parent.right
@@ -141,14 +148,16 @@ Item {
         popouts: popoutsWrapper.content
 
         anchors.bottom: parent.bottom
-        anchors.right: parent.right
+        anchors.right: root.barIsRight ? undefined : parent.right
+        anchors.left: root.barIsRight ? parent.left : undefined
     }
 
     Toasts.Toasts {
         id: toasts
 
         anchors.bottom: sidebar.visible ? parent.bottom : utilities.top
-        anchors.right: sidebar.left
+        anchors.right: root.barIsRight ? undefined : sidebar.left
+        anchors.left: root.barIsRight ? sidebar.right : undefined
         anchors.margins: Tokens.padding.medium
     }
 
@@ -156,10 +165,12 @@ Item {
         id: sidebar
 
         visibilities: root.visibilities
+        dockLeft: root.barIsRight
 
         anchors.top: notifications.bottom
         anchors.bottom: utilities.top
-        anchors.right: parent.right
+        anchors.right: root.barIsRight ? undefined : parent.right
+        anchors.left: root.barIsRight ? parent.left : undefined
         anchors.topMargin: -notifications.anchors.topMargin
     }
 
