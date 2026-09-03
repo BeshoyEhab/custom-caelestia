@@ -79,6 +79,12 @@ The bar uses an `Item` root with a split layout (`topLayout` + `bottomLayout` + 
 
 **Solution used:** Dynamic object creation via `Component {}` + `createObject()`. Window data is stored in a JS array (`property var windowDataList`), and preview Items are created/destroyed in `onWindowDataListChanged`.
 
+**Drag-and-drop (OverviewGrid.qml):**
+- Cross-workspace: `hl.dsp.window.move({ window = "address:0x...", workspace = N, follow = false })` (`movetowsilent` non-Lua). `DropArea.onExited` must NOT reset `dragTargetWorkspace`.
+- Same-workspace: floating windows reposition via `window.move({ x, y })`; tiled windows dropped over another tiled window swap via `focus` + `window.swap({ target })`. Never dispatch `cursor.move` on drag paths (Hyprland warp + our restore fight; see git log Sep 2026).
+- Click vs drag split: `onReleased` handles drags, `onClicked` handles focus/close (guarded by `wasDragged` flag set in `onXChanged/onYChanged`).
+- `WindowPreview.qml` / `WorkspaceCell.qml` were deleted (dead code); do not re-add.
+
 **Known failures:**
 - `ListModel` with `required property` causes "Unable to assign [undefined]" errors that break the entire component
 - `model: root.windowDataList.length` with `root.windowDataList[index]` access also causes assignment errors

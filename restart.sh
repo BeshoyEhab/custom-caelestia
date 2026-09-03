@@ -24,6 +24,6 @@ if $BUILD; then
 fi
 
 echo "Starting shell..."
-qs -c caelestia &
-disown
+# setsid detaches so the shell survives the parent terminal/session ending
+setsid qs -c caelestia >/dev/null 2>&1 < /dev/null &
 echo "Shell restarted."

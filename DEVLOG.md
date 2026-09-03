@@ -1,5 +1,48 @@
 # Development Log
 
+## Sep 3, 2026 — Repo-wide audit: correctness, perf, reliability fixes
+
+**Scope:** C++ plugin (`shell/plugin/src/`), QML (`shell/modules/`), `deploy.sh`, docs.
+
+**QML fixes (all verified in source before changing):**
+- Deleted dead files `workspaceoverview/WindowPreview.qml` and `WorkspaceCell.qml`
+  (zero references; `OverviewGrid` dynamic previews are the canonical path).
+  Note: `deploy.sh` now removes such stale files from the running config.
+- `drawers/ContentWindow.qml`: guarded `t.lastIpcObject?.fullscreen` in both
+  `.some()` calls (null IPC object during window close broke the binding);
+  `Math.max(...[])` → `0` when all panels disabled (was `-Infinity`).
+- `bar/components/workspaces/Workspaces.qml`: guarded `Hypr.monitorFor(screen)?.`
+  and `Math.max(1, shown)` against div-by-zero in `groupOffset`.
+- `nexus/NexusState.qml`: `list<int>` stack → `property var` with copy-on-write
+  reassignment so change notifications reliably fire.
+- `workspaceoverview/OverviewGrid.qml`: removed position-drift `refreshWindows()`
+  triggers (redundant with `Hypr.toplevels.onValuesChanged`; fought the `Behavior`
+  animation and caused rebuild churn).
+
+**C++ fixes (build passes, warning-free):**
+- `toaster.cpp`: normalize timeout before `singleShot` (default timeouts closed instantly).
+- `audiocollector.cpp`: always `queue_buffer` after dequeue; null-check `chunk`.
+- `cavaprovider`: `valuesChanged`/`updateValues` take `const QVector<double>&`.
+- `blobshape.cpp`: cap exclude-mask loop at 16 (matches shader), `1u` shift.
+- `imagecacher.cpp`: mutex-guard static hash, key by path+mtime+size (fixes race
+  and stale thumbnails); init `scaleMode` (was `-Wmaybe-uninitialized`).
+- `gpu.cpp`: stop fork-execing `nvidia-smi` after 3 consecutive failures.
+
+**Scripts:**
+- `deploy.sh`: replaced manual `cp` allowlist with full-tree `*.qml` sync
+  (portable `$HOME`/repo-relative paths) + stale-file cleanup that spares
+  `custom/` and `shell.json`.
+- `install.sh`: sudo approval asked once (`Y=yes to all, o=once, n=skip`).
+
+**Known issues left for later (verified, risky or out of scope):**
+- `bar/BarWrapper.qml:31` dead ternary; horizontal-bar geometry (slide on `x`
+  only, Loader pinned top/bottom) — see TODO #1 Bar Position Generalization.
+- `bar/components/StatusIcons.qml`: duplicate `"audio"` popout name (mic/speaker);
+  `Bar.qml` positional `children[]` lookups.
+- `Services/storage.cpp`: full sysfs walk on UI thread each tick — needs caching/worker.
+- `Services/lyrics.cpp`: 3-4 requests per track + recursive `.lrc` walk on UI thread.
+- `Models/filesystemmodel.cpp`: stale-index batch inserts; disk I/O in comparator.
+
 ## Jun 22, 2026 — Settings app layout broken: buttons/fields width=0
 
 **Symptom:** All Nexus settings pages showed buttons and text fields with width=0,
