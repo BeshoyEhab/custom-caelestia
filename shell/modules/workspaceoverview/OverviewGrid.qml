@@ -106,7 +106,6 @@ Item {
     function scheduleReleaseRefresh(): void {
         releaseTimer.restart();
     }
-    }
 
     Connections {
         target: Hypr.toplevels
