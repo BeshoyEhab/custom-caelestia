@@ -89,13 +89,14 @@ Item {
     Component.onCompleted: { if (overviewOpen) refreshWindows(); }
 
     // Same-workspace moves change geometry without changing the toplevel set,
-    // so onValuesChanged may never fire for them. One rebuild shortly after
-    // release reconciles with Hypr truth (alongside the explicit
-    // Hyprland.refreshToplevels() at each drop site). Skipped if a new drag
-    // already started, so it can't yank the item mid-gesture.
+    // so onValuesChanged may never fire for them. One backstop rebuild after
+    // release reads the model once the explicit refreshToplevels() round-trip
+    // has landed (50ms proved too short). The optimistic expectedX/Y update
+    // at each drop site already provides the instant feedback. Skipped if a
+    // new drag already started, so it can't yank the item mid-gesture.
     Timer {
         id: releaseTimer
-        interval: 50
+        interval: 150
         repeat: false
         onTriggered: {
             if (root.dragSourceWorkspace === -1)
