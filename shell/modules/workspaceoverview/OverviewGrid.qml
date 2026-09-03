@@ -175,16 +175,21 @@ Item {
             property bool pressed: false
             property real expectedX: 0
             property real expectedY: 0
+            property bool wasDragged: false
 
             z: Drag.active ? 9999 : 1
             Drag.hotSpot.x: width / 2
             Drag.hotSpot.y: height / 2
 
             onXChanged: {
+                if (pressed && Math.abs(x - expectedX) > 5)
+                    wasDragged = true;
                 if (!pressed && Math.abs(x - expectedX) > 5)
                     root.refreshWindows();
             }
             onYChanged: {
+                if (pressed && Math.abs(y - expectedY) > 5)
+                    wasDragged = true;
                 if (!pressed && Math.abs(y - expectedY) > 5)
                     root.refreshWindows();
             }
@@ -231,6 +236,7 @@ Item {
                     root.dragSourceWorkspace = prevItem.wsId;
                     root.dragTargetWorkspace = -1;
                     prevItem.pressed = true;
+                    prevItem.wasDragged = false;
                     prevItem.Drag.active = true;
                     prevItem.Drag.source = prevItem;
                     prevItem.Drag.hotSpot.x = mouse.x;
@@ -256,20 +262,22 @@ Item {
                     if (!isFloating || !Hypr.usingLua) {
                         prevItem.x = prevItem.expectedX;
                         prevItem.y = prevItem.expectedY;
-                    } else {
-                        const wsCol = (prevItem.wsId - 1 - root.groupOffset) % root.columns;
-                        const wsRow = Math.floor((prevItem.wsId - 1 - root.groupOffset) / root.columns);
-                        const xOffset = wsCol * (root.wsWidth + root.cardSpacing);
-                        const yOffset = wsRow * (root.wsHeight + root.cardSpacing);
-                        const percentageX = (prevItem.x - xOffset) / root.wsWidth;
-                        const percentageY = (prevItem.y - yOffset) / root.wsHeight;
-                        const scrW = QsWindow.window?.screen?.width ?? 1920;
-                        const scrH = QsWindow.window?.screen?.height ?? 1080;
-                        Hypr.dispatch(`hl.dsp.window.move({ x = "${percentageX * scrW}", y = "${percentageY * scrH}", window = "address:0x${prevItem.addr}" })`);
-                        root.refreshWindows();
                         return;
                     }
 
+                    const wsCol = (prevItem.wsId - 1 - root.groupOffset) % root.columns;
+                    const wsRow = Math.floor((prevItem.wsId - 1 - root.groupOffset) / root.columns);
+                    const xOffset = wsCol * (root.wsWidth + root.cardSpacing);
+                    const yOffset = wsRow * (root.wsHeight + root.cardSpacing);
+                    const percentageX = (prevItem.x - xOffset) / root.wsWidth;
+                    const percentageY = (prevItem.y - yOffset) / root.wsHeight;
+                    const scrW = QsWindow.window?.screen?.width ?? 1920;
+                    const scrH = QsWindow.window?.screen?.height ?? 1080;
+                    Hypr.dispatch(`hl.dsp.window.move({ x = "${percentageX * scrW}", y = "${percentageY * scrH}", window = "address:0x${prevItem.addr}" })`);
+                    root.refreshWindows();
+                }
+                onClicked: mouse => {
+                    if (prevItem.wasDragged) return;
                     if (!prevItem.toplevel) return;
                     if (mouse.button === Qt.MiddleButton) {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ window = "address:0x${prevItem.addr}" })` : `closewindow address:0x${prevItem.addr}`);
