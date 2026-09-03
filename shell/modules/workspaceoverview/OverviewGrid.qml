@@ -196,43 +196,18 @@ Item {
             property real expectedX: 0
             property real expectedY: 0
             property bool wasDragged: false
-            property bool floatedByDrag: false
-
-            // Float a tiled window once real dragging starts (clicks never
-            // reach here). Re-tiled on release if it was tiled before.
-            function floatOnDrag(): void {
-                if (floatedByDrag || !Hypr.usingLua)
-                    return;
-                const ipc = toplevel?.lastIpcObject;
-                if ((ipc?.floating ?? false) || (ipc?.fullscreen ?? 0) !== 0)
-                    return;
-                floatedByDrag = true;
-                Hypr.dispatch(`hl.dsp.window.float({ window = "address:0x${addr}" })`);
-            }
-
-            // Insurance: never leave a window floating if the preview item
-            // is destroyed mid-drag (release branches clear the flag when
-            // they re-tile, so this only fires on the unhandled path).
-            Component.onDestruction: {
-                if (floatedByDrag)
-                    Hypr.dispatch(`hl.dsp.window.float({ window = "address:0x${addr}" })`);
-            }
 
             z: Drag.active ? 9999 : 1
             Drag.hotSpot.x: width / 2
             Drag.hotSpot.y: height / 2
 
             onXChanged: {
-                if (pressed && Math.abs(x - expectedX) > 5) {
+                if (pressed && Math.abs(x - expectedX) > 5)
                     wasDragged = true;
-                    prevItem.floatOnDrag();
-                }
             }
             onYChanged: {
-                if (pressed && Math.abs(y - expectedY) > 5) {
+                if (pressed && Math.abs(y - expectedY) > 5)
                     wasDragged = true;
-                    prevItem.floatOnDrag();
-                }
             }
 
             ScreencopyView {
@@ -278,7 +253,6 @@ Item {
                     root.dragTargetWorkspace = -1;
                     prevItem.pressed = true;
                     prevItem.wasDragged = false;
-                    prevItem.floatedByDrag = false;
                     prevItem.Drag.active = true;
                     prevItem.Drag.source = prevItem;
                     prevItem.Drag.hotSpot.x = mouse.x;
@@ -294,10 +268,6 @@ Item {
 
                     if (didDrop) {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.move({ window = "address:0x${prevItem.addr}", workspace = ${targetWs}, follow = false })` : `movetowsilent ${targetWs},address:0x${prevItem.addr}`);
-                        if (prevItem.floatedByDrag) {
-                            Hypr.dispatch(`hl.dsp.window.float({ window = "address:0x${prevItem.addr}" })`);
-                            prevItem.floatedByDrag = false;
-                        }
                         // A drop is not a click, even a short one: suppress onClicked,
                         // which would otherwise focus/navigate/close the overview.
                         prevItem.wasDragged = true;
@@ -313,8 +283,7 @@ Item {
 
                     const srcAddr = prevItem.addr;
                     const srcWs = prevItem.wsId;
-                    const isFloating = (prevItem.toplevel?.lastIpcObject?.floating ?? false) || prevItem.floatedByDrag;
-                    const originallyFloating = isFloating && !prevItem.floatedByDrag;
+                    const isFloating = prevItem.toplevel?.lastIpcObject?.floating ?? false;
                     const isFullscreen = (prevItem.toplevel?.lastIpcObject?.fullscreen ?? 0) !== 0;
 
                     const wsCol = (srcWs - 1 - root.groupOffset) % root.columns;
@@ -324,61 +293,36 @@ Item {
                     const scrW = QsWindow.window?.screen?.width ?? 1920;
                     const scrH = QsWindow.window?.screen?.height ?? 1080;
 
-                    const percentageX = Math.min(1, Math.max(0, (prevItem.x - xOffset) / root.wsWidth));
-                    const percentageY = Math.min(1, Math.max(0, (prevItem.y - yOffset) / root.wsHeight));
-                    const moveX = Math.round(percentageX * scrW);
-                    const moveY = Math.round(percentageY * scrH);
-
-                    if (originallyFloating && !isFullscreen) {
+                    if (isFloating && !isFullscreen) {
+                        const percentageX = Math.min(1, Math.max(0, (prevItem.x - xOffset) / root.wsWidth));
+                        const percentageY = Math.min(1, Math.max(0, (prevItem.y - yOffset) / root.wsHeight));
+                        const moveX = Math.round(percentageX * scrW);
+                        const moveY = Math.round(percentageY * scrH);
                         Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${srcAddr}" })`);
                         prevItem.wasDragged = true;
                         root.scheduleResync();
                         return;
                     }
 
-                    if (!originallyFloating && !isFullscreen) {
-                        const cx = prevItem.x + prevItem.width / 2;
-                        const cy = prevItem.y + prevItem.height / 2;
-                        let target = null;
-                        for (let i = 0; i < previewContainer.children.length; i++) {
-                            const c = previewContainer.children[i];
-                            if (c.addr === srcAddr || c.wsId !== srcWs) continue;
-                            if (c.toplevel?.lastIpcObject?.floating ?? false) continue;
-                            if ((c.toplevel?.lastIpcObject?.fullscreen ?? 0) !== 0) continue;
-                            if (cx >= c.x && cx <= c.x + c.width && cy >= c.y && cy <= c.y + c.height) {
-                                if (!target || (c.z ?? 0) >= (target.z ?? 0)) target = c;
-                            }
-                        }
-                        if (target) {
-                            if (prevItem.floatedByDrag) {
-                                Hypr.dispatch(`hl.dsp.window.float({ window = "address:0x${srcAddr}" })`);
-                                prevItem.floatedByDrag = false;
-                            }
-                            const globalPos = prevItem.mapToGlobal(mouse.x, mouse.y);
-                            Hypr.dispatch(`hl.dsp.focus({ window = "address:0x${srcAddr}" })`);
-                            Hypr.dispatch(`hl.dsp.window.swap({ target = "address:0x${target.addr}" })`);
-                            Hypr.dispatch(`hl.dsp.cursor.move({x=${Math.round(globalPos.x)},y=${Math.round(globalPos.y)}})`);
-                            prevItem.wasDragged = true;
-                            root.scheduleResync();
-                            return;
-                        }
-                        // Tiled window dropped on empty area: move to the drop
-                        // point, then re-tile. Experiment: if the layout keeps
-                        // the drop position, great; otherwise it snaps back.
-                        if (prevItem.floatedByDrag) {
-                            Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${srcAddr}" })`);
-                            Hypr.dispatch(`hl.dsp.window.float({ window = "address:0x${srcAddr}" })`);
-                            prevItem.floatedByDrag = false;
+                    // Tiled window dropped in the same workspace: nudge it one
+                    // slot through the layout toward the drop point. Single
+                    // window-targeted dispatch: no focus change, no cursor
+                    // warp, stays tiled. Exact positional insert is not
+                    // something Hyprland exposes (no such dispatcher).
+                    if (!isFloating && !isFullscreen) {
+                        const dx = prevItem.x - prevItem.expectedX;
+                        const dy = prevItem.y - prevItem.expectedY;
+                        let dir = "";
+                        if (Math.abs(dx) > 20 || Math.abs(dy) > 20)
+                            dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "r" : "l") : (dy > 0 ? "d" : "u");
+                        if (dir !== "") {
+                            Hypr.dispatch(`hl.dsp.window.move({ window = "address:0x${srcAddr}", direction = "${dir}" })`);
                             prevItem.wasDragged = true;
                             root.scheduleResync();
                             return;
                         }
                     }
 
-                    if (prevItem.floatedByDrag) {
-                        Hypr.dispatch(`hl.dsp.window.float({ window = "address:0x${srcAddr}" })`);
-                        prevItem.floatedByDrag = false;
-                    }
                     prevItem.x = prevItem.expectedX;
                     prevItem.y = prevItem.expectedY;
                 }
