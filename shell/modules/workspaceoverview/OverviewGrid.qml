@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Widgets
@@ -32,18 +31,6 @@ Item {
 
     implicitWidth: columns * root.wsWidth + (columns - 1) * root.cardSpacing
     implicitHeight: rows * root.wsHeight + (rows - 1) * root.cardSpacing
-
-    function cellAtPos(px: real, py: real): int {
-        for (let c = 0; c < root.columns; c++) {
-            for (let r = 0; r < root.rows; r++) {
-                const cellX = c * (root.wsWidth + root.cardSpacing);
-                const cellY = r * (root.wsHeight + root.cardSpacing);
-                if (px >= cellX && px < cellX + root.wsWidth && py >= cellY && py < cellY + root.wsHeight)
-                    return root.groupOffset + r * root.columns + c + 1;
-            }
-        }
-        return -1;
-    }
 
     function refreshWindows() {
         const newList = [];
@@ -452,7 +439,7 @@ Item {
                             }
                         }
                         // Optimistic: show the window where it was dropped
-                        // instantly; the resync reconciles with Hypr truth.
+                        // instantly; verify-retry reconciles with Hypr truth.
                         prevItem.wsId = targetWs;
                         prevItem.expectedX = prevItem.x;
                         prevItem.expectedY = prevItem.y;
