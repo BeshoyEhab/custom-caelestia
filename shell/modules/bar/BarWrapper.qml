@@ -21,6 +21,8 @@ Item {
     readonly property bool isVertical: Config.bar.positioningEdge === 0 || Config.bar.positioningEdge === 1
     readonly property bool isRight: Config.bar.positioningEdge === 1
     readonly property bool isBottom: Config.bar.positioningEdge === 3
+    // Fullscreen hides the bar unless the user opted into overlap
+    readonly property bool hideForFullscreen: root.fullscreen && !Config.general.showOverFullscreen
 
     readonly property int clampedWidth: Math.max(Config.border.minThickness, implicitWidth)
     readonly property int padding: Math.max(Tokens.padding.small, Config.border.thickness)
@@ -30,7 +32,7 @@ Item {
             return Config.border.thickness;
         return isVertical ? contentWidth : contentWidth;
     }
-    readonly property bool shouldBeVisible: !fullscreen && !disabled && (Config.bar.persistent || visibilities.bar || isHovered)
+    readonly property bool shouldBeVisible: !hideForFullscreen && !disabled && (Config.bar.persistent || visibilities.bar || isHovered)
 
     // Drawer-style: content slides off while the blob frame shrinks
     property real slideProgress: root.shouldBeVisible ? 0 : 1

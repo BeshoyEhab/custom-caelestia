@@ -20,6 +20,9 @@ CustomMouseArea {
     required property real borderThickness
     required property bool fullscreen
 
+    // Fullscreen yields input to the app unless overlap is opted into
+    readonly property bool hideForFullscreen: fullscreen && !Config.general.showOverFullscreen
+
     readonly property bool barIsLeft: Config.bar.positioningEdge === 0
     readonly property bool barIsRight: Config.bar.positioningEdge === 1
     readonly property bool barIsTop: Config.bar.positioningEdge === 2
@@ -114,7 +117,7 @@ CustomMouseArea {
     }
 
     function onWheel(event: WheelEvent): void {
-        if (fullscreen)
+        if (hideForFullscreen)
             return;
         if (inBarArea(event.x, event.y)) {
             const pos = barIsVertical ? event.y : event.x;
@@ -123,7 +126,7 @@ CustomMouseArea {
     }
 
     anchors.fill: parent
-    acceptedButtons: fullscreen ? Qt.NoButton : Qt.AllButtons
+    acceptedButtons: hideForFullscreen ? Qt.NoButton : Qt.AllButtons
     hoverEnabled: true
 
     onPressed: event => dragStart = Qt.point(event.x, event.y)
@@ -165,7 +168,7 @@ CustomMouseArea {
         const dragX = x - dragStart.x;
         const dragY = y - dragStart.y;
 
-        if (fullscreen) {
+        if (hideForFullscreen) {
             root.panels.osd.hovered = inRightPanel(panels.osdWrapper, x, y);
             return;
         }

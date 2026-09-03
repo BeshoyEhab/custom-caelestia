@@ -29,10 +29,19 @@ PageBase {
         }
 
         NavRow {
-            icon: "apps"
-            label: qsTr("Launcher")
-            status: Config.launcher.enabled ? qsTr("Enabled") : qsTr("Disabled")
-            onClicked: root.nState.openSubPage(3)
+            icon: "dock_to_right"
+            label: qsTr("Sidebar")
+            status: Config.sidebar.enabled ? qsTr("Enabled") : qsTr("Disabled")
+            onClicked: root.nState.openSubPage(4)
+        }
+
+        ToggleRow {
+            first: true
+            last: true
+            text: qsTr("Show over fullscreen")
+            subtext: qsTr("Keep panels and overview usable above fullscreen windows")
+            checked: Config.general.showOverFullscreen
+            onToggled: GlobalConfig.general.showOverFullscreen = checked
         }
 
         NavRow {

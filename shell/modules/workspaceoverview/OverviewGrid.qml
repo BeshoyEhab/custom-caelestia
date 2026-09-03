@@ -116,6 +116,16 @@ Item {
         }
     }
 
+    Connections {
+        target: Hypr
+        // Toplevel state (float/fullscreen/pin/group) changed without
+        // changing the set: rebuild so live external changes show.
+        function onToplevelsChanged() {
+            if (root.overviewOpen && root.dragSourceWorkspace === -1)
+                root.refreshWindows();
+        }
+    }
+
     Item {
         id: previewContainer
         anchors.fill: parent
@@ -252,7 +262,8 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Drag.active ? Qt.ClosedHandCursor : Qt.PointingHandCursor
-                acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+                // RightButton = two-finger tap on touchpads → close (same as middle-click)
+                acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
                 drag.target: prevItem
 
                 onPressed: mouse => {
@@ -390,7 +401,7 @@ Item {
                 onClicked: mouse => {
                     if (prevItem.wasDragged) return;
                     if (!prevItem.toplevel) return;
-                    if (mouse.button === Qt.MiddleButton) {
+                    if (mouse.button === Qt.MiddleButton || mouse.button === Qt.RightButton) {
                         Hypr.dispatch(Hypr.usingLua ? `hl.dsp.window.close({ window = "address:0x${prevItem.addr}" })` : `closewindow address:0x${prevItem.addr}`);
                         return;
                     }

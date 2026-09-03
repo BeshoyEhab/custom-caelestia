@@ -140,6 +140,10 @@ Singleton {
     }
 
     signal configReloaded
+    // Emitted when toplevel data (floating, fullscreen, pin, grouping) changes
+    // without changing the toplevel set, so onValuesChanged listeners stay
+    // stale. Views that render per-window state should rebuild on this too.
+    signal toplevelsChanged
 
     function dispatch(request: string): void {
         Hyprland.dispatch(request);
@@ -248,6 +252,7 @@ Singleton {
             } else if (n.includes("window") || n.includes("group") || ["pin", "fullscreen", "changefloatingmode", "minimize"].includes(n)) {
                 Hyprland.refreshToplevels();
                 focusTracker.start();
+                root.toplevelsChanged();
             }
         }
 
