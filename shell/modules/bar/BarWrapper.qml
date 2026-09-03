@@ -97,8 +97,10 @@ Item {
         active: root.shouldBeVisible || root.keepActive
 
         sourceComponent: Bar {
-            width: root.isVertical ? root.contentWidth : content.width
-            height: root.isVertical ? content.height : root.contentWidth
+            // Sized against the loader (parent): explicit thickness across
+            // the short axis, loader-driven along the long axis.
+            width: root.isVertical ? root.contentWidth : parent.width
+            height: root.isVertical ? parent.height : root.contentWidth
             screen: root.screen
             visibilities: root.visibilities
             popouts: root.popouts // qmllint disable incompatible-type
