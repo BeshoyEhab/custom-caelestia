@@ -37,7 +37,7 @@ ColumnLayout {
         Layout.topMargin: Tokens.spacing.medium
         Layout.bottomMargin: Tokens.spacing.largeIncreased
 
-        color: Colours.palette.m3secondary
+        color: Colours.palette.m3outlineVariant
     }
 
     Detail {

@@ -18,12 +18,12 @@ Item {
     property real clockScale: Config.background.desktopClock.scale
     readonly property bool invertColors: Config.background.desktopClock.invertColors
     readonly property bool useLightSet: Colours.light ? !invertColors : invertColors
-    readonly property color colFace: useLightSet ? Colours.palette.m3surface : Colours.palette.m3surface
-    readonly property color colOnFace: useLightSet ? Colours.palette.m3onSurface : Colours.palette.m3onSurface
-    readonly property color colPrimary: useLightSet ? Colours.palette.m3primary : Colours.palette.m3primary
-    readonly property color colSecondary: useLightSet ? Colours.palette.m3secondary : Colours.palette.m3secondary
-    readonly property color colTertiary: useLightSet ? Colours.palette.m3tertiary : Colours.palette.m3tertiary
-    readonly property color colOutline: useLightSet ? Colours.palette.m3outline : Colours.palette.m3outline
+    readonly property color colFace: useLightSet ? Colours.palette.m3surface : Colours.palette.m3surfaceContainerLow
+    readonly property color colOnFace: useLightSet ? Colours.palette.m3onSurface : Colours.palette.m3onSurfaceVariant
+    readonly property color colPrimary: useLightSet ? Colours.palette.m3primaryContainer : Colours.palette.m3primary
+    readonly property color colSecondary: useLightSet ? Colours.palette.m3secondaryContainer : Colours.palette.m3secondary
+    readonly property color colTertiary: useLightSet ? Colours.palette.m3tertiaryContainer : Colours.palette.m3tertiary
+    readonly property color colOutline: Colours.palette.m3outline
     readonly property color colShadow: Colours.palette.m3shadow
 
     readonly property int hours: Time.hours % 12

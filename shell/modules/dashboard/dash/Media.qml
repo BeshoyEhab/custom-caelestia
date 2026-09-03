@@ -83,7 +83,7 @@ Item {
         color: Colours.palette.m3primary
         font: Tokens.font.title.small
 
-        width: parent.implicitWidth - Tokens.padding.extraLargeIncreased
+        width: parent.implicitWidth - Tokens.padding.extraLargeIncreased * 2
         elide: Text.ElideRight
     }
 
@@ -100,7 +100,7 @@ Item {
         color: Colours.palette.m3outline
         font: Tokens.font.body.small
 
-        width: parent.implicitWidth - Tokens.padding.extraLargeIncreased
+        width: parent.implicitWidth - Tokens.padding.extraLargeIncreased * 2
         elide: Text.ElideRight
     }
 
@@ -116,7 +116,7 @@ Item {
         text: (Players.active?.trackArtist ?? qsTr("No media")) || qsTr("Unknown artist")
         color: Colours.palette.m3secondary
 
-        width: parent.implicitWidth - Tokens.padding.extraLargeIncreased
+        width: parent.implicitWidth - Tokens.padding.extraLargeIncreased * 2
         elide: Text.ElideRight
     }
 

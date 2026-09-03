@@ -51,7 +51,7 @@ Item {
                     Layout.alignment: Qt.AlignHCenter
                     text: qsTr("No active client")
                     color: Colours.palette.m3outline
-                    font: Tokens.font.body.builders.large.size(28).weight(Font.Medium).build()
+                    font: Tokens.font.headline.builders.small.weight(Font.Medium).build()
                 }
 
                 StyledText {

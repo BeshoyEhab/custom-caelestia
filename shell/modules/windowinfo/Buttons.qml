@@ -32,11 +32,12 @@ ColumnLayout {
             color: Colours.palette.m3primary
             radius: Tokens.rounding.medium
 
-            implicitWidth: moveToWsIcon.implicitWidth + Tokens.padding.small
-            implicitHeight: moveToWsIcon.implicitHeight + Tokens.padding.extraSmall
+            implicitWidth: Math.max(moveToWsIcon.implicitWidth + Tokens.padding.medium, 32)
+            implicitHeight: Math.max(moveToWsIcon.implicitHeight + Tokens.padding.medium, 32)
 
             StateLayer {
                 color: Colours.palette.m3onPrimary
+                cursorShape: Qt.PointingHandCursor
                 onClicked: root.moveToWsExpanded = !root.moveToWsExpanded
             }
 

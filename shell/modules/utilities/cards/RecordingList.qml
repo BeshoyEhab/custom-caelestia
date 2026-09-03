@@ -18,6 +18,15 @@ ColumnLayout {
     required property var props
     required property DrawerVisibilities visibilities
 
+    // Row height in real pixels (measured, not pointSize) so list paging
+    // survives font scaling and DPR changes.
+    readonly property int recRowHeight: Math.ceil(recMetrics.height + Tokens.padding.small)
+
+    FontMetrics {
+        id: recMetrics
+        font: Tokens.font.body.large
+    }
+
     spacing: 0
 
     WrapperMouseArea {
@@ -62,7 +71,7 @@ ColumnLayout {
 
         Layout.fillWidth: true
         Layout.rightMargin: -Tokens.spacing.small
-        implicitHeight: (Tokens.font.body.large.pointSize + Tokens.padding.small) * (root.props.recordingListExpanded ? 10 : 3)
+        implicitHeight: recRowHeight * (root.props.recordingListExpanded ? 10 : 3)
         clip: true
 
         StyledScrollBar.vertical: StyledScrollBar {
