@@ -437,6 +437,8 @@ Item {
                                 const moveX = Math.round(Math.min(1, Math.max(0, (prevItem.x - tX) / root.wsWidth)) * scrW);
                                 const moveY = Math.round(Math.min(1, Math.max(0, (prevItem.y - tY) / root.wsHeight)) * scrH);
                                 Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${prevItem.addr}" })`);
+                                Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${prevItem.addr}", mode = "maximized", action = "set" })`);
+                                Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${prevItem.addr}", action = "unset" })`);
                             } else if (!isFullscreen) {
                                 const dx = (prevItem.x + prevItem.width / 2) - (tX + root.wsWidth / 2);
                                 const dy = (prevItem.y + prevItem.height / 2) - (tY + root.wsHeight / 2);
@@ -446,8 +448,11 @@ Item {
                                 let dir = "";
                                 if (Math.abs(dx) > 20 || Math.abs(dy) > 20)
                                     dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "r" : "l") : (dy > 0 ? "d" : "u");
-                                if (dir !== "")
+                                if (dir !== "") {
                                     Hypr.dispatch(`hl.dsp.window.move({ window = "address:0x${prevItem.addr}", direction = "${dir}" })`);
+                                    Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${prevItem.addr}", mode = "maximized", action = "set" })`);
+                                    Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${prevItem.addr}", action = "unset" })`);
+                                }
                             }
                         }
                         // Optimistic: show the window where it was dropped
@@ -496,6 +501,8 @@ Item {
                             return;
                         }
                         Hypr.dispatch(`hl.dsp.window.move({ x = "${moveX}", y = "${moveY}", window = "address:0x${srcAddr}" })`);
+                        Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${srcAddr}", mode = "maximized", action = "set" })`);
+                        Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${srcAddr}", action = "unset" })`);
                         prevItem.expectedX = prevItem.x;
                         prevItem.expectedY = prevItem.y;
                         prevItem.wasDragged = true;
@@ -522,6 +529,8 @@ Item {
                                 return;
                             }
                             Hypr.dispatch(`hl.dsp.window.move({ window = "address:0x${srcAddr}", direction = "${dir}" })`);
+                            Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${srcAddr}", mode = "maximized", action = "set" })`);
+                            Hypr.dispatch(`hl.dsp.window.fullscreen({ window = "address:0x${srcAddr}", action = "unset" })`);
                             prevItem.expectedX = prevItem.x;
                             prevItem.expectedY = prevItem.y;
                             prevItem.wasDragged = true;
