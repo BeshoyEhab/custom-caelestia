@@ -92,7 +92,7 @@ StyledRect {
 
         sourceComponent: StyledText {
             text: Strings.directionalText(String(root.modelData?.body ?? "").replace(/\n/g, " "))
-            color: root.modelData?.urgency === "critical" ? Colours.palette.m3secondary : Colours.palette.m3outline
+            color: root.modelData?.urgency === "critical" ? Colours.palette.m3onSecondaryContainer : Colours.palette.m3outline
             elide: Text.ElideRight
         }
     }
@@ -139,7 +139,7 @@ StyledRect {
             Layout.fillWidth: true
             textFormat: Text.MarkdownText
             text: Strings.directionalText(String(root.modelData?.body ?? "").replace(/(.)\n(?!\n)/g, "$1\n\n") || qsTr("No body here! :/"))
-            color: root.modelData?.urgency === "critical" ? Colours.palette.m3secondary : Colours.palette.m3outline
+            color: root.modelData?.urgency === "critical" ? Colours.palette.m3onSecondaryContainer : Colours.palette.m3outline
             wrapMode: Text.WordWrap
 
             onLinkActivated: link => {

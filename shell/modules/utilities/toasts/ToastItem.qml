@@ -20,7 +20,7 @@ StyledRect {
         if (root.modelData.type === Toast.Success)
             return Colours.palette.m3successContainer;
         if (root.modelData.type === Toast.Warning)
-            return Colours.palette.m3secondary;
+            return Colours.palette.m3secondaryContainer;
         if (root.modelData.type === Toast.Error)
             return Colours.palette.m3errorContainer;
         return Colours.palette.m3surface;
@@ -32,7 +32,7 @@ StyledRect {
         if (root.modelData.type === Toast.Success)
             colour = Colours.palette.m3success;
         if (root.modelData.type === Toast.Warning)
-            colour = Colours.palette.m3secondaryContainer;
+            colour = Colours.palette.m3secondary;
         if (root.modelData.type === Toast.Error)
             colour = Colours.palette.m3error;
         return Qt.alpha(colour, 0.3);
@@ -101,7 +101,7 @@ StyledRect {
                     if (root.modelData.type === Toast.Success)
                         return Colours.palette.m3onSuccessContainer;
                     if (root.modelData.type === Toast.Warning)
-                        return Colours.palette.m3onSecondary;
+                        return Colours.palette.m3onSecondaryContainer;
                     if (root.modelData.type === Toast.Error)
                         return Colours.palette.m3onErrorContainer;
                     return Colours.palette.m3onSurface;
@@ -118,7 +118,7 @@ StyledRect {
                     if (root.modelData.type === Toast.Success)
                         return Colours.palette.m3onSuccessContainer;
                     if (root.modelData.type === Toast.Warning)
-                        return Colours.palette.m3onSecondary;
+                        return Colours.palette.m3onSecondaryContainer;
                     if (root.modelData.type === Toast.Error)
                         return Colours.palette.m3onErrorContainer;
                     return Colours.palette.m3onSurface;
