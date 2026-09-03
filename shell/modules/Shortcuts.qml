@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Caelestia
+import Caelestia.Config
 import qs.components.misc
 import qs.services
 import qs.modules.nexus
@@ -10,7 +11,9 @@ Scope {
     id: root
 
     property bool launcherInterrupted
-    readonly property bool hasFullscreen: Hypr.focusedWorkspace?.toplevels.values.some(t => t.lastIpcObject.fullscreen > 1) ?? false
+    readonly property bool hasFullscreen: Hypr.focusedWorkspace?.toplevels.values.some(t => (t.lastIpcObject?.fullscreen ?? 0) > 1) ?? false
+    // Panels stay usable over fullscreen only when opted in
+    readonly property bool blockFullscreen: root.hasFullscreen && !Config.general.showOverFullscreen
 
     // qmllint disable unresolved-type
     CustomShortcut {
@@ -26,7 +29,7 @@ Scope {
         name: "showall"
         description: "Toggle launcher, dashboard and osd"
         onPressed: {
-            if (root.hasFullscreen)
+            if (root.blockFullscreen)
                 return;
             const v = Visibilities.getForActive();
             v.launcher = v.dashboard = v.osd = v.utilities = !(v.launcher || v.dashboard || v.osd || v.utilities);
@@ -39,7 +42,7 @@ Scope {
         name: "dashboard"
         description: "Toggle dashboard"
         onPressed: {
-            if (root.hasFullscreen)
+            if (root.blockFullscreen)
                 return;
             const visibilities = Visibilities.getForActive();
             visibilities.dashboard = !visibilities.dashboard;
@@ -52,7 +55,7 @@ Scope {
         name: "session"
         description: "Toggle session menu"
         onPressed: {
-            if (root.hasFullscreen)
+            if (root.blockFullscreen)
                 return;
             const visibilities = Visibilities.getForActive();
             visibilities.session = !visibilities.session;
@@ -66,7 +69,7 @@ Scope {
         description: "Toggle launcher"
         onPressed: root.launcherInterrupted = false
         onReleased: {
-            if (!root.launcherInterrupted && !root.hasFullscreen) {
+            if (!root.launcherInterrupted && !root.blockFullscreen) {
                 const visibilities = Visibilities.getForActive();
                 if (visibilities.launcher && !visibilities.launcherShortcutActive) {
                     visibilities.launcherShortcutActive = true;
@@ -92,7 +95,7 @@ Scope {
         name: "sidebar"
         description: "Toggle sidebar"
         onPressed: {
-            if (root.hasFullscreen)
+            if (root.blockFullscreen)
                 return;
             const visibilities = Visibilities.getForActive();
             visibilities.sidebar = !visibilities.sidebar;
@@ -105,7 +108,7 @@ Scope {
         name: "utilities"
         description: "Toggle utilities"
         onPressed: {
-            if (root.hasFullscreen)
+            if (root.blockFullscreen)
                 return;
             const visibilities = Visibilities.getForActive();
             visibilities.utilities = !visibilities.utilities;
@@ -118,7 +121,7 @@ Scope {
         name: "workspaceOverview"
         description: "Toggle workspace overview"
         onPressed: {
-            if (root.hasFullscreen)
+            if (root.blockFullscreen)
                 return;
             const visibilities = Visibilities.getForActive();
             visibilities.workspaceOverview = !visibilities.workspaceOverview;
@@ -136,7 +139,7 @@ Scope {
     IpcHandler {
         function toggle(drawer: string): void {
             if (list().split("\n").includes(drawer)) {
-                if (root.hasFullscreen && ["launcher", "session", "dashboard"].includes(drawer))
+                if (root.blockFullscreen && ["launcher", "session", "dashboard"].includes(drawer))
                     return;
                 const visibilities = Visibilities.getForActive();
                 visibilities[drawer] = !visibilities[drawer];
