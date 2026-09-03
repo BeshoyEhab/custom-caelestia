@@ -61,19 +61,26 @@ spin() {
     printf "  \e[0;32m✓\e[0m %s   \n" "$label" >&2
 }
 
-# ── Sudo wrapper: show command, ask for confirmation ─────────────────────────
+# ── Sudo wrapper: show command, ask for confirmation ONCE ────────────────────
 # The prompt/confirmation ALWAYS goes to the terminal (/dev/tty) so it stays
 # visible even when the rest of the command output is redirected/spinnered.
 # Skipped entirely in --non-interactive mode (no prompts for GUI integration).
+# First invocation asks: [Y] approve all sudo for this run (default), [o] just
+# this once, [n] skip. Later invocations only echo the command and run it.
+SUDO_APPROVED=false
 sudo() {
-    if [[ "$NON_INTERACTIVE" == true ]]; then
+    if [[ "$NON_INTERACTIVE" == true || "$SUDO_APPROVED" == true ]]; then
         command sudo "$@"
         return
     fi
     printf '  >> sudo %s\n' "$*" >/dev/tty
-    printf '  %b run? [Y/n] %b ' "$CYAN" "$NC" >/dev/tty
+    printf '  %brun? [Y=yes to all, o=once, n=skip] %b ' "$CYAN" "$NC" >/dev/tty
     read -r _confirm < /dev/tty
-    [[ "${_confirm,,}" == "n" ]] && return 1
+    case "${_confirm,,}" in
+        n*) return 1 ;;
+        o*) ;; # once: run this command, ask again next time
+        *) SUDO_APPROVED=true ;; # default (empty/Y): approve all for this run
+    esac
     command sudo "$@"
 }
 
