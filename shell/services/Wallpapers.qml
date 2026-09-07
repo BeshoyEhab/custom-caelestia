@@ -30,21 +30,66 @@ Searcher {
         return category;
     }
 
+    function isVideo(path: string): bool {
+        return Images.isVideo(path);
+    }
+
+    function thumbFor(path: string): string {
+        const safe = path.replace(/^\//, "").replace(/[^A-Za-z0-9._-]+/g, "_");
+        return `${Paths.cache}/wallpapers-video/${safe}.jpg`;
+    }
+
+    function shQuote(s: string): string {
+        return `'${s.replace(/'/g, `'\\''`)}'`;
+    }
+
+    readonly property string colourSource: isVideo(current) ? thumbFor(current) : current
+
     function setRandom(): void {
         Quickshell.execDetached(["caelestia", "wallpaper", "-r", ...smartArg]);
     }
 
     function setWallpaper(path: string): void {
+        if (isVideo(path)) {
+            setVideoWallpaper(path);
+            return;
+        }
         actualCurrent = path;
         Quickshell.execDetached(["caelestia", "wallpaper", "-f", path, ...smartArg]);
+    }
+
+    function setVideoWallpaper(path: string): void {
+        // `caelestia wallpaper -f` rejects video, so: extract a first-frame
+        // thumbnail, theme from it via the regular CLI, then point the state
+        // back at the video. The shell plays the video natively (looped,
+        // muted); the brief poster shown meanwhile is the video's own first
+        // frame. `actualCurrent` is left for the state FileView to update so
+        // the UI only switches once the thumbnail + colours are ready.
+        const thumb = thumbFor(path);
+        const stateDir = `${Paths.state}/wallpaper`;
+        const smart = smartArg.join(" ");
+        const script = [`thumb=${shQuote(thumb)}`, `video=${shQuote(path)}`, `state=${shQuote(stateDir)}`, `mkdir -p "$(dirname "$thumb")"`, `ffmpeg -y -v error -i "$video" -vframes 1 -q:v 3 "$thumb" || exit 1`, `caelestia wallpaper -f "$thumb" ${smart}`, `printf '%s' "$video" > "$state/path.txt"`, `ln -sf "$video" "$state/current"`].join(" && ");
+        Quickshell.execDetached(["sh", "-c", script]);
     }
 
     function preview(path: string): void {
         previewPath = path;
         showPreview = true;
 
-        if (Colours.scheme === "dynamic")
-            getPreviewColoursProc.running = true;
+        if (Colours.scheme === "dynamic") {
+            if (isVideo(path))
+                previewVideo(path);
+            else
+                getPreviewColoursProc.running = true;
+        }
+    }
+
+    function previewVideo(path: string): void {
+        const thumb = thumbFor(path);
+        const smart = smartArg.join(" ");
+        const script = [`thumb=${shQuote(thumb)}`, `video=${shQuote(path)}`, `mkdir -p "$(dirname "$thumb")"`, `[ -f "$thumb" ] || ffmpeg -y -v error -i "$video" -vframes 1 -q:v 3 "$thumb" || exit 0`, `caelestia wallpaper -p "$thumb" ${smart}`].join(" && ");
+        videoPreviewColoursProc.command = ["sh", "-c", script];
+        videoPreviewColoursProc.running = true;
     }
 
     function stopPreview(): void {
@@ -115,7 +160,11 @@ Searcher {
 
         recursive: true
         path: Paths.wallsdir
-        filter: FileSystemModel.Images
+        filter: FileSystemModel.Files
+        // NOTE: previously `Images` (QImageReader-based, excludes video).
+        // Files + nameFilters keeps the image coverage (incl. gif, which the
+        // CLI supports) while also listing looping video wallpapers.
+        nameFilters: Images.validImageExtensions.concat(["gif", "bmp"], Images.validVideoExtensions).map(e => `*.${e}`)
     }
 
     Timer {
@@ -153,6 +202,22 @@ Searcher {
             onStreamFinished: {
                 Colours.load(text, true);
                 Colours.showPreview = true;
+            }
+        }
+    }
+
+    Process {
+        id: videoPreviewColoursProc
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                // The ffmpeg/`-p` chain prints nothing on failure; only apply
+                // the preview colours when we actually got scheme JSON back.
+                const t = text.trim();
+                if (t.startsWith("{")) {
+                    Colours.load(t, true);
+                    Colours.showPreview = true;
+                }
             }
         }
     }

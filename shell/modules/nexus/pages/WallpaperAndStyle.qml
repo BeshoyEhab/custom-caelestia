@@ -130,7 +130,7 @@ PageBase {
                         default: return Image.PreserveAspectCrop;
                         }
                     }
-                    source: Wallpapers.current
+                    source: Wallpapers.colourSource
                     preventInit: wallIndicatorLoader.opacity > 0
                     fadeOutAnim: Anim.DefaultEffects
                     fadeInAnim: Anim.SlowEffects

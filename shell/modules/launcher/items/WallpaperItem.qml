@@ -59,7 +59,7 @@ Item {
 
         MaterialIcon {
             anchors.centerIn: parent
-            text: "image"
+            text: Wallpapers.isVideo(root.modelData.path) ? "movie" : "image"
             color: Colours.tPalette.m3outline
             fontStyle: Tokens.font.icon.builders.extraLarge.scale(2).weight(Font.DemiBold).build()
         }

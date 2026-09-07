@@ -11,11 +11,12 @@ import qs.services
 Item {
     id: root
 
-    property alias source: img.source
+    property string source
     property alias text: label.text
     property alias radius: imgWrapper.radius
     property alias imgHeight: imgWrapper.implicitHeight
     property bool fillLabel: true
+    readonly property bool isVideo: Wallpapers.isVideo(root.source)
 
     signal clicked
 
@@ -39,7 +40,7 @@ Item {
             Loader {
                 anchors.centerIn: parent
 
-                opacity: img.status === Image.Ready ? 0 : 1
+                opacity: !root.isVideo && img.status !== Image.Ready ? 1 : 0
                 active: opacity > 0
 
                 sourceComponent: StyledRect {
@@ -71,6 +72,7 @@ Item {
                 anchors.fill: parent
                 asynchronous: true
                 fillMode: Image.PreserveAspectCrop
+                source: root.isVideo ? Wallpapers.thumbFor(root.source) : root.source
                 sourceSize: {
                     const dpr = (QsWindow.window as QsWindow)?.devicePixelRatio ?? 1;
                     return Qt.size(width * dpr, height * dpr);
@@ -83,6 +85,24 @@ Item {
                         type: Anim.SlowEffects
                     }
                 }
+            }
+
+            MaterialIcon {
+                anchors.centerIn: parent
+                visible: root.isVideo && img.status !== Image.Ready
+                text: "movie"
+                color: Colours.palette.m3outline
+                fontStyle: Tokens.font.icon.extraLarge
+            }
+
+            MaterialIcon {
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.margins: Tokens.padding.small
+                visible: root.isVideo && img.status === Image.Ready
+                text: "videocam"
+                color: Colours.palette.m3onSurface
+                fontStyle: Tokens.font.icon.medium
             }
         }
 

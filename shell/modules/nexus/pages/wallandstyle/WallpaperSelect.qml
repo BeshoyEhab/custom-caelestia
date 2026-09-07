@@ -43,9 +43,9 @@ PageBase {
                 FileDialog {
                     id: browseDialog
 
-                    title: qsTr("Select an image")
-                    filterLabel: qsTr("Image files")
-                    filters: Images.validImageExtensions
+                    title: qsTr("Select a wallpaper")
+                    filterLabel: qsTr("Image or video files")
+                    filters: Images.validImageExtensions.concat(Images.validVideoExtensions)
                     onAccepted: path => {
                         Wallpapers.setWallpaper(path);
                         root.nState.closeSubPage();

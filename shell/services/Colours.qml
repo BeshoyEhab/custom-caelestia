@@ -145,7 +145,8 @@ Singleton {
     ImageAnalyser {
         id: analyser
 
-        source: Wallpapers.current
+        // Videos cannot be analysed directly; use their first-frame thumbnail.
+        source: Wallpapers.colourSource
     }
 
     Timer {

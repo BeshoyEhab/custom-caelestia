@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtMultimedia
 import Caelestia.Config
 import qs.components
 import qs.components.filedialog
@@ -14,6 +15,7 @@ Item {
     property string source: Wallpapers.current
     property CachingImage current
     property bool completed
+    readonly property bool isVideo: Images.isVideo(source)
 
     function wallpaperFillMode(): int {
         switch (GlobalConfig.background.wallpaperMode) {
@@ -23,12 +25,32 @@ Item {
         }
     }
 
+    function videoFillMode(): int {
+        switch (GlobalConfig.background.wallpaperMode) {
+        case "fit": return VideoOutput.PreserveAspectFit;
+        case "stretch": return VideoOutput.Stretch;
+        default: return VideoOutput.PreserveAspectCrop;
+        }
+    }
+
+    function imagePathFor(src: string): string {
+        // Videos show their extracted first-frame thumbnail as a poster
+        // behind/while the looping video buffers.
+        return Images.isVideo(src) ? Wallpapers.thumbFor(src) : src;
+    }
+
+    function fileUrlFor(path: string): string {
+        // MediaPlayer needs a real URL; a plain absolute path is mistaken
+        // for a Qt resource ("Attempting to play invalid Qt resource").
+        return "file://" + path.split("/").map(encodeURIComponent).join("/");
+    }
+
     onSourceChanged: {
         if (!source)
             current = null;
         else
             current = imgComp.createObject(this, {
-                path: source,
+                path: imagePathFor(source),
                 fillMode: wallpaperFillMode()
             });
     }
@@ -37,11 +59,39 @@ Item {
         if (source)
             Qt.callLater(() => {
                 current = imgComp.createObject(this, {
-                    path: source,
+                    path: imagePathFor(source),
                     fillMode: wallpaperFillMode()
                 });
                 completed = true;
             });
+    }
+
+    Video {
+        id: video
+
+        anchors.fill: parent
+        visible: root.isVideo
+        source: root.isVideo ? fileUrlFor(root.source) : ""
+        autoPlay: true
+        muted: true
+        volume: 0
+        loops: MediaPlayer.Infinite
+        fillMode: root.videoFillMode()
+
+        opacity: 0
+
+        onPlaybackStateChanged: {
+            if (playbackState === MediaPlayer.PlayingState)
+                videoFade.start();
+        }
+
+        Anim on opacity {
+            id: videoFade
+
+            type: Anim.SlowEffects
+            running: false
+            to: 1
+        }
     }
 
     Loader {
@@ -84,8 +134,8 @@ Item {
                             id: dialog
 
                             title: qsTr("Select a wallpaper")
-                            filterLabel: qsTr("Image files")
-                            filters: Images.validImageExtensions
+                            filterLabel: qsTr("Image or video files")
+                            filters: Images.validImageExtensions.concat(Images.validVideoExtensions)
                             onAccepted: path => Wallpapers.setWallpaper(path)
                         }
 
