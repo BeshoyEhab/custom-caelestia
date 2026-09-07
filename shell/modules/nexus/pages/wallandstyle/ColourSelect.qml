@@ -8,6 +8,7 @@ import Caelestia.Config
 import qs.components
 import qs.components.controls
 import qs.services
+import qs.utils
 import qs.modules.nexus.common
 
 PageBase {
@@ -95,8 +96,7 @@ PageBase {
     property string currentFlavour: Colours.flavour || "mocha"
     property bool isCatppuccin: currentScheme === "catppuccin"
 
-    readonly property string precomputeScript:
-        Paths.home + "/.config/quickshell/caelestia/scripts/precompute_variants.py"
+    readonly property string precomputeScript: Paths.precomputeVariants
 
     readonly property var variantFallback: [
         { name: "tonalspot", primary: "#b4c7ed", secondary: "#bdc7dc", tertiary: "#eaddff" },

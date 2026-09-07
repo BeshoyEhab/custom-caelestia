@@ -23,6 +23,7 @@ Singleton {
     readonly property string wallsdir: Quickshell.env("CAELESTIA_WALLPAPERS_DIR") || absolutePath(GlobalConfig.paths.wallpaperDir)
     readonly property string recsdir: Quickshell.env("CAELESTIA_RECORDINGS_DIR") || `${videos}/Recordings`
     readonly property string libdir: Quickshell.env("CAELESTIA_LIB_DIR") || "/usr/lib/caelestia"
+    readonly property string precomputeVariants: `${home}/.config/quickshell/caelestia/scripts/precompute_variants.py`
 
     function toLocalFile(path: url): string {
         path = Qt.resolvedUrl(path);

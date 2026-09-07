@@ -55,7 +55,11 @@ Searcher {
             return;
         }
         actualCurrent = path;
-        Quickshell.execDetached(["caelestia", "wallpaper", "-f", path, ...smartArg]);
+        // Refresh variant swatches too: `wallpaper -f` rewrites scheme.json
+        // without variantColours, which would drop the Colours page back to
+        // hardcoded fallback palettes.
+        const smart = smartArg.join(" ");
+        Quickshell.execDetached(["sh", "-c", `caelestia wallpaper -f ${shQuote(path)} ${smart} && python3 ${shQuote(Paths.precomputeVariants)}`]);
     }
 
     function setVideoWallpaper(path: string): void {
@@ -71,7 +75,7 @@ Searcher {
         const stateDir = `${Paths.state}/wallpaper`;
         const lockFile = `${Paths.cache}/wallpaper-set.lock`;
         const smart = smartArg.join(" ");
-        const script = [`lock=${shQuote(lockFile)}`, `exec 9>"$lock"`, `flock 9`, `thumb=${shQuote(thumb)}`, `video=${shQuote(path)}`, `state=${shQuote(stateDir)}`, `mkdir -p "$(dirname "$thumb")"`, `ffmpeg -y -v error -i "$video" -vframes 1 -q:v 3 "$thumb" || exit 1`, `caelestia wallpaper -f "$thumb" ${smart}`, `printf '%s' "$video" > "$state/path.txt"`, `ln -sf "$video" "$state/current"`].join(" && ");
+        const script = [`lock=${shQuote(lockFile)}`, `exec 9>"$lock"`, `flock 9`, `thumb=${shQuote(thumb)}`, `video=${shQuote(path)}`, `state=${shQuote(stateDir)}`, `mkdir -p "$(dirname "$thumb")"`, `ffmpeg -y -v error -i "$video" -vframes 1 -q:v 3 "$thumb" || exit 1`, `caelestia wallpaper -f "$thumb" ${smart}`, `printf '%s' "$video" > "$state/path.txt"`, `ln -sf "$video" "$state/current"`, `python3 ${shQuote(Paths.precomputeVariants)}`].join(" && ");
         Quickshell.execDetached(["sh", "-c", script]);
     }
 
