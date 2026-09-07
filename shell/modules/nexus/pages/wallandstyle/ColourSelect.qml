@@ -129,8 +129,14 @@ PageBase {
                 for (var fi = 0; fi < flavourOrder.length; fi++) {
                     var fn = flavourOrder[fi];
                     var c = fc[fn];
-                    if (c)
-                        list.push({ name: fn, primary: "#" + (c.primary || "000000"), secondary: "#" + (c.secondary || "000000"), tertiary: "#" + (c.tertiary || "000000"), surface: "#" + (c.surface || "000000") });
+                    if (c) {
+                        var t = { name: fn, primary: "#" + (c.primary || "000000"), secondary: "#" + (c.secondary || "000000"), tertiary: "#" + (c.tertiary || "000000") };
+                        if (c.surface)
+                            t.surface = "#" + c.surface;
+                        if (c.onSurface)
+                            t.onSurface = "#" + c.onSurface;
+                        list.push(t);
+                    }
                 }
                 if (list.length > 0) { variantTiles = list; return; }
             }
@@ -142,8 +148,14 @@ PageBase {
                 for (var vi = 0; vi < variantOrder.length; vi++) {
                     var vn = variantOrder[vi];
                     var c = vc[vn];
-                    if (c)
-                        list.push({ name: vn, primary: "#" + (c.primary || "000000"), secondary: "#" + (c.secondary || "000000"), tertiary: "#" + (c.tertiary || "000000"), surface: "#" + (c.surface || "000000") });
+                    if (c) {
+                        var t = { name: vn, primary: "#" + (c.primary || "000000"), secondary: "#" + (c.secondary || "000000"), tertiary: "#" + (c.tertiary || "000000") };
+                        if (c.surface)
+                            t.surface = "#" + c.surface;
+                        if (c.onSurface)
+                            t.onSurface = "#" + c.onSurface;
+                        list.push(t);
+                    }
                 }
                 if (list.length > 0) { variantTiles = list; return; }
             }
@@ -394,7 +406,7 @@ PageBase {
                             ? modelData.surface
                             : root.variantTileBg(isActive ? Colours.palette.m3primary.toString() : vPrimary).toString()
                         readonly property color borderColor: isActive ? Colours.palette.m3primary : "transparent"
-                        readonly property string textColor: root.textOnSurface(vSurface)
+                        readonly property string textColor: modelData.onSurface ? modelData.onSurface : root.textOnSurface(vSurface)
 
                         Rectangle {
                             anchors.fill: parent
