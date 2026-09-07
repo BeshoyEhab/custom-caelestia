@@ -79,23 +79,6 @@ Item {
 
             color: root.connectorColor
             radius: Tokens.rounding.full
-
-            scale: 0
-            Component.onCompleted: scale = 1
-
-            Behavior on scale {
-                Anim {
-                    easing: Tokens.anim.standardDecel
-                }
-            }
-
-            Behavior on y {
-                Anim {}
-            }
-
-            Behavior on implicitHeight {
-                Anim {}
-            }
         }
     }
 
