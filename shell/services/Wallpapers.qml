@@ -65,10 +65,13 @@ Searcher {
         // muted); the brief poster shown meanwhile is the video's own first
         // frame. `actualCurrent` is left for the state FileView to update so
         // the UI only switches once the thumbnail + colours are ready.
+        // Serialized with flock: overlapping runs (rapid picks) would
+        // otherwise mix one video's path with another's scheme.
         const thumb = thumbFor(path);
         const stateDir = `${Paths.state}/wallpaper`;
+        const lockFile = `${Paths.cache}/wallpaper-set.lock`;
         const smart = smartArg.join(" ");
-        const script = [`thumb=${shQuote(thumb)}`, `video=${shQuote(path)}`, `state=${shQuote(stateDir)}`, `mkdir -p "$(dirname "$thumb")"`, `ffmpeg -y -v error -i "$video" -vframes 1 -q:v 3 "$thumb" || exit 1`, `caelestia wallpaper -f "$thumb" ${smart}`, `printf '%s' "$video" > "$state/path.txt"`, `ln -sf "$video" "$state/current"`].join(" && ");
+        const script = [`lock=${shQuote(lockFile)}`, `exec 9>"$lock"`, `flock 9`, `thumb=${shQuote(thumb)}`, `video=${shQuote(path)}`, `state=${shQuote(stateDir)}`, `mkdir -p "$(dirname "$thumb")"`, `ffmpeg -y -v error -i "$video" -vframes 1 -q:v 3 "$thumb" || exit 1`, `caelestia wallpaper -f "$thumb" ${smart}`, `printf '%s' "$video" > "$state/path.txt"`, `ln -sf "$video" "$state/current"`].join(" && ");
         Quickshell.execDetached(["sh", "-c", script]);
     }
 
@@ -86,8 +89,11 @@ Searcher {
 
     function previewVideo(path: string): void {
         const thumb = thumbFor(path);
+        const lockFile = `${Paths.cache}/wallpaper-set.lock`;
         const smart = smartArg.join(" ");
-        const script = [`thumb=${shQuote(thumb)}`, `video=${shQuote(path)}`, `mkdir -p "$(dirname "$thumb")"`, `[ -f "$thumb" ] || ffmpeg -y -v error -i "$video" -vframes 1 -q:v 3 "$thumb" || exit 0`, `caelestia wallpaper -p "$thumb" ${smart}`].join(" && ");
+        // Non-blocking lock: if a video set is in flight, skip the colour
+        // preview (the live background preview still applies).
+        const script = [`lock=${shQuote(lockFile)}`, `thumb=${shQuote(thumb)}`, `video=${shQuote(path)}`, `mkdir -p "$(dirname "$thumb")"`, `[ -f "$thumb" ] || flock -n "$lock" ffmpeg -y -v error -i "$video" -vframes 1 -q:v 3 "$thumb" || exit 0`, `caelestia wallpaper -p "$thumb" ${smart}`].join(" && ");
         videoPreviewColoursProc.command = ["sh", "-c", script];
         videoPreviewColoursProc.running = true;
     }

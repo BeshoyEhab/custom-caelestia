@@ -69,6 +69,9 @@ Item {
     Video {
         id: video
 
+        // Above the (dynamically created, poster) images: they are appended
+        // as later siblings so without this they would cover the video.
+        z: 1
         anchors.fill: parent
         visible: root.isVideo
         source: root.isVideo ? fileUrlFor(root.source) : ""
