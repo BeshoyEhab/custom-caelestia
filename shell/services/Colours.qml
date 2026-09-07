@@ -74,10 +74,20 @@ Singleton {
             previewLight = scheme.mode === "light";
         }
 
+        const skipped = [];
         for (const [name, colour] of Object.entries(scheme.colours)) {
             const propName = name.startsWith("term") ? name : `m3${name}`;
-            colours[propName] = `#${colour}`;
+            try {
+                colours[propName] = `#${colour}`;
+            } catch (e) {
+                // Newer CLI keys the shell doesn't declare (e.g. primaryDim).
+                // Skipping is essential: a throw here aborts load() before
+                // variant/variantColours are assigned below.
+                skipped.push(propName);
+            }
         }
+        if (skipped.length > 0)
+            console.log("Colours: ignoring", skipped.length, "unknown scheme keys:", skipped.join(", ").slice(0, 220));
 
         if (!isPreview) {
             root.variant = scheme.variant || "tonalspot";
