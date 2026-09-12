@@ -3,6 +3,7 @@
 #include "configobject.hpp"
 
 #include <qstring.h>
+#include <qvariant.h>
 
 using Qt::StringLiterals::operator""_s;
 
@@ -78,6 +79,10 @@ class BackgroundConfig : public ConfigObject {
     CONFIG_PROPERTY(QString, wallpaperMode, QStringLiteral("crop"))
     CONFIG_PROPERTY(bool, wallpaperRotation, false)
     CONFIG_PROPERTY(int, wallpaperRotationInterval, 2)
+    CONFIG_PROPERTY(QString, videoBackend, QStringLiteral("mpvpaper"))
+    CONFIG_PROPERTY(bool, videoAutoStop, true)
+    CONFIG_PROPERTY(QString, videoAutoMode, QStringLiteral("FULL"))
+    CONFIG_PROPERTY(QVariantMap, videoOutputs, {})
     CONFIG_SUBOBJECT(DesktopClock, desktopClock)
     CONFIG_SUBOBJECT(BackgroundVisualiser, visualiser)
 
