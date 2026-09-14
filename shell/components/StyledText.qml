@@ -15,6 +15,8 @@ Text {
     font: Tokens.font.body.small
 
     Behavior on color {
+        enabled: root.animate
+
         CAnim {}
     }
 

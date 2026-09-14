@@ -115,6 +115,21 @@ Item {
             Keys.onUpPressed: list.currentList?.decrementCurrentIndex()
             Keys.onDownPressed: list.currentList?.incrementCurrentIndex()
 
+            // The wallpaper carousel is horizontal: Left/Right browse it.
+            // Outside wallpaper mode the keys fall through to the text cursor.
+            Keys.onLeftPressed: event => {
+                if (list.showWallpapers) {
+                    list.currentList?.decrementCurrentIndex();
+                    event.accepted = true;
+                }
+            }
+            Keys.onRightPressed: event => {
+                if (list.showWallpapers) {
+                    list.currentList?.incrementCurrentIndex();
+                    event.accepted = true;
+                }
+            }
+
             Keys.onEscapePressed: root.visibilities.launcher = false
 
             Keys.onPressed: event => {

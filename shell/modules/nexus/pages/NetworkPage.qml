@@ -33,7 +33,8 @@ PageBase {
             running: root.visible && Nmcli.wifiEnabled
             repeat: true
             triggeredOnStart: true
-            interval: GlobalConfig.nexus.networkRescanInterval
+            // Clamped: stored configs may predate the raised stepper minimum.
+            interval: Math.max(15000, GlobalConfig.nexus.networkRescanInterval)
             onTriggered: Nmcli.rescanWifi()
         }
 

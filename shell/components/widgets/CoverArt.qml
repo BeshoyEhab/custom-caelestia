@@ -46,8 +46,9 @@ Item {
             color: Qt.alpha(root.fallbackColour, 1)
 
             Anim on rotation {
-                running: true
-                paused: !Players.active?.isPlaying
+                // Gated (not paused): an infinite ticker stays registered
+                // while paused, this unregisters it when nothing plays.
+                running: Players.active?.isPlaying ?? false
                 from: 360
                 to: 0
                 duration: 23500

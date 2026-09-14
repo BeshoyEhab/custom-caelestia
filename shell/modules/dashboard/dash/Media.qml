@@ -32,7 +32,8 @@ Item {
 
     Timer {
         running: Players.active?.isPlaying ?? false
-        interval: GlobalConfig.dashboard.mediaUpdateInterval
+        // Clamped: stored configs may predate the raised stepper minimum.
+        interval: Math.max(500, GlobalConfig.dashboard.mediaUpdateInterval)
         triggeredOnStart: true
         repeat: true
         onTriggered: Players.active?.positionChanged()

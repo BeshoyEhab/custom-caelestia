@@ -155,7 +155,8 @@ Singleton {
     }
 
     Timer {
-        interval: GlobalConfig.dashboard.resourceUpdateInterval
+        // Clamped: stored configs may predate the raised stepper minimum.
+        interval: Math.max(2000, GlobalConfig.dashboard.resourceUpdateInterval)
         running: root.refCount > 0
         repeat: true
         triggeredOnStart: true

@@ -110,7 +110,7 @@ PageBase {
             label: qsTr("Media refresh")
             subtext: qsTr("How often the media position updates (ms)")
             value: GlobalConfig.dashboard.mediaUpdateInterval
-            from: 100
+            from: 500
             to: 2000
             stepSize: 50
             onMoved: v => GlobalConfig.dashboard.mediaUpdateInterval = v
@@ -120,7 +120,7 @@ PageBase {
             label: qsTr("System stats refresh")
             subtext: qsTr("CPU, memory and GPU update interval (seconds)")
             value: GlobalConfig.dashboard.resourceUpdateInterval / 1000
-            from: 0.5
+            from: 2
             to: 10
             stepSize: 0.5
             onMoved: v => GlobalConfig.dashboard.resourceUpdateInterval = Math.round(v * 1000)
@@ -131,7 +131,7 @@ PageBase {
             label: qsTr("Wi-Fi rescan")
             subtext: qsTr("How often available networks are rescanned (seconds)")
             value: GlobalConfig.nexus.networkRescanInterval / 1000
-            from: 5
+            from: 15
             to: 120
             stepSize: 5
             onMoved: v => GlobalConfig.nexus.networkRescanInterval = Math.round(v * 1000)

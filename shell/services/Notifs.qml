@@ -74,7 +74,9 @@ Singleton {
         interval: 1000
         onTriggered: {
             const loadedNotifs = root.notClosed.map(n => ({
-                time: n.time, id: n.id, summary: n.summary, body: n.body,
+                time: n.time, id: n.id, summary: n.summary,
+                // Truncated: full markup bodies bloat every persisted snapshot.
+                body: (n.body ?? "").slice(0, 500),
                 appIcon: n.appIcon, appName: n.appName, image: n.image,
                 expireTimeout: n.expireTimeout, urgency: n.urgency,
                 resident: n.resident, hasActionIcons: n.hasActionIcons, actions: n.actions
