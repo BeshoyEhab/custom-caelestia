@@ -439,7 +439,16 @@ StyledRect {
                     if (!root.expanded)
                         return;
 
-                    Quickshell.execDetached(["app2unit", "-O", "--", link]);
+                    // Links come from notification body markup, which any app can send.
+                    // Only hand http(s) to the launcher; open other valid schemes
+                    // directly and ignore anything that doesn't look like a URL.
+                    if (link.startsWith("http://") || link.startsWith("https://")) {
+                        Quickshell.execDetached(["app2unit", "-O", "--", link]);
+                    } else if (link.includes("://") || link.startsWith("mailto:")) {
+                        Qt.openUrlExternally(link);
+                    } else {
+                        return;
+                    }
                     root.modelData.popup = false;
                 }
 

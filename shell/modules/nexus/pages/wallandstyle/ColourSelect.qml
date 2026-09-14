@@ -98,6 +98,10 @@ PageBase {
 
     readonly property string precomputeScript: Paths.precomputeVariants
 
+    function shQuote(s: string): string {
+        return `'${s.replace(/'/g, `'\\''`)}'`;
+    }
+
     readonly property var variantFallback: [
         { name: "tonalspot", primary: "#b4c7ed", secondary: "#bdc7dc", tertiary: "#eaddff" },
         { name: "vibrant", primary: "#ff6b6b", secondary: "#ffd93d", tertiary: "#6bcb77" },
@@ -318,7 +322,7 @@ PageBase {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 Colours.scheme = schemeName;
-                                Quickshell.execDetached(["sh", "-c", `caelestia scheme set -n ${schemeName} --notify && python3 '${root.precomputeScript}'`]);
+                                Quickshell.execDetached(["sh", "-c", `caelestia scheme set -n ${root.shQuote(schemeName)} --notify && python3 ${root.shQuote(root.precomputeScript)}`]);
                             }
                         }
 
@@ -432,10 +436,10 @@ PageBase {
                             onClicked: {
                                 if (root.isCatppuccin) {
                                     Colours.flavour = vName;
-                                    Quickshell.execDetached(["sh", "-c", `caelestia scheme set -f ${vName} --notify && python3 '${root.precomputeScript}'`]);
+                                    Quickshell.execDetached(["sh", "-c", `caelestia scheme set -f ${root.shQuote(vName)} --notify && python3 ${root.shQuote(root.precomputeScript)}`]);
                                 } else {
                                     Colours.variant = vName;
-                                    Quickshell.execDetached(["sh", "-c", `caelestia scheme set -v ${vName} --notify && python3 '${root.precomputeScript}'`]);
+                                    Quickshell.execDetached(["sh", "-c", `caelestia scheme set -v ${root.shQuote(vName)} --notify && python3 ${root.shQuote(root.precomputeScript)}`]);
                                 }
                             }
                         }
@@ -477,7 +481,7 @@ PageBase {
 
         Component.onCompleted: {
             root.rebuildVariants();
-            Quickshell.execDetached(["sh", "-c", `python3 '${root.precomputeScript}'`]);
+            Quickshell.execDetached(["sh", "-c", `python3 ${root.shQuote(root.precomputeScript)}`]);
         }
 
         Connections {

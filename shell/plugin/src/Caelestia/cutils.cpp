@@ -8,10 +8,44 @@
 #include <qfuturewatcher.h>
 #include <qloggingcategory.h>
 #include <qqmlengine.h>
+#include <qstandardpaths.h>
 
 Q_LOGGING_CATEGORY(lcCUtils, "caelestia.cutils", QtInfoMsg)
 
 namespace caelestia {
+
+namespace {
+
+// These helpers are callable from QML, so confine them to user-writable
+// locations. System roots are always denied; anything under $HOME, the
+// app cache/data dirs or /tmp is allowed (covers ~/.face, recordings,
+// notification images and area-picker screenshots).
+bool isAllowedPath(const QString& file) {
+    const QString abs = QFileInfo(file).absoluteFilePath();
+
+    static const QStringList denied = { QStringLiteral("/"), QStringLiteral("/etc"), QStringLiteral("/usr"),
+        QStringLiteral("/sys"), QStringLiteral("/proc"), QStringLiteral("/dev"), QStringLiteral("/run"),
+        QStringLiteral("/boot"), QStringLiteral("/root") };
+    for (const QString& d : denied) {
+        if (abs == d || abs.startsWith(d + QLatin1Char('/')))
+            return false;
+    }
+
+    static const QString home = QDir::homePath();
+    if (abs == home || abs.startsWith(home + QLatin1Char('/')))
+        return true;
+
+    const QStringList allowed = { QStandardPaths::writableLocation(QStandardPaths::CacheLocation),
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation),
+        QStandardPaths::writableLocation(QStandardPaths::TempLocation), QStringLiteral("/tmp") };
+    for (const QString& root : allowed) {
+        if (!root.isEmpty() && (abs == root || abs.startsWith(root + QLatin1Char('/'))))
+            return true;
+    }
+    return false;
+}
+
+} // namespace
 
 void CUtils::saveItem(QQuickItem* target, const QUrl& path) {
     this->saveItem(target, path, QRect(), QJSValue(), QJSValue());
@@ -117,12 +151,22 @@ bool CUtils::copyFile(const QUrl& source, const QUrl& target, bool overwrite) {
         }
     }
 
+    if (!isAllowedPath(source.toLocalFile()) || !isAllowedPath(target.toLocalFile())) {
+        qCWarning(lcCUtils) << "copyFile: refusing path outside user-writable locations:" << source << "->" << target;
+        return false;
+    }
+
     return QFile::copy(source.toLocalFile(), target.toLocalFile());
 }
 
 bool CUtils::deleteFile(const QUrl& path) {
     if (!path.isLocalFile()) {
         qCWarning(lcCUtils) << "deleteFile: path" << path << "is not a local file";
+        return false;
+    }
+
+    if (!isAllowedPath(path.toLocalFile())) {
+        qCWarning(lcCUtils) << "deleteFile: refusing path outside user-writable locations:" << path;
         return false;
     }
 
