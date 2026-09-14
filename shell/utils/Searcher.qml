@@ -96,8 +96,13 @@ Singleton {
     }
 
     // Get usage 0..1 normalized to the most-used app in the list.
+    // Log scale: a single runaway outlier must not flatten everyone else
+    // to ~0 (linear maxFreq normalization did exactly that).
     function getUsageScore(item: var, maxFreq: real): real {
-        return maxFreq > 0 ? (item.frequency || 0) / maxFreq : 0;
+        const f = item.frequency || 0;
+        if (!(f > 0) || !(maxFreq > 0))
+            return 0;
+        return Math.log(1 + f) / Math.log(1 + maxFreq);
     }
 
     function query(search: string): list<var> {

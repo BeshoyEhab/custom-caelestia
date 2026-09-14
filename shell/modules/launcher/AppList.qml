@@ -16,6 +16,8 @@ StyledListView {
     required property StyledTextField search
     required property DrawerVisibilities visibilities
 
+    // Coalesce fast typing: Apps.search hits SQLite (learned aliases) and
+    // re-sorts hundreds of entries per evaluation.
     property string debouncedText: ""
 
     Timer {
@@ -150,10 +152,9 @@ StyledListView {
                     easing: Tokens.anim.standardAccel
                 }
             }
-            PropertyAction {
-                targets: [model, root]
-                properties: "values,delegate"
-            }
+            // NOTE: no PropertyAction on model.values / delegate here. One ran
+            // here before and replaced those live bindings with static values,
+            // freezing the results after the first state change.
             ParallelAnimation {
                 Anim {
                     target: root
@@ -172,11 +173,8 @@ StyledListView {
                     easing: Tokens.anim.standardDecel
                 }
             }
-            PropertyAction {
-                targets: [root.add, root.remove]
-                property: "enabled"
-                value: true
-            }
+            // NOTE: no PropertyAction re-enabling add/remove either, for the
+            // same reason — it overrode their `enabled: !root.state` bindings.
         }
     }
 
