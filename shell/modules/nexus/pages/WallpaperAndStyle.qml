@@ -222,6 +222,66 @@ PageBase {
             }
         }
 
+        SelectRow {
+            label: qsTr("Video backend")
+            subtext: GlobalConfig.background.videoBackend === "qs" ? qsTr("In-shell player (more RAM)") : qsTr("mpvpaper (less RAM)")
+            enabled: Config.background.wallpaperEnabled
+            menuItems: [
+                MenuItem {
+                    text: qsTr("mpvpaper")
+                    icon: GlobalConfig.background.videoBackend !== "qs" ? "check" : ""
+                    activeIcon: "movie"
+                },
+                MenuItem {
+                    text: qsTr("In-shell")
+                    icon: GlobalConfig.background.videoBackend === "qs" ? "check" : ""
+                    activeIcon: "movie"
+                }
+            ]
+            active: GlobalConfig.background.videoBackend === "qs" ? menuItems[1] : menuItems[0]
+            onSelected: {
+                GlobalConfig.background.videoBackend = menuItems.indexOf(item) === 1 ? "qs" : "mpvpaper";
+            }
+        }
+
+        ToggleRow {
+            text: qsTr("Stop video when hidden")
+            subtext: GlobalConfig.background.videoAutoStop ? qsTr("Saves CPU + RAM, abrupt resume") : qsTr("Pause only, seamless resume")
+            checked: GlobalConfig.background.videoAutoStop
+            enabled: Config.background.wallpaperEnabled && GlobalConfig.background.videoBackend !== "qs"
+            onToggled: GlobalConfig.background.videoAutoStop = checked
+        }
+
+        SelectRow {
+            label: qsTr("Auto-stop trigger")
+            subtext: GlobalConfig.background.videoAutoMode === "MAX" ? qsTr("Any fullscreen or maximized") : GlobalConfig.background.videoAutoMode === "FULL" ? qsTr("Any fullscreen window") : qsTr("Hidden only")
+            enabled: Config.background.wallpaperEnabled && GlobalConfig.background.videoBackend !== "qs"
+            menuItems: [
+                MenuItem {
+                    text: qsTr("Hidden only")
+                    icon: GlobalConfig.background.videoAutoMode === "" ? "check" : ""
+                },
+                MenuItem {
+                    text: qsTr("Fullscreen")
+                    icon: GlobalConfig.background.videoAutoMode === "FULL" ? "check" : ""
+                },
+                MenuItem {
+                    text: qsTr("Fullscreen / maximized")
+                    icon: GlobalConfig.background.videoAutoMode === "MAX" ? "check" : ""
+                }
+            ]
+            active: {
+                const m = GlobalConfig.background.videoAutoMode;
+                if (m === "FULL") return menuItems[1];
+                if (m === "MAX") return menuItems[2];
+                return menuItems[0];
+            }
+            onSelected: {
+                const idx = menuItems.indexOf(item);
+                GlobalConfig.background.videoAutoMode = idx === 1 ? "FULL" : idx === 2 ? "MAX" : "";
+            }
+        }
+
         ToggleRow {
             text: qsTr("Auto-rotate wallpaper")
             subtext: GlobalConfig.background.wallpaperRotation ? qsTr("Every %1h").arg(GlobalConfig.background.wallpaperRotationInterval) : qsTr("Disabled")

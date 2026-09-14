@@ -81,7 +81,10 @@ class BackgroundConfig : public ConfigObject {
     CONFIG_PROPERTY(int, wallpaperRotationInterval, 2)
     CONFIG_PROPERTY(QString, videoBackend, QStringLiteral("mpvpaper"))
     CONFIG_PROPERTY(bool, videoAutoStop, true)
-    CONFIG_PROPERTY(QString, videoAutoMode, QStringLiteral("FULL"))
+    // "" = stop/pause only when the wallpaper itself is hidden (default:
+    // -a FULL blanked every workspace when any window was fullscreen
+    // anywhere, e.g. a game on another workspace).
+    CONFIG_PROPERTY(QString, videoAutoMode, QStringLiteral(""))
     CONFIG_PROPERTY(QVariantMap, videoOutputs, {})
     CONFIG_SUBOBJECT(DesktopClock, desktopClock)
     CONFIG_SUBOBJECT(BackgroundVisualiser, visualiser)

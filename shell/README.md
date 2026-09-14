@@ -191,6 +191,36 @@ by default. To change it, change the wallpapers path in `~/.config/caelestia/she
 To set the wallpaper, you can use the command `caelestia wallpaper`. Use `caelestia wallpaper -h` for more info about
 the command.
 
+### Video wallpapers
+
+Video wallpapers play in `mpvpaper` (out of the shell process, with hardware
+decoding) instead of the in-shell QtMultimedia player, which saves roughly
+1 GB of shell RAM. If `mpvpaper` is missing, the shell falls back to the
+in-shell player automatically. Backend and battery behaviour live under
+`background` in `shell.json` (also editable in Nexus → Wallpaper & style):
+
+- `videoBackend`: `"mpvpaper"` (default) or `"qs"` (in-shell player).
+- `videoAutoStop`: `true` (default) stops the video when hidden (`-s`, saves
+  CPU + RAM, abrupt resume) or `false` pauses it instead (`-p`, seamless resume).
+- `videoAutoMode`: `""` (default) only stops/pauses when the wallpaper itself
+  is hidden. `"FULL"`/`"MAX"` additionally trigger on any fullscreen (or
+  fullscreen/maximized) window — including on other workspaces, so other
+  workspaces go black while e.g. a game runs there. Prefer `""` unless you
+  want maximum battery saving.
+- `videoOutputs`: `{}` (default) plays on ALL outputs, else a map such as
+  `{"DP-1": "/path/video.mp4"}` plays one video per output.
+
+If the video ever fails to come back (e.g. the shell started before monitors
+existed at login), run `qs -c caelestia ipc call videoWallpaper restore`.
+Login already runs this automatically a few seconds after the shell starts
+(see `hyprland/.config/hypr/hyprland/execs.lua`).
+
+The manager is workspace-aware: the video keeps playing across workspace
+switches (no restart) and only stops when every output's active workspace is
+fullscreen-covered; it resumes when you switch back. A crashed mpvpaper is
+respawned automatically within ~10s. `qs -c caelestia ipc call videoWallpaper
+debug` prints the current decision state.
+
 ## Updating
 
 If installed via the AUR package, simply update your system (e.g. using `yay`).
@@ -387,6 +417,10 @@ For example, to disable the bar on DP-1:
     "background": {
         "enabled": true,
         "wallpaperEnabled": true,
+        "videoBackend": "mpvpaper",
+        "videoAutoStop": true,
+        "videoAutoMode": "",
+        "videoOutputs": {},
         "desktopClock": {
             "enabled": false,
             "scale": 1.0,

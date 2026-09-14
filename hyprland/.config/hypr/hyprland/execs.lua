@@ -4,6 +4,10 @@ hl.on("hyprland.start", function()
   hl.exec_cmd("$HOME/.config/hypr/hyprland/scripts/start_geoclue_agent.sh")
   hl.exec_cmd("qs -c $qsConfig")
   hl.exec_cmd("$HOME/.config/hypr/custom/scripts/__restore_video_wallpaper.sh")
+  -- Video wallpaper: re-trigger mpvpaper after the shell is up (covers the
+  -- race where the shell starts before monitors exist; harmless if the
+  -- shell already reconciled via VideoWallpaper.onCompleted).
+  hl.exec_cmd("sleep 8 && qs -c $qsConfig ipc call videoWallpaper restore")
 
   -- Core components (authentication, lock screen, notification daemon)
   hl.exec_cmd("gnome-keyring-daemon --start --components=secrets")

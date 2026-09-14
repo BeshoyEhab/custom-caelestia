@@ -19,8 +19,8 @@ Variants {
         screen: modelData
         name: "background"
         WlrLayershell.exclusionMode: ExclusionMode.Ignore
-        WlrLayershell.layer: contentItem.Config.background.wallpaperEnabled ? WlrLayer.Background : WlrLayer.Bottom
-        color: contentItem.Config.background.wallpaperEnabled ? "black" : "transparent"
+        WlrLayershell.layer: VideoWallpaper.externalActive ? WlrLayer.Bottom : (contentItem.Config.background.wallpaperEnabled ? WlrLayer.Background : WlrLayer.Bottom)
+        color: VideoWallpaper.externalActive ? "transparent" : (contentItem.Config.background.wallpaperEnabled ? "black" : "transparent")
         surfaceFormat.opaque: false
 
         anchors.top: true
@@ -41,7 +41,10 @@ Variants {
                 asynchronous: true
 
                 anchors.fill: parent
-                active: Config.background.wallpaperEnabled
+                // Inactive while mpvpaper owns the screen: our window sits on
+                // the Bottom layer (above mpvpaper's background layer), so a
+                // poster thumb left underneath would cover the video.
+                active: Config.background.wallpaperEnabled && !VideoWallpaper.externalActive
 
                 sourceComponent: Wallpaper {}
             }

@@ -385,6 +385,8 @@ deploy_core() {
     install_pkg tesseract
     install_pkg gpu-screen-recorder
     install_pkg emote true
+    # Video wallpaper backend (mpvpaper; QS Video is the fallback)
+    install_pkg mpvpaper true
     # Launcher helper (app2unit -- terminal wrapping)
     install_pkg app2unit-git true
     # Fonts

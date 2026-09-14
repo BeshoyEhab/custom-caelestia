@@ -73,8 +73,8 @@ Item {
         // as later siblings so without this they would cover the video.
         z: 1
         anchors.fill: parent
-        visible: root.isVideo
-        source: root.isVideo ? fileUrlFor(root.source) : ""
+        visible: root.isVideo && !VideoWallpaper.externalActive
+        source: (root.isVideo && !VideoWallpaper.externalActive) ? fileUrlFor(root.source) : ""
         autoPlay: true
         muted: true
         volume: 0
