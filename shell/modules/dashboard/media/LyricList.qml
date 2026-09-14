@@ -27,7 +27,9 @@ Item {
     property bool flag
     property list<string> lyricList: Lyrics.lyrics
 
-    layer.enabled: true
+    // Gated: the fade mask only matters when lyrics are shown; an always-on
+    // fullscreen layer composites on every frame for nothing otherwise.
+    layer.enabled: Lyrics.hasLyrics
     layer.effect: Mask {
         maskSource: mask
 
