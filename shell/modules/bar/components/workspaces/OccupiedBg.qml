@@ -24,6 +24,18 @@ Item {
 
     property list<var> pills: []
 
+    // Gating: instant on fresh Bar load (hover-open), animated afterwards.
+    // Behaviors stay disabled for the first frames so the pill appears in
+    // final state instead of replaying grow/shift when the Loader recreates Bar.
+    property bool animationsReady: false
+
+    Timer {
+        interval: 350
+        running: true
+        repeat: false
+        onTriggered: root.animationsReady = true
+    }
+
     onOccupiedChanged: {
         if (!occupied)
             return;
@@ -79,6 +91,26 @@ Item {
 
             color: root.connectorColor
             radius: Tokens.rounding.full
+
+            scale: 0
+            Component.onCompleted: scale = 1
+
+            Behavior on scale {
+                enabled: root.animationsReady
+                Anim {
+                    easing: Tokens.anim.standardDecel
+                }
+            }
+
+            Behavior on y {
+                enabled: root.animationsReady
+                Anim {}
+            }
+
+            Behavior on implicitHeight {
+                enabled: root.animationsReady
+                Anim {}
+            }
         }
     }
 

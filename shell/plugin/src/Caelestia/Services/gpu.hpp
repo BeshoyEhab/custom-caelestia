@@ -74,6 +74,10 @@ private:
     QProcess* m_nameProc = nullptr;
     QProcess* m_nvidiaProc = nullptr;
     int m_nvidiaFailures = 0;
+
+    // Resolved once: /sys/class/drm topology doesn't change per tick.
+    // Cleared when a cached file vanishes so the next tick re-scans.
+    QStringList m_genericPaths;
 };
 
 } // namespace caelestia::services

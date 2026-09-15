@@ -105,7 +105,7 @@ StyledRect {
                         items.push(`UP  : ${SysInfo.uptime}`);
 
                         if (hasBatt)
-                            items.push(`BATT: ${[UPowerDeviceState.Charging, UPowerDeviceState.FullyCharged, UPowerDeviceState.PendingCharge].includes(UPower.displayDevice.state) ? "(+) " : ""}${Math.round(UPower.displayDevice.percentage * 100)}%`);
+                            items.push(`BATT: ${[UPowerDeviceState.Charging, UPowerDeviceState.FullyCharged, UPowerDeviceState.PendingCharge].includes(UPower.displayDevice.state) ? "(+) " : ""}${Strings.percent(UPower.displayDevice.percentage)}`);
 
                         return items;
                     }

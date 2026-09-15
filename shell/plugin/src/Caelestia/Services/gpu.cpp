@@ -165,18 +165,28 @@ void Gpu::detectNameOnce() {
 }
 
 void Gpu::readGenericUsage() {
-    const QStringList paths =
-        QDir(QStringLiteral("/sys/class/drm"))
-            .entryList(QStringList() << QStringLiteral("card*"), QDir::Dirs | QDir::NoDotAndDotDot);
+    if (m_genericPaths.isEmpty()) {
+        const QStringList cards =
+            QDir(QStringLiteral("/sys/class/drm"))
+                .entryList(QStringList() << QStringLiteral("card*"), QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const QString& card : cards) {
+            m_genericPaths.append(QStringLiteral("/sys/class/drm/%1/device/gpu_busy_percent").arg(card));
+        }
+        if (m_genericPaths.isEmpty()) {
+            return;
+        }
+    }
     qreal sum = 0.0;
     int count = 0;
-    for (const QString& card : paths) {
-        QFile f(QStringLiteral("/sys/class/drm/%1/device/gpu_busy_percent").arg(card));
+    for (const QString& path : std::as_const(m_genericPaths)) {
+        QFile f(path);
         if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            continue;
+            // Topology changed (hotplug): re-resolve on the next tick.
+            m_genericPaths.clear();
+            break;
         }
         bool ok = false;
-        const qreal v = f.readAll().trimmed().toDouble(&ok);
+        const qreal v = f.readLine().trimmed().toDouble(&ok);
         f.close();
         if (ok) {
             sum += v;

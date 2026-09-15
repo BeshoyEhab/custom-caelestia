@@ -34,6 +34,15 @@ Item {
     readonly property real circleSize: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall * 2
     readonly property int size: circleSize + 2
 
+    property bool animationsReady: false
+
+    Timer {
+        interval: 350
+        running: true
+        repeat: false
+        onTriggered: root.animationsReady = true
+    }
+
     Layout.alignment: Qt.AlignHCenter
     Layout.preferredWidth: root.circleSize
     Layout.preferredHeight: root.size
@@ -56,6 +65,7 @@ Item {
         opacity: root.isOccupied || root.isActive ? 1.0 : 0.5
 
         Behavior on opacity {
+            enabled: root.animationsReady
             Anim { type: Anim.DefaultEffects }
         }
     }

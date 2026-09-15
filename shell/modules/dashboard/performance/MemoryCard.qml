@@ -5,6 +5,7 @@ import Caelestia.Services
 import qs.components
 import qs.components.controls
 import qs.services
+import qs.utils
 
 StyledRect {
     id: root
@@ -67,7 +68,7 @@ StyledRect {
 
                 StyledText {
                     Layout.alignment: Qt.AlignHCenter
-                    text: Math.round(Memory.percentage * 100) + "%"
+                    text: Strings.percent(Memory.percentage)
                     font: Tokens.font.title.builders.large.width(90).build()
                     color: root.accent
                 }

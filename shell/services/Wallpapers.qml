@@ -43,6 +43,45 @@ Searcher {
         return `'${s.replace(/'/g, `'\\''`)}'`;
     }
 
+    // Bumped every time a background thumbnail job lands a new file so
+    // selectors showing that video can reload their Image. The exact path
+    // is exposed via lastThumbDone so items only reload their own thumb.
+    property int thumbVersion: 0
+    property string lastThumbDone
+    property var thumbQueue: []
+    property bool thumbBusy: false
+    property string thumbCurrent
+
+    function ensureThumb(path: string): void {
+        if (!path || !isVideo(path))
+            return;
+        if (path === thumbCurrent || thumbQueue.includes(path))
+            return;
+        thumbQueue.push(path);
+        pumpThumbQueue();
+    }
+
+    function ensureThumbs(paths: var): void {
+        if (!paths)
+            return;
+        for (const p of paths)
+            ensureThumb(typeof p === "string" ? p : p?.path ?? "");
+    }
+
+    function pumpThumbQueue(): void {
+        if (thumbBusy || thumbQueue.length === 0)
+            return;
+        thumbBusy = true;
+        const video = thumbQueue.shift();
+        thumbCurrent = video;
+        const thumb = thumbFor(video);
+        // Cache-hit: thumbnail newer than the video is reused as-is.
+        // Miss: extract a small first-frame jpeg in the background.
+        const script = [`thumb=${shQuote(thumb)}`, `video=${shQuote(video)}`, `mkdir -p "$(dirname "$thumb")"`, `if [ "$thumb" -nt "$video" ]; then echo "HIT"; else ffmpeg -y -v error -ss 1 -i "$video" -vframes 1 -q:v 4 -vf "scale=640:-1" "$thumb" || ffmpeg -y -v error -i "$video" -vframes 1 -q:v 4 -vf "scale=640:-1" "$thumb" || { echo "FAIL"; exit 0; }; echo "DONE $thumb"; fi`].join(" && ");
+        thumbProc.command = ["sh", "-c", script];
+        thumbProc.running = true;
+    }
+
     readonly property string colourSource: isVideo(current) ? thumbFor(current) : current
 
     function setRandom(): void {
@@ -228,6 +267,23 @@ Searcher {
                     Colours.load(t, true);
                     Colours.showPreview = true;
                 }
+            }
+        }
+    }
+
+    Process {
+        id: thumbProc
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const done = text.split("\n").some(l => l.trim().startsWith("DONE"));
+                root.thumbBusy = false;
+                if (done) {
+                    root.lastThumbDone = root.thumbCurrent;
+                    root.thumbVersion++;
+                }
+                root.thumbCurrent = "";
+                root.pumpThumbQueue();
             }
         }
     }

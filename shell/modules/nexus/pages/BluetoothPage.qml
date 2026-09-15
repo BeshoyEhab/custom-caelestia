@@ -126,7 +126,7 @@ PageBase {
 
                         StyledText {
                             Layout.fillWidth: true
-                            text: device.connected ? qsTr("Connected%1").arg(device.modelData?.batteryAvailable ? " • " + Math.round(device.modelData.battery * 100) + "%" : "") : qsTr("Saved")
+                            text: device.connected ? qsTr("Connected%1").arg(device.modelData?.batteryAvailable ? " • " + Strings.percent(device.modelData.battery) : "") : qsTr("Saved")
                             color: Colours.palette.m3outline
                             font: Tokens.font.label.small
                             elide: Text.ElideRight

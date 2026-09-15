@@ -31,6 +31,18 @@ StyledClippingRect {
 
     property real blur: onSpecial ? 1 : 0
 
+    // Instant on fresh Bar load (hover-open): suppress inner replays so the
+    // bar feels untouched (only the wrapper slides). Enabled shortly after
+    // load so workspace switches animate normally.
+    property bool animationsReady: false
+
+    Timer {
+        interval: 350
+        running: true
+        repeat: false
+        onTriggered: root.animationsReady = true
+    }
+
     implicitWidth: Tokens.sizes.bar.innerWidth
     implicitHeight: Config.bar.workspaces.shown * itemStep + Tokens.padding.small
 
@@ -92,6 +104,7 @@ StyledClippingRect {
                 z: 0
 
                 Behavior on opacity {
+                    enabled: root.animationsReady
                     Anim { type: Anim.DefaultEffects }
                 }
             }
@@ -114,9 +127,11 @@ StyledClippingRect {
             z: 1
 
             Behavior on y {
+                enabled: root.animationsReady
                 Anim { type: Anim.Emphasized }
             }
             Behavior on opacity {
+                enabled: root.animationsReady
                 Anim { type: Anim.DefaultEffects }
             }
         }
@@ -251,10 +266,12 @@ StyledClippingRect {
         }
 
         Behavior on scale {
+            enabled: root.animationsReady
             Anim {}
         }
 
         Behavior on opacity {
+            enabled: root.animationsReady
             Anim {
                 type: Anim.DefaultEffects
             }
@@ -279,10 +296,12 @@ StyledClippingRect {
         }
 
         Behavior on scale {
+            enabled: root.animationsReady
             Anim {}
         }
 
         Behavior on opacity {
+            enabled: root.animationsReady
             Anim {
                 type: Anim.DefaultEffects
             }
@@ -290,6 +309,7 @@ StyledClippingRect {
     }
 
     Behavior on blur {
+        enabled: root.animationsReady
         Anim {
             type: Anim.StandardSmall
         }

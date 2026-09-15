@@ -7,7 +7,7 @@
 # config, so newly added/renamed files are deployed and files deleted from
 # the repo are removed from the running config. No manual file list to drift.
 
-set -u
+set -euo pipefail
 
 BUILD=false
 if [[ "${1:-}" == "--build" ]]; then
@@ -48,8 +48,9 @@ if $BUILD; then
     echo "Building C++ plugin..."
     cd "$SCRIPT_DIR"
     touch shell/plugin/src/Caelestia/Config/barconfig.hpp
-    cmake --build build 2>&1 | tail -5
-    if [[ $? -ne 0 ]]; then
+    # Under pipefail the pipeline status is cmake's: a broken build stops here
+    # instead of deploying + restarting on a stale plugin.
+    if ! cmake --build build 2>&1 | tail -5; then
         echo "Build failed!"
         exit 1
     fi

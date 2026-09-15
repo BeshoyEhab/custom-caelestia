@@ -29,7 +29,7 @@ PageBase {
             first: true
             icon: Icons.getVolumeIcon(Audio.volume, Audio.muted)
             label: qsTr("Output")
-            valueLabel: Math.round(value * 100) + "%"
+            valueLabel: Strings.percent(value)
             value: Audio.volume
             enabled: !Audio.muted
             onMoved: v => Audio.setVolume(v)
@@ -59,7 +59,7 @@ PageBase {
             first: true
             icon: Icons.getMicVolumeIcon(Audio.sourceVolume, Audio.sourceMuted)
             label: qsTr("Input")
-            valueLabel: Math.round(value * 100) + "%"
+            valueLabel: Strings.percent(value)
             value: Audio.sourceVolume
             enabled: !Audio.sourceMuted
             wheelStep: 0.05

@@ -701,7 +701,7 @@ sudo -v || err "sudo required."
 
 while true; do
     show_menu
-    read -p "Enter choice(s) (e.g. 2 3) or press Enter to install: " input
+    read -r -p "Enter choice(s) (e.g. 2 3) or press Enter to install: " input
 
     # Empty input defaults to install
     if [[ -z "$input" ]]; then
@@ -717,12 +717,12 @@ while true; do
             4) SEL[quickshell]=$(( 1 - SEL[quickshell] )) ;;
             [sS])
                 show_summary
-                read -p "Press Enter to continue..." _
+                read -r -p "Press Enter to continue..." _
                 break
                 ;;
             [Ii])
                 show_summary
-                read -p "Proceed with installation? [Y/n]: " confirm
+                read -r -p "Proceed with installation? [Y/n]: " confirm
                 [[ "${confirm,,}" == "n" ]] && break
 
                 echo ""
@@ -734,7 +734,7 @@ while true; do
                     rebuild_quickshell
                 elif ! qs_screencopy_present; then
                     warn "Quickshell screencopy module not found (overview/picker will be broken)."
-                    read -p "Rebuild Quickshell from source now? [Y/n]: " _rb
+                    read -r -p "Rebuild Quickshell from source now? [Y/n]: " _rb
                     if [[ "${_rb,,}" != "n" ]]; then rebuild_quickshell; fi
                 fi
                 [[ "${SEL[hyprland]}" == "1" ]] && deploy_hyprland

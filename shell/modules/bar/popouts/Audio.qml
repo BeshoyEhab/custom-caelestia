@@ -8,6 +8,7 @@ import Caelestia.Config
 import qs.components
 import qs.components.controls
 import qs.services
+import qs.utils
 
 Item {
     id: root
@@ -73,7 +74,7 @@ Item {
 
         StyledText {
             Layout.topMargin: Tokens.spacing.medium
-            text: qsTr("Volume (%1)").arg(Audio.muted ? qsTr("Muted") : `${Math.round(Audio.volume * 100)}%`)
+            text: qsTr("Volume (%1)").arg(Audio.muted ? qsTr("Muted") : `${Strings.percent(Audio.volume)}`)
             font: Tokens.font.body.builders.medium.weight(Font.Medium).build()
         }
 

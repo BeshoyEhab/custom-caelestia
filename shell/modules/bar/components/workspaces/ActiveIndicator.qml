@@ -33,7 +33,17 @@ Rectangle {
     color: Colours.palette.m3primary
     z: 0
 
+    property bool animationsReady: false
+
+    Timer {
+        interval: 350
+        running: true
+        repeat: false
+        onTriggered: root.animationsReady = true
+    }
+
     Behavior on y {
+        enabled: root.animationsReady
         Anim {
             type: Anim.Emphasized
         }

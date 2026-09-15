@@ -21,7 +21,7 @@ ColumnLayout {
 
     spacing: Tokens.spacing.small
 
-    implicitWidth: 200
+    implicitWidth: Tokens.sizes.bar.workspacePreviewWidth
     implicitHeight: header.implicitHeight + (root.hasWindows ? previewGrid.implicitHeight : emptyState.implicitHeight) + Tokens.padding.medium * 2
 
     Item {

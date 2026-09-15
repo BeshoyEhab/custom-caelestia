@@ -422,8 +422,8 @@ CustomMouseArea {
         width: geom.width
         height: geom.height
 
-        color: Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.15)
-        border.color: Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.4)
+        color: Qt.alpha(Colours.palette.m3primary, 0.15)
+        border.color: Qt.alpha(Colours.palette.m3primary, 0.4)
         border.width: 2
         radius: 8
 
@@ -442,8 +442,8 @@ CustomMouseArea {
         width: geom.width
         height: geom.height
 
-        color: Qt.rgba(Colours.palette.m3tertiary.r, Colours.palette.m3tertiary.g, Colours.palette.m3tertiary.b, 0.15)
-        border.color: Qt.rgba(Colours.palette.m3tertiary.r, Colours.palette.m3tertiary.g, Colours.palette.m3tertiary.b, 0.4)
+        color: Qt.alpha(Colours.palette.m3tertiary, 0.15)
+        border.color: Qt.alpha(Colours.palette.m3tertiary, 0.4)
         border.width: 2
         radius: 8
 
@@ -462,8 +462,8 @@ CustomMouseArea {
         width: geom.width
         height: geom.height
 
-        color: Qt.rgba(Colours.palette.m3secondary.r, Colours.palette.m3secondary.g, Colours.palette.m3secondary.b, 0.15)
-        border.color: Qt.rgba(Colours.palette.m3secondary.r, Colours.palette.m3secondary.g, Colours.palette.m3secondary.b, 0.4)
+        color: Qt.alpha(Colours.palette.m3secondary, 0.15)
+        border.color: Qt.alpha(Colours.palette.m3secondary, 0.4)
         border.width: 2
         radius: 8
 

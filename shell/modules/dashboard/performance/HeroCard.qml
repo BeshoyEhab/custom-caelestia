@@ -5,6 +5,7 @@ import Caelestia.Config
 import qs.components
 import qs.components.controls
 import qs.services
+import qs.utils
 
 StyledRect {
     id: root
@@ -140,7 +141,7 @@ StyledRect {
 
         StyledText {
             anchors.centerIn: parent
-            text: isNaN(root.usage) ? "...%" : Math.round(root.usage * 100) + "%"
+            text: isNaN(root.usage) ? "...%" : Strings.percent(root.usage)
             color: root.accent
             font: Tokens.font.headline.builders.small.width(50).build()
         }

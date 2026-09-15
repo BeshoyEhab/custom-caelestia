@@ -229,7 +229,7 @@ handle_conflict() {
         echo "  ${GREEN}6${NC}) Skip"
         echo "  ${GREEN}7${NC}) Add to .updateignore & skip"
         local choice
-        read -p "  → " choice < /dev/tty
+        read -r -p "  → " choice < /dev/tty
         case "$choice" in
             1) handle_conflict "$repo_file" "$home_file" "replace"; break ;;
             2) handle_conflict "$repo_file" "$home_file" "keep"; break ;;
@@ -663,7 +663,7 @@ main() {
             if [[ -d "$d" ]]; then
                 local backup_dir="${d}.bak.${ts}"
                 log "Backing up $(basename "$d") → $(basename "$backup_dir")"
-                cp -r "$d" "$backup_dir"
+                cp -a "$d" "$backup_dir"
             fi
         done
         echo ""

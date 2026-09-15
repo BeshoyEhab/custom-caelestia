@@ -3,6 +3,7 @@
 #include "sensorslib.hpp"
 
 #include <cmath>
+#include <cstdio>
 #include <qfile.h>
 #include <qregularexpression.h>
 
@@ -38,16 +39,28 @@ void Cpu::readNameOnce() {
     if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return;
     }
-    const QByteArray data = f.readAll();
+
+    static const QByteArray prefix("model name");
+    QByteArray model;
+    while (!f.atEnd()) {
+        const QByteArray line = f.readLine();
+        if (!line.startsWith(prefix)) {
+            continue;
+        }
+        const auto colon = line.indexOf(':');
+        if (colon < 0) {
+            continue;
+        }
+        model = line.mid(colon + 1).trimmed();
+        break;
+    }
     f.close();
 
-    static const QRegularExpression re(QStringLiteral("model name\\s*:\\s*(.+)"));
-    const auto match = re.match(QString::fromLatin1(data));
-    if (!match.hasMatch()) {
+    if (model.isEmpty()) {
         return;
     }
 
-    const QString cleaned = cleanName(match.captured(1));
+    const QString cleaned = cleanName(QString::fromLatin1(model));
     m_nameLoaded = true;
     if (cleaned == m_name) {
         return;
@@ -61,22 +74,23 @@ void Cpu::refreshPercentage() {
     if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return;
     }
-    const QByteArray data = f.readAll();
+    // Only the first (aggregate "cpu ...") line is needed.
+    const QByteArray line = f.readLine();
     f.close();
 
-    static const QRegularExpression re(
-        QStringLiteral("^cpu\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)"));
-    const auto match = re.match(QString::fromLatin1(data));
-    if (!match.hasMatch()) {
+    unsigned long long fields[7] = {};
+    const int parsed = std::sscanf(line.constData(), "cpu %llu %llu %llu %llu %llu %llu %llu", &fields[0],
+        &fields[1], &fields[2], &fields[3], &fields[4], &fields[5], &fields[6]);
+    if (parsed != 7) {
         return;
     }
 
     quint64 total = 0;
     quint64 idle = 0;
-    for (int i = 1; i <= 7; ++i) {
-        const quint64 v = match.captured(i).toULongLong();
+    for (int i = 0; i < 7; ++i) {
+        const quint64 v = static_cast<quint64>(fields[i]);
         total += v;
-        if (i == 4 || i == 5) {
+        if (i == 3 || i == 4) {
             idle += v;
         }
     }

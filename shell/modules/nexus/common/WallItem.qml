@@ -20,6 +20,26 @@ Item {
 
     signal clicked
 
+    function ensureVideoThumb(): void {
+        if (root.isVideo && root.source)
+            Wallpapers.ensureThumb(root.source);
+    }
+
+    Component.onCompleted: ensureVideoThumb()
+    onSourceChanged: ensureVideoThumb()
+
+    Connections {
+        target: Wallpapers
+        // The thumbnail file did not exist when img first tried to load;
+        // bounce the source once our background job lands it.
+        function onThumbVersionChanged(): void {
+            if (root.isVideo && Wallpapers.lastThumbDone === root.source) {
+                img.source = "";
+                img.source = Wallpapers.thumbFor(root.source);
+            }
+        }
+    }
+
     Layout.fillWidth: true
     implicitHeight: layout.implicitHeight
 

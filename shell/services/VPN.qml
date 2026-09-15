@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import Caelestia
 import Caelestia.Config
+import qs.services
 
 Singleton {
     id: root
@@ -323,13 +324,13 @@ Singleton {
 
     Component.onCompleted: root.enabled && statusCheckTimer.start()
 
-    Process {
-        id: nmMonitor
+    // Network changes arrive via Nmcli's single `nmcli monitor` (auto-restarting);
+    // no second monitor process needed. checkStatus() no-ops while disabled.
+    Connections {
+        target: Nmcli
 
-        running: root.enabled
-        command: ["nmcli", "monitor"]
-        stdout: SplitParser {
-            onRead: statusCheckTimer.restart()
+        function onConnectionChanged(): void {
+            statusCheckTimer.restart();
         }
     }
 

@@ -8,6 +8,7 @@ import Caelestia.Config
 import qs.components
 import qs.components.controls
 import qs.services
+import qs.utils
 import qs.modules.nexus.common
 
 PageBase {
@@ -22,7 +23,7 @@ PageBase {
             return "";
         let s = connected ? qsTr("Connected") : (device.bonded ? qsTr("Paired") : qsTr("Not paired"));
         if (connected && device.batteryAvailable)
-            s += " • " + Math.round(device.battery * 100) + "%";
+            s += " • " + Strings.percent(device.battery);
         return s;
     }
 
@@ -209,7 +210,7 @@ PageBase {
                     }
 
                     StyledText {
-                        text: root.device?.batteryAvailable ? Math.round(root.device.battery * 100) + "%" : qsTr("Unavailable")
+                        text: root.device?.batteryAvailable ? Strings.percent(root.device.battery) : qsTr("Unavailable")
                         color: Colours.palette.m3outline
                         font: Tokens.font.body.small
                     }

@@ -17,6 +17,15 @@ Item {
     readonly property HyprlandMonitor monitor: Hypr.monitorFor(screen)
     readonly property string activeSpecial: (GlobalConfig.bar.workspaces.perMonitorWorkspaces ? monitor : Hypr.focusedMonitor)?.lastIpcObject.specialWorkspace?.name ?? ""
 
+    property bool animationsReady: false
+
+    Timer {
+        interval: 350
+        running: true
+        repeat: false
+        onTriggered: root.animationsReady = true
+    }
+
     layer.enabled: true
     layer.effect: Mask {
         maskSource: mask
@@ -65,6 +74,7 @@ Item {
             opacity: view.contentY > 0 ? 0 : 1
 
             Behavior on opacity {
+                enabled: root.animationsReady
                 Anim {
                     type: Anim.DefaultEffects
                 }
@@ -81,6 +91,7 @@ Item {
             opacity: view.contentY < view.contentHeight - parent.height + Tokens.padding.extraSmall ? 0 : 1
 
             Behavior on opacity {
+                enabled: root.animationsReady
                 Anim {
                     type: Anim.DefaultEffects
                 }
@@ -112,6 +123,7 @@ Item {
             implicitHeight: (view.currentItem as SpecialWsDelegate)?.size ?? 0
 
             Behavior on y {
+                enabled: root.animationsReady
                 Anim {}
             }
         }
@@ -119,6 +131,7 @@ Item {
         delegate: SpecialWsDelegate {}
 
         add: Transition {
+            enabled: root.animationsReady
             Anim {
                 properties: "scale"
                 from: 0
@@ -128,6 +141,7 @@ Item {
         }
 
         remove: Transition {
+            enabled: root.animationsReady
             Anim {
                 property: "scale"
                 to: 0.5
@@ -141,6 +155,7 @@ Item {
         }
 
         move: Transition {
+            enabled: root.animationsReady
             Anim {
                 properties: "scale"
                 to: 1
@@ -152,6 +167,7 @@ Item {
         }
 
         displaced: Transition {
+            enabled: root.animationsReady
             Anim {
                 properties: "scale"
                 to: 1
@@ -195,12 +211,14 @@ Item {
                 }
 
                 Behavior on y {
+                    enabled: root.animationsReady
                     Anim {
                         type: Anim.Emphasized
                     }
                 }
 
                 Behavior on implicitHeight {
+                    enabled: root.animationsReady
                     Anim {
                         type: Anim.Emphasized
                     }
@@ -328,6 +346,7 @@ Item {
                 spacing: 0
 
                 add: Transition {
+                    enabled: root.animationsReady
                     Anim {
                         properties: "scale"
                         from: 0
@@ -337,6 +356,7 @@ Item {
                 }
 
                 move: Transition {
+                    enabled: root.animationsReady
                     Anim {
                         properties: "scale"
                         to: 1
@@ -367,6 +387,7 @@ Item {
             }
 
             Behavior on Layout.preferredHeight {
+                enabled: root.animationsReady
                 Anim {}
             }
         }

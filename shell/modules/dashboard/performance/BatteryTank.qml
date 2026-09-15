@@ -5,6 +5,7 @@ import Caelestia.Config
 import Caelestia.Services
 import qs.components
 import qs.services
+import qs.utils
 
 StyledClippingRect {
     id: root
@@ -138,7 +139,7 @@ StyledClippingRect {
             }
 
             StyledText {
-                text: `${Math.round(UPower.displayDevice.percentage * 100)}%`
+                text: `${Strings.percent(UPower.displayDevice.percentage)}`
                 color: contents.accentColour
                 font: Tokens.font.headline.medium
             }

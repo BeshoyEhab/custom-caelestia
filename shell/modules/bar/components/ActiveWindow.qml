@@ -28,6 +28,14 @@ Item {
     }
 
     property Title current: text1
+    property bool animationsReady: false
+
+    Timer {
+        interval: 350
+        running: true
+        repeat: false
+        onTriggered: root.animationsReady = true
+    }
 
     clip: true
     implicitWidth: Math.max(icon.implicitWidth, current.implicitHeight)
@@ -94,6 +102,7 @@ Item {
     }
 
     Behavior on implicitHeight {
+        enabled: root.animationsReady
         Anim {}
     }
 
@@ -123,6 +132,7 @@ Item {
         height: implicitWidth
 
         Behavior on opacity {
+            enabled: root.animationsReady
             Anim {
                 type: Anim.DefaultEffects
             }

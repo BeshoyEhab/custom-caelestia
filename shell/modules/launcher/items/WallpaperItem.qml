@@ -13,6 +13,13 @@ Item {
     required property FileSystemEntry modelData
     required property DrawerVisibilities visibilities
 
+    readonly property bool isVideo: Wallpapers.isVideo(root.modelData.path)
+
+    function ensureVideoThumb(): void {
+        if (root.isVideo)
+            Wallpapers.ensureThumb(root.modelData.path);
+    }
+
     scale: 0.5
     opacity: 0
     z: PathView.z ?? 0 // qmllint disable missing-property
@@ -20,6 +27,21 @@ Item {
     Component.onCompleted: {
         scale = Qt.binding(() => PathView.isCurrentItem ? 1 : PathView.onPath ? 0.8 : 0);
         opacity = Qt.binding(() => PathView.onPath ? 1 : 0);
+        root.ensureVideoThumb();
+    }
+    onModelDataChanged: root.ensureVideoThumb()
+
+    Connections {
+        target: Wallpapers
+        // The thumbnail file did not exist when thumbImg first tried to
+        // load; bounce the path once our background job lands it.
+        function onThumbVersionChanged(): void {
+            if (root.isVideo && Wallpapers.lastThumbDone === root.modelData.path) {
+                const p = thumbImg.path;
+                thumbImg.path = "";
+                thumbImg.path = p;
+            }
+        }
     }
 
     implicitWidth: image.width + Tokens.padding.medium * 2
@@ -65,8 +87,10 @@ Item {
         }
 
         CachingImage {
+            id: thumbImg
+
             anchors.fill: parent
-            path: root.modelData.path
+            path: root.isVideo ? Wallpapers.thumbFor(root.modelData.path) : root.modelData.path
             smooth: !root.PathView.view.moving
             sourceSize: {
                 const dpr = (QsWindow.window as QsWindow)?.devicePixelRatio ?? 1;

@@ -26,7 +26,7 @@ log "Configuring build..."
 mkdir -p "$BUILD_DIR"
 cmake -B "$BUILD_DIR" -S "$SCRIPT_DIR" \
     -DCMAKE_BUILD_TYPE=Release \
-    -DENABLE_MODULES="plugin"
+    -DENABLE_MODULES="plugin;m3shapes"
 
 # ── Build ──────────────────────────────────────────────────────────────────
 NPROC=$(nproc 2>/dev/null || echo 4)

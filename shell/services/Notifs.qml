@@ -71,7 +71,7 @@ Singleton {
     Timer {
         id: saveTimer
 
-        interval: 1000
+        interval: 4000
         onTriggered: {
             const loadedNotifs = root.notClosed.map(n => ({
                 time: n.time, id: n.id, summary: n.summary,

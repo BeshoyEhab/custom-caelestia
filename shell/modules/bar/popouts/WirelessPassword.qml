@@ -70,7 +70,7 @@ ColumnLayout {
     }
 
     spacing: Tokens.spacing.medium
-    implicitWidth: 400
+    implicitWidth: Tokens.sizes.bar.wirelessPasswordWidth
     implicitHeight: content.implicitHeight + Tokens.padding.extraLargeIncreased
     visible: shouldBeVisible || isClosing
     enabled: shouldBeVisible && !isClosing

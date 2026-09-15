@@ -180,7 +180,7 @@ Item {
                 width: root.wsWidth
                 height: root.wsHeight
                 radius: Tokens.rounding.large
-                color: isDropTarget ? Qt.rgba(Colours.palette.m3tertiary.r, Colours.palette.m3tertiary.g, Colours.palette.m3tertiary.b, 0.22) : "transparent"
+                color: isDropTarget ? Qt.alpha(Colours.palette.m3tertiary, 0.22) : "transparent"
                 border.width: isDropTarget ? 3 : 2
                 border.color: isDropTarget ? Colours.palette.m3tertiary : isCellActive ? Colours.palette.m3primary : Colours.palette.m3outlineVariant
             }
@@ -311,9 +311,9 @@ Item {
                 Rectangle {
                     anchors.fill: parent
                     radius: Tokens.rounding.full
-                    color: Qt.rgba(Colours.palette.m3surfaceContainer.r, Colours.palette.m3surfaceContainer.g, Colours.palette.m3surfaceContainer.b, 0.85)
+                    color: Qt.alpha(Colours.palette.m3surfaceContainer, 0.85)
                     border.width: 1
-                    border.color: Qt.rgba(Colours.palette.m3outline.r, Colours.palette.m3outline.g, Colours.palette.m3outline.b, 0.25)
+                    border.color: Qt.alpha(Colours.palette.m3outline, 0.25)
                 }
 
                 IconImage {
@@ -340,7 +340,7 @@ Item {
                 radius: Tokens.rounding.full
                 color: Colours.palette.m3error
                 border.width: 1
-                border.color: Qt.rgba(Colours.palette.m3onError.r, Colours.palette.m3onError.g, Colours.palette.m3onError.b, 0.3)
+                border.color: Qt.alpha(Colours.palette.m3onError, 0.3)
 
                 MaterialIcon {
                     anchors.centerIn: parent
@@ -366,11 +366,11 @@ Item {
                 z: 1
                 anchors.fill: parent
                 radius: Tokens.rounding.large
-                color: prevItem.pressed ? Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.3) :
-                    prevItem.hovered ? Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.15) :
-                    Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.05)
+                color: prevItem.pressed ? Qt.alpha(Colours.palette.m3primary, 0.3) :
+                    prevItem.hovered ? Qt.alpha(Colours.palette.m3primary, 0.15) :
+                    Qt.alpha(Colours.palette.m3primary, 0.05)
                 border.width: 1
-                border.color: Qt.rgba(Colours.palette.m3outline.r, Colours.palette.m3outline.g, Colours.palette.m3outline.b, 0.12)
+                border.color: Qt.alpha(Colours.palette.m3outline, 0.12)
             }
 
             MouseArea {
@@ -575,7 +575,7 @@ Item {
                 width: root.wsWidth
                 height: root.wsHeight
                 radius: Tokens.rounding.large
-                color: isDropTarget ? Colours.palette.m3surfaceContainerHigh : isCellActive ? Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.14) : isEmpty ? Colours.palette.m3surfaceContainerLow : (root.dragSourceWorkspace === wsId ? Qt.rgba(Colours.palette.m3primary.r, Colours.palette.m3primary.g, Colours.palette.m3primary.b, 0.08) : (root.dragSourceWorkspace !== -1 ? Colours.palette.m3surfaceContainerLow : Colours.palette.m3surfaceContainer))
+                color: isDropTarget ? Colours.palette.m3surfaceContainerHigh : isCellActive ? Qt.alpha(Colours.palette.m3primary, 0.14) : isEmpty ? Colours.palette.m3surfaceContainerLow : (root.dragSourceWorkspace === wsId ? Qt.alpha(Colours.palette.m3primary, 0.08) : (root.dragSourceWorkspace !== -1 ? Colours.palette.m3surfaceContainerLow : Colours.palette.m3surfaceContainer))
 
                 MouseArea {
                     anchors.fill: parent

@@ -1,7 +1,7 @@
 #include "memory.hpp"
 
+#include <cstdio>
 #include <qfile.h>
-#include <qregularexpression.h>
 
 namespace caelestia::services {
 
@@ -25,21 +25,30 @@ void Memory::tick() {
     if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return;
     }
-    const QByteArray data = f.readAll();
+
+    unsigned long long totalKibRaw = 0;
+    unsigned long long availKibRaw = 0;
+    bool haveTotal = false;
+    bool haveAvail = false;
+    while (!f.atEnd()) {
+        const QByteArray line = f.readLine();
+        if (!haveTotal && line.startsWith("MemTotal:")) {
+            haveTotal = std::sscanf(line.constData(), "MemTotal: %llu", &totalKibRaw) == 1;
+        } else if (!haveAvail && line.startsWith("MemAvailable:")) {
+            haveAvail = std::sscanf(line.constData(), "MemAvailable: %llu", &availKibRaw) == 1;
+        }
+        if (haveTotal && haveAvail) {
+            break;
+        }
+    }
     f.close();
 
-    static const QRegularExpression reTotal(QStringLiteral("MemTotal: *(\\d+)"));
-    static const QRegularExpression reAvail(QStringLiteral("MemAvailable: *(\\d+)"));
-    const QString text = QString::fromLatin1(data);
-
-    const auto totalMatch = reTotal.match(text);
-    const auto availMatch = reAvail.match(text);
-    if (!totalMatch.hasMatch() || !availMatch.hasMatch()) {
+    if (!haveTotal || !haveAvail) {
         return;
     }
 
-    const quint64 totalKib = totalMatch.captured(1).toULongLong();
-    const quint64 availKib = availMatch.captured(1).toULongLong();
+    const quint64 totalKib = static_cast<quint64>(totalKibRaw);
+    const quint64 availKib = static_cast<quint64>(availKibRaw);
     if (totalKib == 0) {
         return;
     }

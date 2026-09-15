@@ -6,22 +6,10 @@ import Caelestia.Config
 import qs.components
 import qs.components.controls
 import qs.services
+import qs.utils
 
 ColumnLayout {
     id: root
-
-    function lengthStr(length: int): string {
-        if (length < 0)
-            return "-1:-1";
-
-        const hours = Math.floor(length / 3600);
-        const mins = Math.floor((length % 3600) / 60);
-        const secs = Math.floor(length % 60).toString().padStart(2, "0");
-
-        if (hours > 0)
-            return `${hours}:${mins.toString().padStart(2, "0")}:${secs}`;
-        return `${mins}:${secs}`;
-    }
 
     spacing: Tokens.spacing.extraSmall
 
@@ -68,7 +56,7 @@ ColumnLayout {
         TextMetrics {
             id: timeMetrics
 
-            text: Players.active ? root.lengthStr(Math.max(Players.active.position, Players.active.length)).replace(/[1-9]/g, "0") : "00:00"
+            text: Players.active ? Strings.clockDuration(Math.max(Players.active.position, Players.active.length)).replace(/[1-9]/g, "0") : "00:00"
             font: Tokens.font.label.medium
         }
 
@@ -76,7 +64,7 @@ ColumnLayout {
             id: positionLabel
 
             Layout.preferredWidth: timeMetrics.width
-            text: root.lengthStr(Players.active?.position ?? -1)
+            text: Strings.clockDuration(Players.active?.position ?? -1)
             color: Colours.palette.m3onSurfaceVariant
             font: timeMetrics.font
             horizontalAlignment: Text.AlignHCenter
@@ -102,14 +90,14 @@ ColumnLayout {
             Binding {
                 target: positionLabel
                 property: "text"
-                value: root.lengthStr(positionSlider.pos * (Players.active?.length ?? 0))
+                value: Strings.clockDuration(positionSlider.pos * (Players.active?.length ?? 0))
                 when: positionSlider.dragging
             }
         }
 
         StyledText {
             Layout.preferredWidth: timeMetrics.width
-            text: root.lengthStr(Players.active?.length ?? -1)
+            text: Strings.clockDuration(Players.active?.length ?? -1)
             color: Colours.palette.m3onSurfaceVariant
             font: timeMetrics.font
             horizontalAlignment: Text.AlignHCenter

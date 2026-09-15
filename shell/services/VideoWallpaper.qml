@@ -288,7 +288,7 @@ Singleton {
 
         interval: 10000
         repeat: true
-        running: true
+        running: root.externalActive && root.lastCmds.length > 0
         onTriggered: {
             if (root.externalActive && root.lastCmds.length > 0) {
                 root.pendingCheck = root.lastCmds.slice();

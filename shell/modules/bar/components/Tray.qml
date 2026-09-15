@@ -18,6 +18,14 @@ StyledRect {
     readonly property int spacing: Config.bar.tray.background ? Tokens.spacing.small : 0
 
     property bool expanded
+    property bool animationsReady: false
+
+    Timer {
+        interval: 350
+        running: true
+        repeat: false
+        onTriggered: root.animationsReady = true
+    }
 
     readonly property real nonAnimHeight: {
         if (!Config.bar.tray.compact)
@@ -45,6 +53,7 @@ StyledRect {
         opacity: root.expanded || !Config.bar.tray.compact ? 1 : 0
 
         add: Transition {
+            enabled: root.animationsReady
             Anim {
                 properties: "scale"
                 from: 0
@@ -54,6 +63,7 @@ StyledRect {
         }
 
         move: Transition {
+            enabled: root.animationsReady
             Anim {
                 properties: "scale"
                 to: 1
@@ -75,6 +85,7 @@ StyledRect {
         }
 
         Behavior on opacity {
+            enabled: root.animationsReady
             Anim {
                 type: Anim.DefaultEffects
             }
@@ -106,10 +117,12 @@ StyledRect {
                 rotation: root.expanded ? 180 : 0
 
                 Behavior on rotation {
+                    enabled: root.animationsReady
                     Anim {}
                 }
 
                 Behavior on anchors.bottomMargin {
+                    enabled: root.animationsReady
                     Anim {}
                 }
             }
@@ -117,6 +130,7 @@ StyledRect {
     }
 
     Behavior on implicitHeight {
+        enabled: root.animationsReady
         Anim {}
     }
 }

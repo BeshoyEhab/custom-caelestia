@@ -166,6 +166,8 @@ class BarTokens : public ConfigObject {
     CONFIG_PROPERTY(int, networkWidth, 320)
     CONFIG_PROPERTY(int, kbLayoutWidth, 320)
     CONFIG_PROPERTY(int, bluetoothWidth, 300)
+    CONFIG_PROPERTY(int, wirelessPasswordWidth, 400)
+    CONFIG_PROPERTY(int, workspacePreviewWidth, 200)
 
 public:
     explicit BarTokens(QObject* parent = nullptr)

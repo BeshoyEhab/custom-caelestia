@@ -51,4 +51,23 @@ Singleton {
             return "\u202B" + text + "\u202C";
         return text;
     }
+
+    // Formats a 0..1 ratio as a rounded percent string, e.g. 0.428 -> "43%"
+    function percent(v: real): string {
+        return Math.round(v * 100) + "%";
+    }
+
+    // Formats seconds as h:mm:ss (m:ss under an hour); negative -> "-1:-1"
+    function clockDuration(s: int): string {
+        if (s < 0)
+            return "-1:-1";
+
+        const hours = Math.floor(s / 3600);
+        const mins = Math.floor((s % 3600) / 60);
+        const secs = Math.floor(s % 60).toString().padStart(2, "0");
+
+        if (hours > 0)
+            return `${hours}:${mins.toString().padStart(2, "0")}:${secs}`;
+        return `${mins}:${secs}`;
+    }
 }

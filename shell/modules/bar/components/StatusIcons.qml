@@ -16,6 +16,15 @@ StyledRect {
     property color colour: Colours.palette.m3secondary
     readonly property alias items: iconColumn
 
+    property bool animationsReady: false
+
+    Timer {
+        interval: 350
+        running: true
+        repeat: false
+        onTriggered: root.animationsReady = true
+    }
+
     color: Colours.tPalette.m3surfaceContainer
     radius: Tokens.rounding.full
 
@@ -57,17 +66,20 @@ StyledRect {
                         color: root.colour
 
                         Behavior on opacity {
+                            enabled: root.animationsReady
                             Anim {
                                 type: Anim.DefaultEffects
                             }
                         }
 
                         Behavior on scale {
+                            enabled: root.animationsReady
                             Anim {}
                         }
                     }
 
                     Behavior on implicitHeight {
+                        enabled: root.animationsReady
                         Anim {}
                     }
                 }
@@ -90,17 +102,20 @@ StyledRect {
                         color: root.colour
 
                         Behavior on opacity {
+                            enabled: root.animationsReady
                             Anim {
                                 type: Anim.DefaultEffects
                             }
                         }
 
                         Behavior on scale {
+                            enabled: root.animationsReady
                             Anim {}
                         }
                     }
 
                     Behavior on implicitHeight {
+                        enabled: root.animationsReady
                         Anim {}
                     }
                 }
@@ -230,6 +245,7 @@ StyledRect {
             }
 
             Behavior on Layout.preferredHeight {
+                enabled: root.animationsReady
                 Anim {}
             }
         }

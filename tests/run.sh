@@ -7,8 +7,8 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PASS=0
 FAIL=0
 
-pass() { echo -e "  \033[0;32mPASS\033[0m $1"; ((PASS++)); }
-fail() { echo -e "  \033[0;31mFAIL\033[0m $1"; ((FAIL++)); }
+pass() { echo -e "  \033[0;32mPASS\033[0m $1"; ((++PASS)); }
+fail() { echo -e "  \033[0;31mFAIL\033[0m $1"; ((++FAIL)); }
 
 test_suite() {
     local name="$1" script="$2"
