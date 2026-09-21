@@ -5,7 +5,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell.Services.Pipewire
 import Caelestia.Config
-import Caelestia.I18n
 import qs.components
 import qs.components.controls
 import qs.services
@@ -35,7 +34,7 @@ Item {
         spacing: Tokens.spacing.medium
 
         StyledText {
-            text: Tr.trCtx("Output device", "audio output device")
+            text: qsTr("Output device")
             font: Tokens.font.body.builders.medium.weight(Font.Medium).build()
         }
 
@@ -57,7 +56,7 @@ Item {
 
         StyledText {
             Layout.topMargin: Tokens.spacing.medium
-            text: Tr.trCtx("Input device", "audio input device")
+            text: qsTr("Input device")
             font: Tokens.font.body.builders.medium.weight(Font.Medium).build()
         }
 
@@ -77,7 +76,7 @@ Item {
 
         StyledText {
             Layout.topMargin: Tokens.spacing.medium
-            text: Audio.muted ? Tr.tr("Volume (muted)") : Tr.tr("Volume (%1%)").arg(Math.round(Audio.volume * 100))
+            text: Audio.muted ? qsTr("Volume (muted)") : qsTr("Volume (%1%)").arg(Math.round(Audio.volume * 100))
             font: Tokens.font.body.builders.medium.weight(Font.Medium).build()
         }
 
@@ -108,7 +107,7 @@ Item {
             inactiveColour: Colours.palette.m3primaryContainer
             inactiveOnColour: Colours.palette.m3onPrimaryContainer
             verticalPadding: Tokens.padding.extraSmall
-            text: Tr.tr("Open settings")
+            text: qsTr("Open settings")
             icon: "settings"
 
             onClicked: root.popouts.detachRequested("audio")
