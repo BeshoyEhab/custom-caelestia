@@ -121,7 +121,7 @@ Item {
 
         Popout {
             name: "audio"
-            sourceComponent: Audio {
+            sourceComponent: LocalPopouts.Audio {
                 popouts: root.popouts
             }
         }
@@ -138,7 +138,7 @@ Item {
         // Microphone status icon opens the shared audio popout.
         Popout {
             name: "mic"
-            sourceComponent: Audio {
+            sourceComponent: LocalPopouts.Audio {
                 popouts: root.popouts
             }
         }
