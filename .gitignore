@@ -4,3 +4,5 @@ build/
 *.dylib
 .cache/
 backups
+.worktrees/
+.superpowers/sdd/
