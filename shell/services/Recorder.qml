@@ -10,6 +10,9 @@ Singleton {
     readonly property alias running: props.running
     readonly property alias paused: props.paused
     readonly property alias elapsed: props.elapsed
+    // Upstream poll guard: only poll while something is showing the state,
+    // i.e. the utilities drawer is open (see Ref in Record.qml).
+    property int refCount: 0
     property bool needsStart
     property list<string> startArgs
     property bool needsStop
@@ -71,12 +74,22 @@ Singleton {
         }
     }
 
+    // Only poll while something is showing the state, i.e. the utilities drawer is open
+    Timer {
+        interval: 1000
+        running: root.refCount > 0
+        repeat: true
+        triggeredOnStart: true
+
+        onTriggered: checkProc.running = true
+    }
+
     Connections {
-        // enabled: props.running && !props.paused
         function onSecondsChanged(): void {
             props.elapsed++;
         }
 
+        enabled: props.running && !props.paused
         target: Time // qmllint disable incompatible-type
     }
 }

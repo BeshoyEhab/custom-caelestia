@@ -57,6 +57,12 @@ Singleton {
         return Math.round(v * 100) + "%";
     }
 
+    // Upstream-compat alias: upstream percentOne(ratio) == our percent(ratio).
+    // (Upstream percent(int) takes 0-100; ours takes 0..1 — do not unify.)
+    function percentOne(value: real): string {
+        return percent(value);
+    }
+
     // Formats seconds as h:mm:ss (m:ss under an hour); negative -> "-1:-1"
     function clockDuration(s: int): string {
         if (s < 0)

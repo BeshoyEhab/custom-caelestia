@@ -21,15 +21,22 @@ Singleton {
     readonly property AccessPoint active: networks.find(n => n.active) ?? null
     property list<string> savedConnections: []
     property list<string> savedConnectionSsids: []
+    // Map of saved Wi-Fi SSID (lowercased) -> security type
+    property var savedConnectionSecurity: ({})
 
     property var wifiConnectionQueue: []
     property int currentSsidQueryIndex: 0
     property var pendingConnection: null
     property var wirelessDeviceDetails: null
     property var ethernetDeviceDetails: null
-    property list<var> ethernetDevices: []
-    readonly property var activeEthernet: ethernetDevices.find(d => d.connected) ?? null
-    // Upstream sync: gates the EthernetSection loader in NetworkPage
+    property string ethernetDataUsage: ""
+    // Link speed of the active ethernet interface (from sysfs), e.g. "1 Gbps".
+    property string ethernetSpeed: ""
+    readonly property list<EthernetDevice> ethernetDevices: []
+    readonly property EthernetDevice activeEthernet: ethernetDevices.find(d => d.connected) ?? null
+    // True when at least one wired device has a carrier (cable plugged in).
+    // nmcli reports "unavailable" for ethernet NICs with no link, so we treat
+    // anything other than that as a usable connection.
     readonly property bool hasAvailableEthernet: ethernetDevices.some(d => d.state !== "unavailable")
     property list<var> activeProcesses: []
 
@@ -58,8 +65,11 @@ Singleton {
     readonly property string connectionParamSsid: "ssid"
     readonly property string connectionParamPassword: "password"
     readonly property string connectionParamBssid: "802-11-wireless.bssid"
+    readonly property string connectionParamHidden: "802-11-wireless.hidden"
 
     signal connectionFailed(string ssid)
+    // Custom extra: emitted on every connection change so out-of-band
+    // listeners (e.g. VPN status) can re-check without polling.
     signal connectionChanged()
 
     function detectPasswordRequired(error: string): bool {
@@ -217,31 +227,83 @@ Singleton {
     function getEthernetInterfaces(callback: var): void {
         executeCommand(["-t", "-f", root.deviceStatusFields, root.nmcliCommandDevice, "status"], result => {
             const interfaces = parseDeviceStatusOutput(result.output, root.deviceTypeEthernet);
-            const devices = [];
+            const applyInterfaces = filtered => {
+                const devices = filtered.map(iface => ({
+                            interface: iface.device,
+                            type: iface.type,
+                            state: iface.state,
+                            connection: iface.connection,
+                            connected: isConnectedState(iface.state),
+                            ipAddress: "",
+                            gateway: "",
+                            dns: [],
+                            subnet: "",
+                            macAddress: "",
+                            speed: ""
+                        }));
 
-            for (const iface of interfaces) {
-                const connected = isConnectedState(iface.state);
+                root.ethernetInterfaces = filtered;
+                syncEthernetDevices(devices);
+                if (callback)
+                    callback(filtered);
+            };
 
-                devices.push({
-                    interface: iface.device,
-                    type: iface.type,
-                    state: iface.state,
-                    connection: iface.connection,
-                    connected: connected,
-                    ipAddress: "",
-                    gateway: "",
-                    dns: [],
-                    subnet: "",
-                    macAddress: "",
-                    speed: ""
-                });
+            if (interfaces.length === 0) {
+                applyInterfaces([]);
+                return;
             }
 
-            root.ethernetInterfaces = interfaces;
-            root.ethernetDevices = devices;
-            if (callback)
-                callback(interfaces);
+            // NetworkManager reports container/VM veth pairs (Docker, Podman,
+            // etc.) as type "ethernet" too, so they'd show up here like real
+            // connections. A physical NIC always has
+            // /sys/class/net/<iface>/device; veth/bridge/tun interfaces
+            // never do, so that's how we tell them apart.
+            const proc = physicalCheckProc.createObject(root);
+            proc.callback = result => {
+                if (!result.success) {
+                    console.warn(lc, `Failed to classify ethernet interfaces (exited: ${result.exitCode}); keeping the unfiltered list.`);
+                    applyInterfaces(interfaces);
+                    return;
+                }
+
+                const physicalSet = result.output.trim().split("\n").filter(l => l.length > 0);
+                const filtered = interfaces.filter(iface => physicalSet.includes(iface.device));
+
+                applyInterfaces(filtered);
+            };
+
+            proc.exec(["sh", "-c", 'test -d /sys/class/net || exit 1; for i do [ -e "/sys/class/net/$i/device" ] && printf "%s\\n" "$i"; done; exit 0', "sh", ...interfaces.map(iface => iface.device)]);
         });
+    }
+
+    // Sync a list of ethernet devices to the existing device list. Same logic as getNetworks
+    function syncEthernetDevices(devices: list<var>): void {
+        const rDevices = root.ethernetDevices;
+
+        const newMap = new Map();
+        for (const d of devices)
+            newMap.set(d.interface, d);
+
+        for (let i = rDevices.length - 1; i >= 0; i--) {
+            if (!newMap.has(rDevices[i].iface)) {
+                const removed = rDevices.splice(i, 1)[0];
+                removed.destroy();
+            }
+        }
+
+        const existingMap = new Map();
+        for (const rd of rDevices)
+            existingMap.set(rd.iface, rd);
+
+        for (const [iface, data] of newMap) {
+            const match = existingMap.get(iface);
+            if (match)
+                match.lastIpcObject = data;
+            else
+                rDevices.push(ethComp.createObject(root, {
+                    lastIpcObject: data
+                }));
+        }
     }
 
     function connectEthernet(connectionName: string, interfaceName: string, callback: var): void {
@@ -470,6 +532,7 @@ Singleton {
             if (!result.success) {
                 root.savedConnections = [];
                 root.savedConnectionSsids = [];
+                root.savedConnectionSecurity = {};
                 if (callback)
                     callback([]);
                 return;
@@ -499,6 +562,8 @@ Singleton {
 
         root.savedConnections = connections;
 
+        root.savedConnectionSecurity = {};
+
         if (wifiConnections.length > 0) {
             root.wifiConnectionQueue = wifiConnections;
             root.currentSsidQueryIndex = 0;
@@ -517,7 +582,7 @@ Singleton {
             const connectionName = root.wifiConnectionQueue[root.currentSsidQueryIndex];
             root.currentSsidQueryIndex++;
 
-            executeCommand(["-t", "-f", root.wirelessSsidField, root.nmcliCommandConnection, "show", connectionName], result => {
+            executeCommand(["-t", "-f", `${root.wirelessSsidField},${root.securityKeyMgmt}`, root.nmcliCommandConnection, "show", connectionName], result => {
                 if (result.success) {
                     processSsidOutput(result.output);
                 }
@@ -532,21 +597,61 @@ Singleton {
     }
 
     function processSsidOutput(output: string): void {
-        const lines = output.trim().split("\n");
-        for (const line of lines) {
-            if (line.startsWith("802-11-wireless.ssid:")) {
-                const ssid = line.substring("802-11-wireless.ssid:".length).trim();
-                if (ssid && ssid.length > 0) {
-                    const ssidLower = ssid.toLowerCase();
-                    const exists = root.savedConnectionSsids.some(s => s && s.toLowerCase() === ssidLower);
-                    if (!exists) {
-                        const newList = root.savedConnectionSsids.slice();
-                        newList.push(ssid);
-                        root.savedConnectionSsids = newList;
-                    }
-                }
-            }
+        const ssidPrefix = "802-11-wireless.ssid:";
+        const keyMgmtPrefix = `${root.securityKeyMgmt}:`;
+
+        let ssid = "";
+        let keyMgmt = "";
+        for (const line of output.trim().split("\n")) {
+            if (line.startsWith(ssidPrefix))
+                ssid = line.substring(ssidPrefix.length).trim();
+            else if (line.startsWith(keyMgmtPrefix))
+                keyMgmt = line.substring(keyMgmtPrefix.length).trim();
         }
+
+        if (!ssid || ssid.length === 0)
+            return;
+
+        const ssidLower = ssid.toLowerCase();
+
+        const exists = root.savedConnectionSsids.some(s => s && s.toLowerCase() === ssidLower);
+        if (!exists) {
+            const newList = root.savedConnectionSsids.slice();
+            newList.push(ssid);
+            root.savedConnectionSsids = newList;
+        }
+
+        const security = Object.assign({}, root.savedConnectionSecurity);
+        security[ssidLower] = keyMgmt;
+        root.savedConnectionSecurity = security;
+    }
+
+    function securityLabel(keyMgmt: string): string {
+        switch ((keyMgmt || "").trim().toLowerCase()) {
+        case "":
+        case "none":
+            return qsTr("Open");
+        case "sae":
+            return "WPA3";
+        case "wpa-psk":
+            return "WPA2";
+        case "wpa-eap":
+        case "wpa-eap-suite-b-192":
+            return qsTr("Enterprise");
+        case "owe":
+            return qsTr("Enhanced Open");
+        case "ieee8021x":
+            return "802.1X";
+        default:
+            return keyMgmt.trim();
+        }
+    }
+
+    // Cached security label for a saved SSID, or "" if unknown (e.g. not loaded).
+    function savedSecurityFor(ssid: string): string {
+        if (!ssid || ssid.length === 0)
+            return "";
+        return root.savedConnectionSecurity[ssid.toLowerCase().trim()] || "";
     }
 
     function hasSavedProfile(ssid: string): bool {
@@ -571,6 +676,109 @@ Singleton {
         const hasConnectionName = root.savedConnections.some(connName => connName && connName.toLowerCase().trim() === ssidLower);
 
         return hasConnectionName;
+    }
+
+    // Adds and connects to an SSID by name. When hidden is true the profile is
+    // created with 802-11-wireless.hidden=yes so NetworkManager actively probes
+    // for it.
+    function addHiddenNetwork(ssid: string, password: string, security: string, hidden: bool, callback: var): void {
+        if (!ssid || ssid.length === 0) {
+            if (callback)
+                callback({
+                    success: false,
+                    output: "",
+                    error: "No SSID specified",
+                    exitCode: -1
+                });
+            return;
+        }
+
+        const isSecure = security && security !== "none";
+
+        // Remove any stale profile with the same name first so we don't collide.
+        checkAndDeleteConnection(ssid, () => {
+            let cmd = [root.nmcliCommandConnection, "add", root.connectionParamType, root.deviceTypeWifi, root.connectionParamConName, ssid, root.connectionParamIfname, "*", root.connectionParamSsid, ssid, root.connectionParamHidden, hidden ? "yes" : "no"];
+
+            if (isSecure) {
+                cmd.push(root.securityKeyMgmt, root.keyMgmtWpaPsk, root.securityPsk, password);
+            }
+
+            executeCommand(cmd, result => {
+                if (result.success) {
+                    loadSavedConnections(() => {});
+                    activateConnection(ssid, callback);
+                } else {
+                    const hasDuplicateWarning = result.error && (result.error.includes("another connection with the name") || result.error.includes("Reference the connection by its uuid"));
+
+                    if (hasDuplicateWarning) {
+                        loadSavedConnections(() => {});
+                        activateConnection(ssid, callback);
+                    } else if (callback) {
+                        callback(result);
+                    }
+                }
+            });
+        });
+    }
+
+    // Reads whether a saved connection auto-connects.
+    function getAutoconnect(connectionName: string, callback: var): void {
+        if (!connectionName || connectionName.length === 0) {
+            if (callback)
+                callback(true);
+            return;
+        }
+        executeCommand(["-t", "-f", "connection.autoconnect", root.nmcliCommandConnection, "show", connectionName], result => {
+            let auto = true;
+            if (result.success) {
+                const line = result.output.trim();
+                const idx = line.indexOf(":");
+                if (idx >= 0)
+                    auto = line.slice(idx + 1).trim() !== "no";
+            }
+            if (callback)
+                callback(auto);
+        });
+    }
+
+    // Toggles auto-connect for a saved connection. When turned OFF, also makes
+    // NetworkManager ask for the password on the next manual connect instead of
+    // silently reusing the stored one (psk-flags 2 = "not saved, always ask");
+    // turning it back ON restores psk-flags 0 so the next password is saved.
+    function setAutoconnect(connectionName: string, enabled: bool, callback: var): void {
+        if (!connectionName || connectionName.length === 0) {
+            if (callback)
+                callback({
+                    success: false,
+                    output: "",
+                    error: "No connection specified",
+                    exitCode: -1
+                });
+            return;
+        }
+
+        let cmd = [root.nmcliCommandConnection, "modify", connectionName, "connection.autoconnect", enabled ? "yes" : "no"];
+
+        if (enabled) {
+            cmd.push("802-11-wireless-security.psk-flags", "0");
+        } else {
+            cmd.push("802-11-wireless-security.psk-flags", "2");
+            cmd.push("802-11-wireless-security.psk", "");
+        }
+
+        executeCommand(cmd, result => {
+            // For open networks the security fields don't exist; nmcli then
+            // errors. Retry with just the autoconnect change so it still works.
+            if (!result.success && result.error && (result.error.includes("802-11-wireless-security") || result.error.includes("is not a valid property") || result.error.includes("Error: invalid"))) {
+                executeCommand([root.nmcliCommandConnection, "modify", connectionName, "connection.autoconnect", enabled ? "yes" : "no"], retryResult => {
+                    if (callback)
+                        callback(retryResult);
+                });
+                return;
+            }
+            if (callback)
+                callback(result);
+        });
     }
 
     function forgetNetwork(ssid: string, callback: var): void {
@@ -753,6 +961,10 @@ Singleton {
                     callback(root.wifiEnabled);
             }
         });
+    }
+
+    function findNetwork(ssid: string): var {
+        return networks.find(n => n.ssid === ssid) ?? null;
     }
 
     function getNetworks(callback: var): void {
@@ -955,6 +1167,162 @@ Singleton {
         });
     }
 
+    // Reads the IPv4 configuration (method, address, gateway, DNS, autoconnect)
+    // of a connection profile for the ethernet detail page.
+    function getIpv4Config(connectionName: string, callback: var): void {
+        if (!connectionName || connectionName.length === 0) {
+            if (callback)
+                callback(null);
+            return;
+        }
+
+        executeCommand(["-t", "-f", "ipv4.method,ipv4.addresses,ipv4.gateway,ipv4.dns,ipv4.ignore-auto-dns,connection.autoconnect", root.nmcliCommandConnection, "show", connectionName], result => {
+            if (!result.success) {
+                if (callback)
+                    callback(null);
+                return;
+            }
+
+            const cfg = {
+                method: "auto",
+                address: "",
+                gateway: "",
+                dns: "",
+                ignoreAutoDns: false,
+                autoconnect: true
+            };
+
+            const lines = result.output.trim().split("\n");
+            for (const line of lines) {
+                const idx = line.indexOf(":");
+                if (idx < 0)
+                    continue;
+                const key = line.slice(0, idx).trim();
+                const value = line.slice(idx + 1).trim();
+
+                if (key === "ipv4.ignore-auto-dns")
+                    cfg.ignoreAutoDns = value === "yes";
+                else if (key === "connection.autoconnect")
+                    cfg.autoconnect = value !== "no";
+
+                if (value === "" || value === "--")
+                    continue;
+
+                if (key === "ipv4.method")
+                    cfg.method = value;
+                else if (key === "ipv4.addresses")
+                    cfg.address = value.split(",")[0].trim();
+                else if (key === "ipv4.gateway")
+                    cfg.gateway = value;
+                else if (key === "ipv4.dns")
+                    cfg.dns = value.replace(/;\s*$/, "").split(/[;,]/).map(d => d.trim()).filter(d => d.length > 0).join(", ");
+            }
+
+            // Distinguish "automatic + custom DNS only" from plain DHCP.
+            if (cfg.method === "auto" && cfg.ignoreAutoDns)
+                cfg.method = "auto-dns";
+
+            if (callback)
+                callback(cfg);
+        });
+    }
+
+    // Writes an IPv4 configuration to a connection profile and reactivates it so
+    // the change takes effect immediately.
+    function setIpv4Config(connectionName: string, config: var, callback: var): void {
+        if (!connectionName || connectionName.length === 0) {
+            if (callback)
+                callback({
+                    success: false,
+                    output: "",
+                    error: "No connection specified",
+                    exitCode: -1
+                });
+            return;
+        }
+
+        const dnsList = (config.dns ?? "").split(",").map(d => d.trim()).filter(d => d.length > 0).join(" ");
+        let cmd = [root.nmcliCommandConnection, "modify", connectionName];
+
+        if (config.method === "manual") {
+            cmd.push("ipv4.method", "manual");
+            cmd.push("ipv4.addresses", config.address ?? "");
+            cmd.push("ipv4.gateway", config.gateway ?? "");
+            cmd.push("ipv4.dns", dnsList);
+            cmd.push("ipv4.ignore-auto-dns", "yes");
+        } else if (config.method === "auto-dns") {
+            // DHCP addressing, custom DNS only.
+            cmd.push("ipv4.method", "auto");
+            cmd.push("ipv4.addresses", "");
+            cmd.push("ipv4.gateway", "");
+            cmd.push("ipv4.dns", dnsList);
+            cmd.push("ipv4.ignore-auto-dns", "yes");
+        } else {
+            // Full DHCP: clear manual fields and re-enable auto DNS.
+            cmd.push("ipv4.method", "auto");
+            cmd.push("ipv4.addresses", "");
+            cmd.push("ipv4.gateway", "");
+            cmd.push("ipv4.dns", "");
+            cmd.push("ipv4.ignore-auto-dns", "no");
+        }
+
+        executeCommand(cmd, result => {
+            if (!result.success) {
+                if (callback)
+                    callback(result);
+                return;
+            }
+            // Reactivate so changes take effect immediately.
+            executeCommand([root.nmcliCommandConnection, "up", connectionName], upResult => {
+                Qt.callLater(() => {
+                    refreshOnConnectionChange();
+                });
+                if (callback)
+                    callback(upResult);
+            });
+        });
+    }
+
+    // Reads cumulative since-boot byte counters from sysfs for an interface and
+    // returns a human-readable total via the callback.
+    // Reads the negotiated link speed (Mbit/s) from sysfs and stores a
+    // human-readable form in ethernetSpeed. nmcli `device show` doesn't expose
+    // link speed, so sysfs is the root-free source.
+    function getEthernetSpeed(interfaceName: string): void {
+        if (!interfaceName || interfaceName.length === 0) {
+            root.ethernetSpeed = "";
+            return;
+        }
+        speedProc.command = ["sh", "-c", `cat /sys/class/net/${interfaceName}/speed 2>/dev/null`];
+        speedProc.running = true;
+    }
+
+    // Local replacement for upstream Units.formatBytes (no Units singleton in
+    // this build): 1024-based human-readable total, e.g. "1.5 GB".
+    function formatBytesTotal(bytes: real): string {
+        if (!(bytes >= 0) || isNaN(bytes) || !isFinite(bytes))
+            return "0 B";
+        if (bytes < 1024)
+            return `${Math.round(bytes)} B`;
+        if (bytes < 1024 * 1024)
+            return `${(bytes / 1024).toFixed(1)} KB`;
+        if (bytes < 1024 * 1024 * 1024)
+            return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    }
+
+    function getEthernetDataUsage(interfaceName: string, callback: var): void {
+        if (!interfaceName || interfaceName.length === 0) {
+            if (callback)
+                callback("");
+            return;
+        }
+        dataUsageProc.iface = interfaceName;
+        dataUsageProc.cb = callback;
+        dataUsageProc.command = ["sh", "-c", `cat /sys/class/net/${interfaceName}/statistics/rx_bytes /sys/class/net/${interfaceName}/statistics/tx_bytes 2>/dev/null`];
+        dataUsageProc.running = true;
+    }
+
     function getEthernetDeviceDetails(interfaceName: string, callback: var): void {
         if (!interfaceName || interfaceName.length === 0) {
             const activeInterface = root.ethernetInterfaces.find(iface => {
@@ -971,9 +1339,11 @@ Singleton {
 
         executeCommand(["device", "show", interfaceName], result => {
             if (!result.success || !result.output) {
-                root.ethernetDeviceDetails = null;
+                // Transient failure (e.g. nmcli busy during a toggle). Keep the
+                // previous details so dependent UI (gateway, IP/DNS) doesn't
+                // blink out and back.
                 if (callback)
-                    callback(null);
+                    callback(root.ethernetDeviceDetails);
                 return;
             }
 
@@ -1023,11 +1393,7 @@ Singleton {
                     if (value !== "--" && value.length > 0) {
                         details.dns.push(value);
                     }
-                } else if (isEthernet && key === "WIRED-PROPERTIES.MAC") {
-                    details.macAddress = value;
-                } else if (isEthernet && key === "WIRED-PROPERTIES.SPEED") {
-                    details.speed = value;
-                } else if (!isEthernet && key === "GENERAL.HWADDR") {
+                } else if (key === "GENERAL.HWADDR") {
                     details.macAddress = value;
                 }
             }
@@ -1070,7 +1436,7 @@ Singleton {
             getEthernetInterfaces(() => {
                 if (root.activeEthernet && root.activeEthernet.connected) {
                     Qt.callLater(() => {
-                        getEthernetDeviceDetails(root.activeEthernet.interface, () => {});
+                        getEthernetDeviceDetails(root.activeEthernet.iface, () => {});
                     }, 500);
                 }
             });
@@ -1114,6 +1480,45 @@ Singleton {
         id: apComp
 
         AccessPoint {}
+    }
+
+    Component {
+        id: ethComp
+
+        EthernetDevice {}
+    }
+
+    Component {
+        id: physicalCheckProc
+
+        Process {
+            id: proc
+
+            property var callback: null
+
+            stdout: StdioCollector {
+                id: stdoutCollector
+            }
+
+            stderr: StdioCollector {
+                id: stderrCollector
+            }
+
+            onExited: code => { // qmllint disable signal-handler-parameters
+                Qt.callLater(() => {
+                    const callback = proc.callback;
+                    const result = {
+                        success: code === 0,
+                        output: stdoutCollector.text ?? "",
+                        error: stderrCollector.text ?? "",
+                        exitCode: code
+                    };
+
+                    proc.destroy();
+                    callback?.(result);
+                });
+            }
+        }
     }
 
     Timer {
@@ -1261,6 +1666,48 @@ Singleton {
     }
 
     Process {
+        id: dataUsageProc
+
+        property string iface
+        property var cb
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const nums = text.trim().split("\n").map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n));
+                if (nums.length < 2) {
+                    if (dataUsageProc.cb)
+                        dataUsageProc.cb("");
+                    return;
+                }
+                const human = root.formatBytesTotal(nums[0] + nums[1]);
+                root.ethernetDataUsage = human;
+                if (dataUsageProc.cb)
+                    dataUsageProc.cb(human);
+            }
+        }
+    }
+
+    Process {
+        id: speedProc
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const mbit = parseInt(text.trim(), 10);
+                // Disconnected/virtual interfaces report -1 or nothing.
+                if (isNaN(mbit) || mbit <= 0) {
+                    root.ethernetSpeed = "";
+                } else if (mbit >= 1000) {
+                    const gbps = mbit / 1000;
+                    // TRANSLATORS: %1 = a number
+                    root.ethernetSpeed = qsTr("%1 Gbps").arg(Number.isInteger(gbps) ? gbps : gbps.toFixed(1));
+                } else {
+                    root.ethernetSpeed = qsTr("%1 Mbps").arg(mbit);
+                }
+            }
+        }
+    }
+
+    Process {
         id: rescanProc
 
         command: ["nmcli", "dev", root.nmcliCommandWifi, "list", "--rescan", "yes"]
@@ -1381,5 +1828,23 @@ Singleton {
         readonly property bool active: lastIpcObject.active
         readonly property string security: lastIpcObject.security
         readonly property bool isSecure: security.length > 0
+    }
+
+    component EthernetDevice: QtObject {
+        required property var lastIpcObject
+        readonly property string iface: lastIpcObject.interface
+        // Compat alias for the bar Network popout (Task 8 fork), which reads
+        // `modelData.interface`. New code should use `iface`.
+        readonly property string interface: lastIpcObject.interface
+        readonly property string type: lastIpcObject.type
+        readonly property string state: lastIpcObject.state
+        readonly property string connection: lastIpcObject.connection
+        readonly property bool connected: lastIpcObject.connected
+        readonly property string ipAddress: lastIpcObject.ipAddress ?? ""
+        readonly property string gateway: lastIpcObject.gateway ?? ""
+        readonly property var dns: lastIpcObject.dns ?? []
+        readonly property string subnet: lastIpcObject.subnet ?? ""
+        readonly property string macAddress: lastIpcObject.macAddress ?? ""
+        readonly property string speed: lastIpcObject.speed ?? ""
     }
 }
