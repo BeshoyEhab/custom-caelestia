@@ -1833,9 +1833,6 @@ Singleton {
     component EthernetDevice: QtObject {
         required property var lastIpcObject
         readonly property string iface: lastIpcObject.interface
-        // Compat alias for the bar Network popout (Task 8 fork), which reads
-        // `modelData.interface`. New code should use `iface`.
-        readonly property string interface: lastIpcObject.interface
         readonly property string type: lastIpcObject.type
         readonly property string state: lastIpcObject.state
         readonly property string connection: lastIpcObject.connection
