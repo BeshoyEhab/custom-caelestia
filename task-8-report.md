@@ -56,3 +56,34 @@
     `Content.qml[124:30]: Composite Singleton Type Audio is not creatable.`
     (`Content.*unavailable` lines therefore still appear — from Audio, not
     Network).
+
+## Round fix: Audio singleton vs local popout boot blocker
+
+- **Status:** FIXED
+- **Commit:** `e00df4cb` — `fix: qualify local Audio popout vs services singleton`
+- **File:** `shell/modules/bar/popouts/Content.qml` (2 insertions, 2 deletions)
+- **Root cause:** `Content.qml:124` (`audio` popout) and `:141` (`mic` popout)
+  `Audio {` resolved to the singleton `qs.services.Audio`
+  (`services/Audio.qml`, `pragma Singleton`) instead of the local
+  `shell/modules/bar/popouts/Audio.qml` component, because the file imports
+  `qs.services` unaliased. Error
+  `Composite Singleton Type Audio is not creatable` aborted the Drawers chain.
+  Same pattern as the prior Network fix (which added
+  `import "./" as LocalPopouts`).
+- **Fix (minimal, both Audios kept):**
+  - `sourceComponent: Audio {` → `sourceComponent: LocalPopouts.Audio {`
+    for the `audio` (line 124) and `mic` (line 141) popouts only.
+  - Left `AudioPopout {` (line 133, distinct file, no singleton collision) and
+    all `Audio.*` service property references (`Audio.sinks/sources/muted/
+    volume/...` inside `Audio.qml`/`AudioPopout.qml`) untouched.
+  - No `as Audio` casts exist in `Content.qml` (PCRE2
+    `(?<!\.)\bAudio\s*\{|as Audio` → no matches, exit 1).
+- **Tests:**
+  - `timeout 20 qs -p shell/shell.qml 2>&1 | grep -i "Audio.*not creatable"` →
+    empty (exit 1, Audio blocker gone).
+  - `grep -ci 'error|not creatable|ReferenceError|TypeError|failed'`: **8**
+    (11 total log lines).
+  - **Next downstream blocker (out of scope):** chain now ends at
+    `Workspaces.qml[163:30] → GapMarkers.qml[16:5]: AnimatedRepeater is not
+    a type` (Drawers → ContentWindow → BarWrapper → Bar → Workspaces →
+    GapMarkers).
