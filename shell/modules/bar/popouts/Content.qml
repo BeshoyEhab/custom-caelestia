@@ -7,6 +7,7 @@ import Quickshell.Services.SystemTray
 import Caelestia.Config
 import qs.components
 import qs.services
+import "./" as LocalPopouts
 
 Item {
     id: root
@@ -43,7 +44,7 @@ Item {
             id: networkPopout
 
             name: "network"
-            sourceComponent: Network {
+            sourceComponent: LocalPopouts.Network {
                 popouts: root.popouts
                 view: "wireless"
             }
@@ -51,7 +52,7 @@ Item {
 
         Popout {
             name: "ethernet"
-            sourceComponent: Network {
+            sourceComponent: LocalPopouts.Network {
                 popouts: root.popouts
                 view: "ethernet"
             }
