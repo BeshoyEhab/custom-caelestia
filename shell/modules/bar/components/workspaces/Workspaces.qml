@@ -152,18 +152,23 @@ StyledClippingRect {
         // plugin — GapMarkers.qml depends on it and the bar will log
         // "AnimatedRepeater is not a type" otherwise. Activation additionally
         // needs Workspace-item delegates exposing .ws/.focused/.y.
+        // Guarded until Task 10 plugin with AnimatedRepeater is installed; then restore active: opacity > 0
         Loader {
             asynchronous: true
             opacity: root.showUnoccupied ? 0 : 1
-            active: opacity > 0
+            active: false
 
             anchors.fill: parent
             anchors.margins: Tokens.padding.extraSmall
 
-            sourceComponent: GapMarkers {
-                workspaces: circles
-                wsSpacing: root.itemStep - root.circleSize
-            }
+            // sourceComponent disabled: even with active:false the QML compiler
+            // resolves the static GapMarkers type ref and aborts the Bar chain
+            // on "AnimatedRepeater is not a type". Restore (uncomment) together
+            // with active: opacity > 0 once the Task 10 plugin ships.
+            // sourceComponent: GapMarkers {
+            //     workspaces: circles
+            //     wsSpacing: root.itemStep - root.circleSize
+            // }
 
             Behavior on opacity {
                 Anim {
