@@ -18,13 +18,83 @@ StyledClippingRect {
     readonly property bool onSpecial: (GlobalConfig.bar.workspaces.perMonitorWorkspaces ? Hypr.monitorFor(screen) : Hypr.focusedMonitor)?.lastIpcObject.specialWorkspace?.name !== ""
     readonly property int activeWsId: GlobalConfig.bar.workspaces.perMonitorWorkspaces ? (Hypr.monitorFor(screen)?.activeWorkspace?.id ?? 1) : Hypr.activeWsId
 
+    // Upstream v2 ports (logic only — Item root + int-model Repeaters kept):
+    // - `perMonitor` maps onto the existing `perMonitorWorkspaces` global key
+    //   (custom C++ schema has no `Config.bar.workspaces.perMonitor`).
+    // - `showUnoccupied` falls back to true (custom schema has no such key yet),
+    //   preserving current fixed-group behaviour until the key is added.
+    readonly property bool perMonitor: GlobalConfig.bar.workspaces.perMonitorWorkspaces ?? true
+    readonly property bool showUnoccupied: Config.bar.workspaces.showUnoccupied ?? true
+    readonly property int shown: Math.max(1, Config.bar.workspaces.shown)
+    readonly property int wsCount: root.showUnoccupied ? Config.bar.workspaces.shown : root.wsIds.length
+
+    // Workspace ids to display. Unfiltered path matches upstream
+    // (`[1..shown]`); filtered path mirrors upstream windowing around the
+    // active workspace, using Math instead of CUtils and tolerating the
+    // missing `Hypr.isToplevelIgnored` / `ignoredTags` schema pieces.
+    readonly property var wsIds: {
+        if (root.showUnoccupied)
+            return Array.from({
+                length: root.shown
+            }, (_, i) => i + 1);
+
+        const allMonitors = !root.perMonitor;
+        const mon = Hypr.monitorFor(root.screen);
+        const ignoredTags = GlobalConfig.bar.workspaces.ignoredTags ?? [];
+        const hasFilter = typeof Hypr.isToplevelIgnored === "function";
+        const workspaces = Hypr.workspaces.values.filter(w => {
+            if (!(w.id > 0))
+                return false;
+            if (!allMonitors && w.monitor !== mon)
+                return false;
+            if (w.id === root.activeWsId)
+                return true;
+            const tops = w.toplevels?.values ?? [];
+            if (hasFilter)
+                return tops.some(t => !Hypr.isToplevelIgnored(t, ignoredTags));
+            return tops.length > 0 || (w.lastIpcObject?.windows ?? 0) > 0;
+        });
+        const currentIdx = workspaces.findIndex(w => w.id === root.activeWsId);
+        if (currentIdx < 0)
+            return [];
+
+        const lo = Math.min(root.shown, workspaces.length);
+        const end = Math.min(Math.max(currentIdx + 1, lo), workspaces.length);
+        const start = Math.max(0, end - root.shown);
+
+        return workspaces.slice(start, end).map(w => w.id);
+    }
+
+    function workspaceIndex(id: int): int {
+        if (!root.showUnoccupied)
+            return root.wsIds.indexOf(id);
+
+        let index = id - 1;
+        while (index < 0)
+            index += root.shown;
+        return index % root.shown;
+    }
+
+    function wsForIndex(idx: int): int {
+        if (root.showUnoccupied)
+            return root.groupOffset + idx + 1;
+        return root.wsIds[idx] ?? 0;
+    }
+
+    readonly property int activeWsIdx: root.showUnoccupied ? root.activeWsId - 1 - root.groupOffset : root.wsIds.indexOf(root.activeWsId)
+
     readonly property var occupied: {
         const occ = {};
         for (const ws of Hypr.workspaces.values)
             occ[ws.id] = ws.lastIpcObject.windows > 0;
         return occ;
     }
-    readonly property int groupOffset: Math.floor((activeWsId - 1) / Math.max(1, Config.bar.workspaces.shown)) * Math.max(1, Config.bar.workspaces.shown)
+    // Only relevant for when showUnoccupied is true (mirrors upstream)
+    readonly property int groupOffset: {
+        if (!root.showUnoccupied)
+            return 0;
+        return Math.floor((root.activeWsId - 1) / root.shown) * root.shown;
+    }
 
     readonly property real itemStep: circleSize + 2
     readonly property real circleSize: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall * 2
@@ -76,14 +146,40 @@ StyledClippingRect {
             }
         }
 
+        // Upstream v2 GapMarkers (inactive by default: `showUnoccupied`
+        // falls back to true until the schema gains the key). NOTE: do NOT
+        // activate until `AnimatedRepeater` is ported into the custom C++
+        // plugin — GapMarkers.qml depends on it and the bar will log
+        // "AnimatedRepeater is not a type" otherwise. Activation additionally
+        // needs Workspace-item delegates exposing .ws/.focused/.y.
+        Loader {
+            asynchronous: true
+            opacity: root.showUnoccupied ? 0 : 1
+            active: opacity > 0
+
+            anchors.fill: parent
+            anchors.margins: Tokens.padding.extraSmall
+
+            sourceComponent: GapMarkers {
+                workspaces: circles
+                wsSpacing: root.itemStep - root.circleSize
+            }
+
+            Behavior on opacity {
+                Anim {
+                    type: Anim.DefaultEffects
+                }
+            }
+        }
+
         Repeater {
             id: circles
 
-            model: Config.bar.workspaces.shown
+            model: root.wsCount
 
             Rectangle {
                 required property int index
-                readonly property int ws: root.groupOffset + index + 1
+                readonly property int ws: root.wsForIndex(index)
                 readonly property bool isOccupied: root.occupied[ws] ?? false
                 readonly property bool isActive: root.activeWsId === ws
                 readonly property int size: root.circleSize + 2
@@ -113,17 +209,17 @@ StyledClippingRect {
         Rectangle {
             id: indicator
 
-            property int targetIdx: root.activeWsId - 1 - root.groupOffset
+            property int targetIdx: root.activeWsIdx
 
             x: (root.width - root.circleSize) / 2
-            y: targetIdx >= 0 && targetIdx < Config.bar.workspaces.shown
+            y: targetIdx >= 0 && targetIdx < root.wsCount
                ? Tokens.padding.extraSmall + targetIdx * root.itemStep
                : -root.circleSize
             width: root.circleSize
             height: root.circleSize
             radius: width / 2
             color: Colours.palette.m3primary
-            opacity: targetIdx >= 0 && targetIdx < Config.bar.workspaces.shown ? 1 : 0
+            opacity: targetIdx >= 0 && targetIdx < root.wsCount ? 1 : 0
             z: 1
 
             Behavior on y {
@@ -139,11 +235,11 @@ StyledClippingRect {
         Repeater {
             id: numbers
 
-            model: Config.bar.workspaces.shown
+            model: root.wsCount
 
             Item {
                 required property int index
-                readonly property int ws: root.groupOffset + index + 1
+                readonly property int ws: root.wsForIndex(index)
                 readonly property bool isOccupied: root.occupied[ws] ?? false
                 readonly property bool isActive: root.activeWsId === ws
 
@@ -212,16 +308,16 @@ StyledClippingRect {
             x: (root.width - root.circleSize) / 2
             y: Tokens.padding.extraSmall
             width: root.circleSize
-            height: Config.bar.workspaces.shown * root.itemStep
+            height: root.wsCount * root.itemStep
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             hoverEnabled: Config.bar.workspaces.workspacePreviewEnabled ?? false
 
             function getWsFromY(mouseY: real): int {
                 const idx = Math.floor((mouseY - Tokens.padding.extraSmall + root.itemStep / 2) / root.itemStep);
-                if (idx < 0 || idx >= Config.bar.workspaces.shown) return 0;
+                if (idx < 0 || idx >= root.wsCount) return 0;
                 const localY = mouseY - (Tokens.padding.extraSmall + idx * root.itemStep);
                 if (localY < 0 || localY > root.circleSize) return 0;
-                return root.groupOffset + idx + 1;
+                return root.wsForIndex(idx);
             }
 
             onHoveredChanged: {
