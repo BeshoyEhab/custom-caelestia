@@ -1,8 +1,8 @@
 pragma Singleton
 
 import Quickshell
-import Caelestia
 import Caelestia.Config
+import Caelestia.Models
 import qs.utils
 
 Searcher {
@@ -20,7 +20,7 @@ Searcher {
             entry.execute();
     }
 
-    function search(search: string): list<var> {
+    function search(search: string): var {
         const prefix = GlobalConfig.launcher.specialPrefix;
 
         if (search.startsWith(`${prefix}i `)) {

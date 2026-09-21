@@ -4,8 +4,10 @@ import QtQuick
 import QtQuick.Layouts
 import Caelestia.Components
 import Caelestia.Config
+import Caelestia.I18n
 import qs.components
 import qs.components.controls
+import qs.components.misc
 import qs.services
 
 StyledRect {
@@ -15,11 +17,14 @@ StyledRect {
     required property ScreenState screenState
     readonly property real nonAnimHeight: btnLayout.implicitHeight + listOrControls.implicitHeight + layout.spacing + layout.anchors.margins * 2
 
-    Layout.fillWidth: true
     implicitHeight: layout.implicitHeight + layout.anchors.margins * 2
 
     radius: Tokens.rounding.large
     color: Colours.tPalette.m3surfaceContainer
+
+    Ref {
+        service: Recorder
+    }
 
     ColumnLayout {
         id: layout
@@ -60,14 +65,14 @@ StyledRect {
 
                 StyledText {
                     Layout.fillWidth: true
-                    text: qsTr("Screen Recorder")
+                    text: Tr.tr("Screen recorder")
                     font: Tokens.font.body.medium
                     elide: Text.ElideRight
                 }
 
                 StyledText {
                     Layout.fillWidth: true
-                    text: Recorder.paused ? qsTr("Paused") : Recorder.running ? qsTr("Running...") : qsTr("Ready")
+                    text: Recorder.paused ? Tr.trCtx("Paused", "recorder state") : Recorder.running ? Tr.trCtx("Running...", "recorder state") : Tr.trCtx("Ready", "recorder state")
                     color: Colours.palette.m3onSurfaceVariant
                     font: Tokens.font.body.small
                     elide: Text.ElideRight
@@ -84,26 +89,26 @@ StyledRect {
                 menuItems: [
                     MenuItem {
                         icon: "fullscreen"
-                        text: qsTr("Record fullscreen")
-                        activeText: qsTr("Fullscreen")
+                        text: Tr.tr("Record fullscreen")
+                        activeText: Tr.trCtx("Fullscreen", "recording mode")
                         onClicked: Recorder.start()
                     },
                     MenuItem {
                         icon: "screenshot_region"
-                        text: qsTr("Record region")
-                        activeText: qsTr("Region")
+                        text: Tr.tr("Record region")
+                        activeText: Tr.trCtx("Region", "recording mode")
                         onClicked: Recorder.start(["-r"])
                     },
                     MenuItem {
                         icon: "select_to_speak"
-                        text: qsTr("Record fullscreen with sound")
-                        activeText: qsTr("Fullscreen")
+                        text: Tr.tr("Record fullscreen with sound")
+                        activeText: Tr.trCtx("Fullscreen", "recording mode")
                         onClicked: Recorder.start(["-s"])
                     },
                     MenuItem {
                         icon: "volume_up"
-                        text: qsTr("Record region with sound")
-                        activeText: qsTr("Region")
+                        text: Tr.tr("Record region with sound")
+                        activeText: Tr.trCtx("Region", "recording mode")
                         onClicked: Recorder.start(["-sr"])
                     }
                 ]
@@ -193,7 +198,7 @@ StyledRect {
 
                     anchors.centerIn: parent
                     animate: true
-                    text: Recorder.paused ? "PAUSED" : "REC"
+                    text: Recorder.paused ? Tr.trCtx("PAUSED", "recording status") : Tr.trCtx("REC", "recording status")
                     color: Recorder.paused ? Colours.palette.m3onTertiary : Colours.palette.m3onError
                     font: Tokens.font.mono.small
                 }
@@ -237,7 +242,8 @@ StyledRect {
                     else
                         time = `${mins}:${secs}`;
 
-                    return qsTr("Recording for %1").arg(time);
+                    // TRANSLATORS: %1 = elapsed recording duration, e.g. 01:23
+                    return Tr.tr("Recording for %1").arg(time);
                 }
                 font: Tokens.font.body.medium
                 elide: Text.ElideMiddle

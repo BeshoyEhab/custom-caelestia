@@ -25,6 +25,7 @@ ShellRoot {
     }
 
     GSFLoader {}
+    ServiceLoader {}
 
     Background {}
     Drawers {}
@@ -33,7 +34,6 @@ ShellRoot {
         id: lock
     }
 
-    ConfigToasts {}
     Shortcuts {}
     BatteryMonitor {}
     IdleMonitors {
