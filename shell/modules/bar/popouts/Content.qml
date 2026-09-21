@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Services.SystemTray
 import Caelestia.Config
 import qs.components
+import qs.services
 
 Item {
     id: root
@@ -14,8 +15,16 @@ Item {
     readonly property Popout currentPopout: content.children.find(c => c.shouldBeActive) ?? null
     readonly property Item current: currentPopout?.item ?? null
 
-    implicitWidth: (currentPopout?.implicitWidth ?? 0) + Tokens.padding.extraLargeIncreased
-    implicitHeight: (currentPopout?.implicitHeight ?? 0) + Tokens.padding.extraLargeIncreased
+    // Index of each tray item in the visible (non-passive, non-hidden) list.
+    // Bar.qml addresses tray popouts by visual index, so names must use this
+    // map rather than the Repeater index (which skips menu-less items).
+    readonly property var trayItemsToIndices: SystemTray.items.values.filter(i => i.status !== Status.Passive && !GlobalConfig.bar.tray.hiddenIcons.includes(i.id)).reduce((acc, item, i) => {
+        acc[item.id] = i;
+        return acc;
+    }, {})
+
+    implicitWidth: currentPopout ? (currentPopout.implicitWidth ?? 0) + Tokens.padding.extraLargeIncreased : 0
+    implicitHeight: currentPopout ? (currentPopout.implicitHeight ?? 0) + Tokens.padding.extraLargeIncreased : 0
 
     Item {
         id: content
@@ -116,6 +125,23 @@ Item {
             }
         }
 
+        // Upstream id for the same audio popout (StatusIcons microphone alias
+        // and newer configs address "audiopopout"); shares the audio UI.
+        Popout {
+            name: "audiopopout"
+            sourceComponent: AudioPopout {
+                popouts: root.popouts
+            }
+        }
+
+        // Microphone status icon opens the shared audio popout.
+        Popout {
+            name: "mic"
+            sourceComponent: Audio {
+                popouts: root.popouts
+            }
+        }
+
         Popout {
             name: "kblayout"
             sourceComponent: KbLayout {}
@@ -135,16 +161,15 @@ Item {
 
         Repeater {
             model: ScriptModel {
-                values: SystemTray.items.values.filter(i => !GlobalConfig.bar.tray.hiddenIcons.includes(i.id))
+                values: SystemTray.items.values.filter(i => i.hasMenu && i.status !== Status.Passive && !GlobalConfig.bar.tray.hiddenIcons.includes(i.id))
             }
 
             Popout {
                 id: trayMenu
 
                 required property SystemTrayItem modelData
-                required property int index
 
-                name: `traymenu${index}`
+                name: `traymenu${root.trayItemsToIndices[modelData.id]}`
                 sourceComponent: trayMenuComp
 
                 Connections {

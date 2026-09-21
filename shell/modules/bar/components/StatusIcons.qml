@@ -134,9 +134,9 @@ StyledRect {
             }
         }
 
-        // Microphone icon
+        // Microphone icon (opens shared audio popout via "mic" entry in Content.qml)
         WrappedLoader {
-            name: "audio"
+            name: "mic"
             active: Config.bar.status.showMicrophone
 
             sourceComponent: MaterialIcon {
