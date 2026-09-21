@@ -9,6 +9,8 @@ ButtonBase {
 
     property alias icon: iconLabel.text
     property alias text: label.text
+    // Upstream sync: used by AllNetworksPage filter buttons
+    property alias spacing: row.spacing
 
     readonly property alias iconLabel: iconLabel
     readonly property alias label: label

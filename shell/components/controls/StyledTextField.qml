@@ -9,6 +9,19 @@ import qs.services
 TextField {
     id: root
 
+    // Upstream sync (functional subset): validation + adornment props used by
+    // the network sub-pages and already aliased by TextFieldRow. The
+    // leading/trailing icon and supporting/error text visuals are still TODO
+    // (upstream renders them in a 300-line rewrite); valid/isError work.
+    property string leadingIcon
+    property string trailingIcon
+    property string supportingText
+    property string errorText
+    property bool isError
+    property bool emptyIsValid: true
+    property var validate // Regex or function
+    readonly property bool valid: !validate || (!text && emptyIsValid) || (validate instanceof RegExp ? validate.test(text) : !!validate(text))
+
     color: Colours.palette.m3onSurface
     placeholderTextColor: Colours.palette.m3outline
     font: Tokens.font.body.small

@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick.Layouts
 import Caelestia.Config
-import Caelestia.I18n
 import qs.modules.nexus.common
 
 PageBase {
@@ -28,7 +27,7 @@ PageBase {
         });
     }
 
-    title: Tr.tr("Utilities")
+    title: qsTr("Utilities")
     isSubPage: true
 
     ColumnLayout {
@@ -40,95 +39,95 @@ PageBase {
         // General
         SectionHeader {
             first: true
-            text: Tr.tr("General")
+            text: qsTr("General")
         }
 
         ToggleRow {
             first: true
             last: true
-            text: Tr.trCtx("Enabled", "toggle label")
-            subtext: Tr.tr("Show the utilities panel")
+            text: qsTr("Enabled")
+            subtext: qsTr("Show the utilities panel")
             checked: Config.utilities.enabled
             onToggled: GlobalConfig.utilities.enabled = checked
         }
 
         // Cards
         SectionHeader {
-            text: Tr.tr("Cards")
+            text: qsTr("Cards")
         }
 
         ToggleRow {
             first: true
-            text: Tr.tr("Keep awake")
-            subtext: Tr.tr("Show the idle inhibitor card")
+            text: qsTr("Keep awake")
+            subtext: qsTr("Show the idle inhibitor card")
             checked: Config.utilities.cards.keepAwake
             onToggled: GlobalConfig.utilities.cards.keepAwake = checked
         }
 
         ToggleRow {
-            text: Tr.tr("Screen recorder")
-            subtext: Tr.tr("Show the screen recorder card")
+            text: qsTr("Screen recorder")
+            subtext: qsTr("Show the screen recorder card")
             checked: Config.utilities.cards.recorder
             onToggled: GlobalConfig.utilities.cards.recorder = checked
         }
 
         ToggleRow {
             last: true
-            text: Tr.tr("Quick toggles")
-            subtext: Tr.tr("Show the quick toggles card")
+            text: qsTr("Quick toggles")
+            subtext: qsTr("Show the quick toggles card")
             checked: Config.utilities.cards.quickToggles
             onToggled: GlobalConfig.utilities.cards.quickToggles = checked
         }
 
         // Quick toggles
         SectionHeader {
-            text: Tr.tr("Quick toggles")
+            text: qsTr("Quick toggles")
         }
 
         ToggleRow {
             first: true
-            text: Tr.tr("Wi-Fi")
-            subtext: Tr.tr("Toggle wireless networking")
+            text: qsTr("Wi-Fi")
+            subtext: qsTr("Toggle wireless networking")
             disabled: !Config.utilities.cards.quickToggles
             checked: root.isToggleOn("wifi")
             onToggled: root.setToggleOn("wifi", checked)
         }
 
         ToggleRow {
-            text: Tr.tr("Bluetooth")
-            subtext: Tr.tr("Toggle the Bluetooth adapter")
+            text: qsTr("Bluetooth")
+            subtext: qsTr("Toggle the Bluetooth adapter")
             disabled: !Config.utilities.cards.quickToggles
             checked: root.isToggleOn("bluetooth")
             onToggled: root.setToggleOn("bluetooth", checked)
         }
 
         ToggleRow {
-            text: Tr.tr("Microphone")
-            subtext: Tr.tr("Mute or unmute the default source")
+            text: qsTr("Microphone")
+            subtext: qsTr("Mute or unmute the default source")
             disabled: !Config.utilities.cards.quickToggles
             checked: root.isToggleOn("mic")
             onToggled: root.setToggleOn("mic", checked)
         }
 
         ToggleRow {
-            text: Tr.tr("Settings")
-            subtext: Tr.tr("Open the settings window")
+            text: qsTr("Settings")
+            subtext: qsTr("Open the settings window")
             disabled: !Config.utilities.cards.quickToggles
             checked: root.isToggleOn("settings")
             onToggled: root.setToggleOn("settings", checked)
         }
 
         ToggleRow {
-            text: Tr.tr("Game mode")
-            subtext: Tr.tr("Toggle game mode")
+            text: qsTr("Game mode")
+            subtext: qsTr("Toggle game mode")
             disabled: !Config.utilities.cards.quickToggles
             checked: root.isToggleOn("gameMode")
             onToggled: root.setToggleOn("gameMode", checked)
         }
 
         ToggleRow {
-            text: Tr.tr("Do not disturb")
-            subtext: Tr.tr("Silence notifications")
+            text: qsTr("Do not disturb")
+            subtext: qsTr("Silence notifications")
             disabled: !Config.utilities.cards.quickToggles
             checked: root.isToggleOn("dnd")
             onToggled: root.setToggleOn("dnd", checked)
@@ -136,8 +135,8 @@ PageBase {
 
         ToggleRow {
             last: true
-            text: Tr.tr("VPN")
-            subtext: Tr.tr("Connect or disconnect the VPN")
+            text: qsTr("VPN")
+            subtext: qsTr("Connect or disconnect the VPN")
             disabled: !Config.utilities.cards.quickToggles
             checked: root.isToggleOn("vpn")
             onToggled: root.setToggleOn("vpn", checked)

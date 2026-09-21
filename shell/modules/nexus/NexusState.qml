@@ -13,6 +13,12 @@ QtObject {
     property string selectedWallpaperCategory
     property BluetoothDevice selectedBtDevice
     property var selectedNetwork
+    // Upstream network/VPN sub-pages (Task 6 wiring). selectedNetwork is kept
+    // for the legacy NetworkDetails fallback page.
+    property int editingVpnIndex: -1
+    property string selectedNetworkSsid
+    property string selectedEthernetInterface
+    property bool networkDetailsFromSaved
     property DesktopEntry selectedApp
 
     signal close

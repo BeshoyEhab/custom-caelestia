@@ -4,7 +4,6 @@ import QtQuick
 import QtQuick.Layouts
 import Caelestia.Components
 import Caelestia.Config
-import Caelestia.I18n
 import qs.components
 import qs.components.controls
 import qs.services
@@ -74,7 +73,7 @@ PageBase {
         nState.closeSubPage();
     }
 
-    title: editing ? Tr.tr("Edit VPN provider") : Tr.tr("Add VPN provider")
+    title: editing ? qsTr("Edit VPN provider") : qsTr("Add VPN provider")
     isSubPage: true
 
     Component.onCompleted: {
@@ -97,7 +96,7 @@ PageBase {
             Layout.fillWidth: true
             Layout.leftMargin: Tokens.padding.small
             // TRANSLATORS: the four names in brackets are provider identifiers, leave them untranslated
-            text: Tr.tr("Built-in names (wireguard, warp, tailscale, netbird) auto-fill their commands. For others, provide the connect/disconnect commands.")
+            text: qsTr("Built-in names (wireguard, warp, tailscale, netbird) auto-fill their commands. For others, provide the connect/disconnect commands.")
             color: Colours.palette.m3onSurfaceVariant
             font: Tokens.font.body.small
             wrapMode: Text.WordWrap
@@ -108,11 +107,11 @@ PageBase {
 
             Layout.fillWidth: true
             Layout.topMargin: Tokens.spacing.small
-            placeholderText: Tr.tr("Provider name")
+            placeholderText: qsTr("Provider name")
             leadingIcon: "vpn_key"
             // TRANSLATORS: id here means the provider identifier, e.g. wireguard
-            supportingText: Tr.tr("Built-in id or a custom name")
-            errorText: Tr.tr("Provider name is required")
+            supportingText: qsTr("Built-in id or a custom name")
+            errorText: qsTr("Provider name is required")
             inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
 
             onAccepted: displayField.forceActiveFocus()
@@ -122,9 +121,9 @@ PageBase {
             id: displayField
 
             Layout.fillWidth: true
-            placeholderText: Tr.tr("Display name")
+            placeholderText: qsTr("Display name")
             // TRANSLATORS: the name shown in the VPN provider list on the network page
-            supportingText: Tr.tr("Shown in the list")
+            supportingText: qsTr("Shown in the list")
             leadingIcon: "label"
             inputMethodHints: Qt.ImhNoPredictiveText
 
@@ -135,25 +134,25 @@ PageBase {
             id: interfaceField
 
             Layout.fillWidth: true
-            placeholderText: Tr.trCtx("Interface", "network interface")
+            placeholderText: qsTr("Interface")
             leadingIcon: "lan"
-            supportingText: Tr.tr("Network interface (for WireGuard / status checks)")
+            supportingText: qsTr("Network interface (for WireGuard / status checks)")
             inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
 
             onAccepted: connectField.forceActiveFocus()
         }
 
         SectionHeader {
-            text: Tr.tr("Custom commands (optional)")
+            text: qsTr("Custom commands (optional)")
         }
 
         StyledTextField {
             id: connectField
 
             Layout.fillWidth: true
-            placeholderText: Tr.tr("Connect command")
+            placeholderText: qsTr("Connect command")
             leadingIcon: "play_arrow"
-            supportingText: Tr.tr("Leave empty to use the built-in default")
+            supportingText: qsTr("Leave empty to use the built-in default")
             inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
 
             onAccepted: disconnectField.forceActiveFocus()
@@ -163,9 +162,9 @@ PageBase {
             id: disconnectField
 
             Layout.fillWidth: true
-            placeholderText: Tr.tr("Disconnect command")
+            placeholderText: qsTr("Disconnect command")
             leadingIcon: "stop"
-            supportingText: Tr.tr("Leave empty to use the built-in default")
+            supportingText: qsTr("Leave empty to use the built-in default")
             inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
 
             onAccepted: root.submit()
@@ -186,7 +185,7 @@ PageBase {
                 iconLabel.fill: 1
                 iconLabel.grade: 25
                 icon: "delete_forever"
-                text: Tr.tr("Delete")
+                text: qsTr("Delete")
                 onClicked: {
                     if (root.existing.id === VPN.selectedProvider && VPN.connected)
                         VPN.disconnect();
@@ -208,7 +207,7 @@ PageBase {
                     horizontalPadding: Tokens.padding.extraLarge
                     verticalPadding: Tokens.padding.medium
                     type: TextButton.Tonal
-                    text: Tr.trCtx("Cancel", "button")
+                    text: qsTr("Cancel")
                     onClicked: root.nState.closeSubPage()
                 }
 
@@ -217,7 +216,7 @@ PageBase {
                     shapeMorph: true
                     horizontalPadding: Tokens.padding.extraLarge
                     verticalPadding: Tokens.padding.medium
-                    text: root.editing ? Tr.trCtx("Save", "button") : Tr.trCtx("Add", "button")
+                    text: root.editing ? qsTr("Save") : qsTr("Add")
                     disabled: !nameField.text.trim()
                     onClicked: root.submit()
                 }

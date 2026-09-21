@@ -29,6 +29,8 @@ Singleton {
     property var ethernetDeviceDetails: null
     property list<var> ethernetDevices: []
     readonly property var activeEthernet: ethernetDevices.find(d => d.connected) ?? null
+    // Upstream sync: gates the EthernetSection loader in NetworkPage
+    readonly property bool hasAvailableEthernet: ethernetDevices.some(d => d.state !== "unavailable")
     property list<var> activeProcesses: []
 
     readonly property alias connectionCheckTimer: connectionCheckTimer

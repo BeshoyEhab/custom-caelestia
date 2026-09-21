@@ -42,6 +42,15 @@ PageBase {
             onClicked: root.nState.openSubPage(4)
         }
 
+        // Upstream utilities panel (kept custom label/status props — local
+        // NavRow has no text/subtext API)
+        NavRow {
+            icon: "construction"
+            label: qsTr("Utilities")
+            status: Config.utilities.enabled ? qsTr("Enabled") : qsTr("Disabled")
+            onClicked: root.nState.openSubPage(5)
+        }
+
         ToggleRow {
             first: true
             last: true

@@ -4,7 +4,6 @@ import QtQuick
 import QtQuick.Layouts
 import Caelestia.Components
 import Caelestia.Config
-import Caelestia.I18n
 import qs.components
 import qs.components.controls
 import qs.services
@@ -16,7 +15,8 @@ PageBase {
     id: root
 
     readonly property string ifaceName: nState.selectedEthernetInterface
-    readonly property Nmcli.EthernetDevice device: Nmcli.ethernetDevices.find(d => d.iface === root.ifaceName) ?? null
+    // Custom: local Nmcli exposes plain objects (no EthernetDevice type)
+    readonly property var device: Nmcli.ethernetDevices.find(d => d.iface === root.ifaceName) ?? null
     readonly property var details: Nmcli.ethernetDeviceDetails
     readonly property string connectionName: root.device?.connection ?? ""
 
@@ -96,7 +96,7 @@ PageBase {
         });
     }
 
-    title: root.device?.connection || root.ifaceName || Tr.tr("Ethernet")
+    title: root.device?.connection || root.ifaceName || qsTr("Ethernet")
     isSubPage: true
 
     Component.onCompleted: {
@@ -152,7 +152,7 @@ PageBase {
 
                     StyledText {
                         Layout.alignment: Qt.AlignHCenter
-                        text: root.device?.connected ? Tr.tr("Disconnect") : Tr.tr("Connect")
+                        text: root.device?.connected ? qsTr("Disconnect") : qsTr("Connect")
                         color: connectBtn.onColour
                     }
                 }
@@ -162,51 +162,51 @@ PageBase {
         // ---- Connection info ------------------------------------------------
         SectionHeader {
             first: true
-            text: Tr.tr("Connection")
+            text: qsTr("Connection")
         }
 
         InfoRow {
             first: true
             icon: "link"
-            label: Tr.tr("Status")
-            value: root.device?.connected ? Tr.trCtx("Connected", "ethernet link state") : Tr.trCtx("Not connected", "ethernet link state")
+            label: qsTr("Status")
+            value: root.device?.connected ? qsTr("Connected") : qsTr("Not connected")
         }
 
         InfoRow {
             icon: "settings_ethernet"
-            label: Tr.trCtx("Interface", "network interface")
+            label: qsTr("Interface")
             value: root.ifaceName || "—"
         }
 
         InfoRow {
             icon: "speed"
-            label: Tr.tr("Speed")
+            label: qsTr("Speed")
             visible: Nmcli.ethernetSpeed.length > 0
             value: Nmcli.ethernetSpeed
         }
 
         InfoRow {
             icon: "lan"
-            label: Tr.tr("IP address")
+            label: qsTr("IP address")
             value: root.details?.ipAddress || "—"
         }
 
         InfoRow {
             icon: "router"
-            label: Tr.tr("Gateway")
+            label: qsTr("Gateway")
             value: root.details?.gateway || "—"
         }
 
         InfoRow {
             last: true
             icon: "memory"
-            label: Tr.tr("MAC address")
+            label: qsTr("MAC address")
             value: root.details?.macAddress || "—"
         }
 
         // ---- IPv4 ------------------------------------------------------------
         SectionHeader {
-            text: Tr.tr("IPv4")
+            text: qsTr("IPv4")
         }
 
         SelectRow {
@@ -215,8 +215,8 @@ PageBase {
             Layout.fillWidth: true
             first: true
             last: root.ipMethod === "auto"
-            label: Tr.tr("IP assignment")
-            fallbackText: Tr.tr("Automatic (DHCP)")
+            label: qsTr("IP assignment")
+            fallbackText: qsTr("Automatic (DHCP)")
             fallbackIcon: "lan"
 
             menuItems: [autoItem, autoDnsItem, manualItem]
@@ -227,21 +227,21 @@ PageBase {
                 id: autoItem
 
                 icon: "lan"
-                text: Tr.tr("Automatic (DHCP)")
+                text: qsTr("Automatic (DHCP)")
             }
 
             MenuItem {
                 id: autoDnsItem
 
                 icon: "dns"
-                text: Tr.tr("Automatic, DNS only")
+                text: qsTr("Automatic, DNS only")
             }
 
             MenuItem {
                 id: manualItem
 
                 icon: "edit"
-                text: Tr.trCtx("Manual", "ip configuration method")
+                text: qsTr("Manual")
             }
         }
 
@@ -256,10 +256,10 @@ PageBase {
 
                 Layout.fillWidth: true
                 visible: root.ipMethod === "manual"
-                placeholderText: Tr.tr("Address (CIDR)")
+                placeholderText: qsTr("Address (CIDR)")
                 leadingIcon: "router"
-                supportingText: Tr.tr("IP and prefix, e.g. 192.168.1.50/24")
-                errorText: Tr.tr("Enter a valid address in CIDR notation")
+                supportingText: qsTr("IP and prefix, e.g. 192.168.1.50/24")
+                errorText: qsTr("Enter a valid address in CIDR notation")
                 inputMethodHints: Qt.ImhNoPredictiveText
                 validate: /^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\/(?:3[0-2]|[12]?\d)$/
             }
@@ -269,9 +269,9 @@ PageBase {
 
                 Layout.fillWidth: true
                 visible: root.ipMethod === "manual"
-                placeholderText: Tr.tr("Gateway")
+                placeholderText: qsTr("Gateway")
                 leadingIcon: "exit_to_app"
-                errorText: Tr.tr("Enter a valid gateway address")
+                errorText: qsTr("Enter a valid gateway address")
                 inputMethodHints: Qt.ImhNoPredictiveText
                 validate: /^$|^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)$/
             }
@@ -280,10 +280,10 @@ PageBase {
                 id: dnsField
 
                 Layout.fillWidth: true
-                placeholderText: Tr.tr("DNS servers")
+                placeholderText: qsTr("DNS servers")
                 leadingIcon: "dns"
-                supportingText: Tr.tr("Comma-separated")
-                errorText: Tr.tr("Enter valid DNS server addresses")
+                supportingText: qsTr("Comma-separated")
+                errorText: qsTr("Enter valid DNS server addresses")
                 inputMethodHints: Qt.ImhNoPredictiveText
                 validate: /^$|^\s*(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\s*,\s*(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d))*\s*$/
             }
@@ -338,7 +338,7 @@ PageBase {
                     id: applyTextComp
 
                     StyledText {
-                        text: Tr.tr("Apply")
+                        text: qsTr("Apply")
                         color: applyBtn.onColour
                         animate: true
                     }

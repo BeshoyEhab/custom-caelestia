@@ -86,7 +86,8 @@ ColumnLayout {
         delegate: ConnectedRect {
             id: ethRow
 
-            required property Nmcli.EthernetDevice modelData
+            // Custom: local Nmcli exposes plain objects (no EthernetDevice type)
+            required property var modelData
             required property int index
 
             readonly property bool isConnected: modelData.connected

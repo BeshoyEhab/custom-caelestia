@@ -10,6 +10,7 @@ import qs.modules.nexus.pages
 import qs.modules.nexus.pages.apps
 import qs.modules.nexus.pages.audio
 import qs.modules.nexus.pages.bluetooth
+import qs.modules.nexus.pages.network
 import qs.modules.nexus.pages.panels
 import qs.modules.nexus.pages.services
 import qs.modules.nexus.pages.wallandstyle
@@ -45,6 +46,28 @@ QtObject {
                 Component {
                     NetworkPage {}
                 }
+                // Upstream sub-pages (indices 1-6 must match upstream —
+                // EthernetSection/NetworkList/SavedNetworksPage navigate by index)
+                Component {
+                    EthernetDetailPage {}
+                }
+                Component {
+                    AddNetworkPage {}
+                }
+                Component {
+                    NetworkDetailPage {}
+                }
+                Component {
+                    AddVpnPage {}
+                }
+                Component {
+                    AllNetworksPage {}
+                }
+                Component {
+                    SavedNetworksPage {}
+                }
+                // Custom fallback: legacy pages kept (were indices 1-2 before
+                // the upstream sync). Nothing navigates here yet.
                 Component {
                     NetworkDetails {}
                 }
@@ -123,6 +146,10 @@ QtObject {
                 }
                 Component {
                     SidebarPanel {}
+                }
+                // Upstream utilities panel (sub-page index 5)
+                Component {
+                    UtilitiesPanel {}
                 }
 
                 // Taskbar component sub-pages
