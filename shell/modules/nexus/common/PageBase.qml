@@ -69,9 +69,11 @@ ColumnLayout {
         topMargin: Tokens.padding.large
         bottomMargin: Tokens.padding.extraLarge
 
-        scrollSpeed: 16000
-
         contentHeight: root.contentChild?.implicitHeight ?? 0
         contentItem.children: [root.contentChild]
+
+        TapHandler {
+            onTapped: flickable.focus = true
+        }
     }
 }

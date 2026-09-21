@@ -20,21 +20,15 @@ Item {
 
     signal close
 
-    implicitWidth: implicitHeight * Tokens.sizes.nexus.ratio
-    implicitHeight: nState.screen.height * Tokens.sizes.nexus.heightMult
+    implicitWidth: Math.round(implicitHeight * Tokens.sizes.nexus.ratio)
+    implicitHeight: Math.round(nState.screen.height * Tokens.sizes.nexus.heightMult)
 
     Behavior on blobColour {
         CAnim {}
     }
 
-    MouseArea {
-        anchors.fill: parent
-        z: -999
-        onPressed: {
-            if (root.Window && root.Window.activeFocusItem) {
-                root.Window.activeFocusItem.focus = false;
-            }
-        }
+    TapHandler {
+        onTapped: root.focus = true
     }
 
     BlobGroup {
