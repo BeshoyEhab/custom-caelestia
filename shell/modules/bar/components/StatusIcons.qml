@@ -18,6 +18,10 @@ StyledRect {
 
     property bool animationsReady: false
 
+    // Ordered ids of enabled icons from the backend list. The old installed
+    // plugin lacks `status.statusIcons`, so this degrades to [] (no icons).
+    readonly property var enabledIcons: ((GlobalConfig.bar.status.statusIcons ?? []).filter(e => e.enabled).map(e => e.id))
+
     Timer {
         interval: 350
         running: true
@@ -30,7 +34,7 @@ StyledRect {
 
     clip: true
     implicitWidth: Tokens.sizes.bar.innerWidth
-    implicitHeight: iconColumn.implicitHeight + Tokens.padding.medium * 2 - (Config.bar.status.showLockStatus && !Hypr.capsLock && !Hypr.numLock ? iconColumn.spacing : 0)
+    implicitHeight: iconColumn.implicitHeight + Tokens.padding.medium * 2 - (root.enabledIcons.includes("lockStatus") && !Hypr.capsLock && !Hypr.numLock ? iconColumn.spacing : 0)
 
     ColumnLayout {
         id: iconColumn
@@ -45,7 +49,7 @@ StyledRect {
         // Lock keys status
         WrappedLoader {
             name: "lockstatus"
-            active: Config.bar.status.showLockStatus
+            active: root.enabledIcons.includes("lockStatus")
 
             sourceComponent: ColumnLayout {
                 spacing: 0
@@ -125,7 +129,7 @@ StyledRect {
         // Audio icon
         WrappedLoader {
             name: "audio"
-            active: Config.bar.status.showAudio
+            active: root.enabledIcons.includes("audio")
 
             sourceComponent: MaterialIcon {
                 animate: true
@@ -137,7 +141,7 @@ StyledRect {
         // Microphone icon (opens shared audio popout via "mic" entry in Content.qml)
         WrappedLoader {
             name: "mic"
-            active: Config.bar.status.showMicrophone
+            active: root.enabledIcons.includes("microphone")
 
             sourceComponent: MaterialIcon {
                 animate: true
@@ -149,7 +153,7 @@ StyledRect {
         // Keyboard layout icon
         WrappedLoader {
             name: "kblayout"
-            active: Config.bar.status.showKbLayout
+            active: root.enabledIcons.includes("kbLayout")
 
             sourceComponent: StyledText {
                 animate: true
@@ -159,10 +163,10 @@ StyledRect {
             }
         }
 
-        // Network icon
+        // Network icon (single "network" list entry; ethernet gets its own popout)
         WrappedLoader {
             name: "network"
-            active: Config.bar.status.showNetwork && (!Nmcli.activeEthernet || Config.bar.status.showWifi)
+            active: root.enabledIcons.includes("network") && !Nmcli.activeEthernet
 
             sourceComponent: MaterialIcon {
                 animate: true
@@ -174,7 +178,7 @@ StyledRect {
         // Ethernet icon
         WrappedLoader {
             name: "ethernet"
-            active: Config.bar.status.showNetwork && Nmcli.activeEthernet
+            active: root.enabledIcons.includes("network") && Nmcli.activeEthernet
 
             sourceComponent: MaterialIcon {
                 animate: true
@@ -188,7 +192,7 @@ StyledRect {
             Layout.preferredHeight: implicitHeight
 
             name: "bluetooth"
-            active: Config.bar.status.showBluetooth
+            active: root.enabledIcons.includes("bluetooth")
 
             sourceComponent: ColumnLayout {
                 spacing: Tokens.spacing.medium / 2
@@ -253,7 +257,7 @@ StyledRect {
         // Battery icon
         WrappedLoader {
             name: "battery"
-            active: Config.bar.status.showBattery
+            active: root.enabledIcons.includes("battery")
 
             sourceComponent: MaterialIcon {
                 animate: true
