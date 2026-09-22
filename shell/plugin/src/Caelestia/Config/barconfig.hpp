@@ -41,6 +41,8 @@ class BarWorkspaces : public ConfigObject {
     QML_ANONYMOUS
 
     CONFIG_PROPERTY(int, shown, 5)
+    CONFIG_PROPERTY(bool, showUnoccupied, true)
+    CONFIG_PROPERTY(bool, perMonitor, true)
     CONFIG_PROPERTY(bool, activeIndicator, true)
     CONFIG_PROPERTY(bool, occupiedBg, false)
     CONFIG_PROPERTY(bool, showAppIcon, true)
