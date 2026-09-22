@@ -1,5 +1,6 @@
 import QtQuick.Layouts
 import Caelestia.Config
+import qs.services
 import qs.modules.nexus.common
 
 PageBase {
@@ -42,9 +43,8 @@ PageBase {
             onClicked: root.nState.openSubPage(4)
         }
 
-        // Upstream utilities panel (kept custom label/status props — local
-        // NavRow has no text/subtext API)
         NavRow {
+            last: true
             icon: "construction"
             label: qsTr("Utilities")
             status: Config.utilities.enabled ? qsTr("Enabled") : qsTr("Disabled")

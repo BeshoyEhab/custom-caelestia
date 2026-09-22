@@ -21,6 +21,11 @@ TextField {
     property bool emptyIsValid: true
     property var validate // Regex or function
     readonly property bool valid: !validate || (!text && emptyIsValid) || (validate instanceof RegExp ? validate.test(text) : !!validate(text))
+    // Upstream compat: upstream StyledTextField (on TextFieldBase) defines
+    // verticalPadding/horizontalPadding; this subset extends Qt TextField
+    // directly, so expose them explicitly for TextFieldRow.
+    property int verticalPadding: Tokens.padding.small
+    property int horizontalPadding: Tokens.padding.small
 
     color: Colours.palette.m3onSurface
     placeholderTextColor: Colours.palette.m3outline

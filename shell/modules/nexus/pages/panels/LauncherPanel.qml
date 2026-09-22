@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import Caelestia.Config
 import qs.components
 import qs.components.controls
+import qs.services
 import qs.modules.nexus.common
 
 PageBase {
@@ -44,11 +45,32 @@ PageBase {
         }
 
         ToggleRow {
-            last: true
             text: qsTr("Show on hover")
             subtext: qsTr("Reveal when the cursor reaches the screen edge")
             checked: Config.launcher.showOnHover
             onToggled: GlobalConfig.launcher.showOnHover = checked
+        }
+
+        TextFieldRow {
+            id: prefixRow
+
+            last: true
+            label: qsTr("Action prefix")
+            subtext: qsTr("Prefix used to run actions in the launcher")
+            errorText: qsTr("Prefix must not be alphanumeric")
+            value: GlobalConfig.launcher.actionPrefix === ">" ? "" : GlobalConfig.launcher.actionPrefix // TODO: replace with empty only when not loaded once loaded state is exposed
+            placeholderText: ">"
+            maximumLength: 1
+            smallField: true
+            validate: /^[^a-zA-Z0-9\s]$/
+            onEditingFinished: value => {
+                if (!field.valid)
+                    return;
+                /// TODO: replace with GlobalConfig.launcher.resetOption("actionPrefix") on empty commit when reset is fixed
+                GlobalConfig.launcher.actionPrefix = value || ">";
+                if (GlobalConfig.launcher.actionPrefix === ">")
+                    clear();
+            }
         }
 
         // Hover area
@@ -223,6 +245,7 @@ PageBase {
         ToggleRow {
             Layout.fillWidth: true
             first: true
+            last: true
             text: qsTr("Auto-detect expressions")
             subtext: qsTr("Show calculator for math expressions like 2+3*4")
             checked: GlobalConfig.launcher.calcAutoDetect !== false
@@ -236,6 +259,7 @@ PageBase {
 
         ToggleRow {
             Layout.fillWidth: true
+            first: true
             last: true
             text: qsTr("Sort by frequency")
             subtext: qsTr("Show frequently used apps first")
