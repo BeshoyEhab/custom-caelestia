@@ -18,6 +18,7 @@ PageBase {
 
         StepperRow {
             first: true
+            // TRANSLATORS: the number of workspaces shown on the bar
             label: qsTr("Shown")
             subtext: qsTr("Number of workspaces displayed")
             value: Config.bar.workspaces.shown
@@ -73,6 +74,7 @@ PageBase {
         }
 
         StepperRow {
+            // TRANSLATORS: maximum number of window icons shown per workspace
             label: qsTr("Max window icons")
             value: Config.bar.workspaces.maxWindowIcons
             from: 0
