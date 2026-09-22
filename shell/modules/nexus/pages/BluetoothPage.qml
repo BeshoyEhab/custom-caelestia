@@ -189,6 +189,7 @@ PageBase {
             text: qsTr("Discoverable")
             subtext: qsTr("Allow nearby devices to find this one")
             disabled: !root.btEnabled
+            // Custom: dim the row when bluetooth is off (upstream only disables).
             opacity: root.btEnabled ? 1 : 0.5
             checked: root.adapter?.discoverable ?? false
             onToggled: {
@@ -206,6 +207,7 @@ PageBase {
             text: qsTr("Pairable")
             subtext: qsTr("Allow nearby devices to pair with this one")
             disabled: !root.btEnabled
+            // Custom: dim the row when bluetooth is off (upstream only disables).
             opacity: root.btEnabled ? 1 : 0.5
             checked: root.adapter?.pairable ?? false
             onToggled: {
