@@ -14,12 +14,22 @@ VerticalFadeFlickable {
     required property NexusState nState
 
     // Search filter (int model + index lookup: Repeater with a JS-array
-    // model does not render delegates in this build).
+    // model does not render delegates in this build; and every read of a
+    // list<var> rewraps its elements, so reference identity never survives
+    // across reads — carry the registry index explicitly instead of indexOf).
     readonly property var filteredPages: {
         const q = root.nState.searchText.trim().toLowerCase();
-        if (!q)
-            return PageRegistry.pages;
-        return PageRegistry.pages.filter(p => `${p.label ?? ""} ${p.description ?? ""} ${p.keywords ?? ""}`.toLowerCase().includes(q));
+        const all = PageRegistry.pages;
+        const out = [];
+        for (let i = 0; i < all.length; i++) {
+            const p = all[i];
+            if (!q || `${p.label ?? ""} ${p.description ?? ""} ${p.keywords ?? ""}`.toLowerCase().includes(q))
+                out.push({
+                    page: p,
+                    idx: i
+                });
+        }
+        return out;
     }
 
     topMargin: Tokens.padding.large
@@ -43,16 +53,18 @@ VerticalFadeFlickable {
 
                 required property int index
 
-                readonly property var modelData: root.filteredPages[index]
-                // Filtered position differs from registry position: resolve it
-                // so highlight + click land on the real page. During filter
-                // transitions a delegate can outlive its row (modelData
-                // undefined, pageIdx -1): every access below tolerates that.
-                readonly property int pageIdx: modelData !== undefined ? PageRegistry.pages.indexOf(modelData) : -1
+                readonly property var modelData: root.filteredPages[index]?.page
+                // Filtered position differs from registry position: the entry
+                // carries the real index (indexOf is unusable — list<var>
+                // reads rewrap elements, so identity never matches).
+                // During filter transitions a delegate can outlive its row
+                // (entry undefined, pageIdx -1): every access below tolerates
+                // that.
+                readonly property int pageIdx: root.filteredPages[index]?.idx ?? -1
 
                 readonly property bool isCurrentPage: pageIdx === root.nState.currentPageIdx
-                readonly property bool isCategoryStart: index === 0 || root.filteredPages[index - 1]?.category !== modelData?.category
-                readonly property bool isCategoryEnd: index === root.filteredPages.length - 1 || root.filteredPages[index + 1]?.category !== modelData?.category
+                readonly property bool isCategoryStart: index === 0 || root.filteredPages[index - 1]?.page.category !== modelData?.category
+                readonly property bool isCategoryEnd: index === root.filteredPages.length - 1 || root.filteredPages[index + 1]?.page.category !== modelData?.category
 
                 Layout.fillWidth: true
                 Layout.topMargin: index !== 0 && isCategoryStart ? Tokens.spacing.medium : 0
