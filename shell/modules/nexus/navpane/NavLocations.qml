@@ -45,12 +45,14 @@ VerticalFadeFlickable {
 
                 readonly property var modelData: root.filteredPages[index]
                 // Filtered position differs from registry position: resolve it
-                // so highlight + click land on the real page.
-                readonly property int pageIdx: PageRegistry.pages.indexOf(modelData)
+                // so highlight + click land on the real page. During filter
+                // transitions a delegate can outlive its row (modelData
+                // undefined, pageIdx -1): every access below tolerates that.
+                readonly property int pageIdx: modelData !== undefined ? PageRegistry.pages.indexOf(modelData) : -1
 
                 readonly property bool isCurrentPage: pageIdx === root.nState.currentPageIdx
-                readonly property bool isCategoryStart: index === 0 || root.filteredPages[index - 1].category !== modelData.category
-                readonly property bool isCategoryEnd: index === root.filteredPages.length - 1 || root.filteredPages[index + 1].category !== modelData.category
+                readonly property bool isCategoryStart: index === 0 || root.filteredPages[index - 1]?.category !== modelData?.category
+                readonly property bool isCategoryEnd: index === root.filteredPages.length - 1 || root.filteredPages[index + 1]?.category !== modelData?.category
 
                 Layout.fillWidth: true
                 Layout.topMargin: index !== 0 && isCategoryStart ? Tokens.spacing.medium : 0
@@ -80,7 +82,12 @@ VerticalFadeFlickable {
                     bottomLeftRadius: parent.bottomLeftRadius
                     bottomRightRadius: parent.bottomRightRadius
 
-                    onClicked: root.nState.currentPageIdx = item.pageIdx
+                    onClicked: {
+                        // Never write a stale -1 (transient delegate): it would
+                        // stick the content on the under-construction fallback.
+                        if (item.pageIdx >= 0)
+                            root.nState.currentPageIdx = item.pageIdx;
+                    }
                 }
 
                 RowLayout {
@@ -103,11 +110,11 @@ VerticalFadeFlickable {
                             anchors.centerIn: parent
                             anchors.verticalCenterOffset: 1
 
-                            text: item.modelData.icon
+                            text: item.modelData?.icon ?? ""
                             color: item.isCurrentPage ? Colours.palette.m3onPrimary : Colours.palette.m3onSecondaryContainer
                             fontStyle: Tokens.font.icon.builders.medium.weight(Font.Medium).build()
                             grade: 25
-                            fill: item.modelData.noFill ? 0 : 1
+                            fill: item.modelData?.noFill ? 0 : 1
                         }
                     }
 
@@ -117,14 +124,14 @@ VerticalFadeFlickable {
 
                         StyledText {
                             Layout.fillWidth: true
-                            text: item.modelData.label
+                            text: item.modelData?.label ?? ""
                             font: Tokens.font.body.medium
                             elide: Text.ElideRight
                         }
 
                         StyledText {
                             Layout.fillWidth: true
-                            text: item.modelData.description
+                            text: item.modelData?.description ?? ""
                             color: Colours.palette.m3onSurfaceVariant
                             font: Tokens.font.label.small
                             elide: Text.ElideRight

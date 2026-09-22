@@ -16,7 +16,10 @@ Item {
         if (currentItem)
             currentItem.destroy();
 
-        const comp = PageCompRegistry.pageComps[idx] ?? PageCompRegistry.placeholderComp;
+        // Clamp: a stale index (e.g. from a list in transition) must land on
+        // a real page, never on the under-construction fallback.
+        const safeIdx = (idx >= 0 && idx < PageCompRegistry.pageComps.length) ? idx : 0;
+        const comp = PageCompRegistry.pageComps[safeIdx] ?? PageCompRegistry.placeholderComp;
         const incubator = comp.incubateObject(container, {
             nState
         });
