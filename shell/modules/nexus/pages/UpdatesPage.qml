@@ -143,216 +143,56 @@ PageBase {
             text: qsTr("Actions")
         }
 
-        ConnectedRect {
-            Layout.fillWidth: true
+        RowButton {
             first: true
-            implicitHeight: actionLayout.implicitHeight + actionLayout.anchors.margins * 2
-
-            StateLayer {
-                disabled: root.checking
-                onClicked: {
-                    root.checking = true;
-                    root.busyAction = "check";
-                    root.statusText = qsTr("Checking...");
-                    updateCheckProc.running = true;
-                }
-            }
-
-            RowLayout {
-                id: actionLayout
-
-                anchors.fill: parent
-                anchors.margins: Tokens.padding.medium
-                anchors.leftMargin: Tokens.padding.largeIncreased
-                anchors.rightMargin: Tokens.padding.largeIncreased
-                spacing: Tokens.spacing.medium
-
-                MaterialIcon {
-                    text: "refresh"
-                    color: Colours.palette.m3onSurfaceVariant
-                    fontStyle: Tokens.font.icon.medium
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-
-                    StyledText {
-                        Layout.fillWidth: true
-                        text: qsTr("Check for updates")
-                        color: Colours.palette.m3onSurface
-                        font: Tokens.font.body.small
-                        elide: Text.ElideRight
-                    }
-
-                    StyledText {
-                        Layout.fillWidth: true
-                        visible: root.busyAction === "check"
-                        text: root.statusText
-                        color: Colours.palette.m3outline
-                        font: Tokens.font.label.small
-                        elide: Text.ElideRight
-                    }
-                }
+            icon: "refresh"
+            text: qsTr("Check for updates")
+            subtext: root.busyAction === "check" ? root.statusText : ""
+            disabled: root.checking
+            onClicked: {
+                root.checking = true;
+                root.busyAction = "check";
+                root.statusText = qsTr("Checking...");
+                updateCheckProc.running = true;
             }
         }
 
-        ConnectedRect {
-            Layout.fillWidth: true
-            implicitHeight: pullLayout.implicitHeight + pullLayout.anchors.margins * 2
-
-            StateLayer {
-                disabled: root.checking
-                onClicked: {
-                    root.checking = true;
-                    root.busyAction = "update";
-                    root.statusText = qsTr("Updating...");
-                    updateRunProc.running = true;
-                }
-            }
-
-            RowLayout {
-                id: pullLayout
-
-                anchors.fill: parent
-                anchors.margins: Tokens.padding.medium
-                anchors.leftMargin: Tokens.padding.largeIncreased
-                anchors.rightMargin: Tokens.padding.largeIncreased
-                spacing: Tokens.spacing.medium
-
-                MaterialIcon {
-                    text: "download"
-                    color: Colours.palette.m3onSurfaceVariant
-                    fontStyle: Tokens.font.icon.medium
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-
-                    StyledText {
-                        Layout.fillWidth: true
-                        text: qsTr("Update repository")
-                        color: Colours.palette.m3onSurface
-                        font: Tokens.font.body.small
-                        elide: Text.ElideRight
-                    }
-
-                    StyledText {
-                        Layout.fillWidth: true
-                        visible: root.busyAction === "update"
-                        text: root.statusText
-                        color: Colours.palette.m3outline
-                        font: Tokens.font.label.small
-                        elide: Text.ElideRight
-                    }
-                }
+        RowButton {
+            icon: "download"
+            text: qsTr("Update repository")
+            subtext: root.busyAction === "update" ? root.statusText : ""
+            disabled: root.checking
+            onClicked: {
+                root.checking = true;
+                root.busyAction = "update";
+                root.statusText = qsTr("Updating...");
+                updateRunProc.running = true;
             }
         }
 
-        ConnectedRect {
-            Layout.fillWidth: true
-            implicitHeight: deployLayout.implicitHeight + deployLayout.anchors.margins * 2
-
-            StateLayer {
-                disabled: root.checking
-                onClicked: {
-                    root.checking = true;
-                    root.busyAction = "deploy";
-                    root.statusText = qsTr("Deploying...");
-                    deployRunProc.running = true;
-                }
-            }
-
-            RowLayout {
-                id: deployLayout
-
-                anchors.fill: parent
-                anchors.margins: Tokens.padding.medium
-                anchors.leftMargin: Tokens.padding.largeIncreased
-                anchors.rightMargin: Tokens.padding.largeIncreased
-                spacing: Tokens.spacing.medium
-
-                MaterialIcon {
-                    text: "folder_special"
-                    color: Colours.palette.m3onSurfaceVariant
-                    fontStyle: Tokens.font.icon.medium
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-
-                    StyledText {
-                        Layout.fillWidth: true
-                        text: qsTr("Deploy configurations")
-                        color: Colours.palette.m3onSurface
-                        font: Tokens.font.body.small
-                        elide: Text.ElideRight
-                    }
-
-                    StyledText {
-                        Layout.fillWidth: true
-                        visible: root.busyAction === "deploy"
-                        text: root.statusText
-                        color: Colours.palette.m3outline
-                        font: Tokens.font.label.small
-                        elide: Text.ElideRight
-                    }
-                }
+        RowButton {
+            icon: "folder_special"
+            text: qsTr("Deploy configurations")
+            subtext: root.busyAction === "deploy" ? root.statusText : ""
+            disabled: root.checking
+            onClicked: {
+                root.checking = true;
+                root.busyAction = "deploy";
+                root.statusText = qsTr("Deploying...");
+                deployRunProc.running = true;
             }
         }
 
-        ConnectedRect {
-            Layout.fillWidth: true
+        RowButton {
             last: true
-            implicitHeight: reloadLayout.implicitHeight + reloadLayout.anchors.margins * 2
-
-            StateLayer {
-                disabled: root.checking
-                onClicked: {
-                    root.checking = true;
-                    root.statusText = qsTr("Reloading...");
-                    reloadRunProc.running = true;
-                }
-            }
-
-            RowLayout {
-                id: reloadLayout
-
-                anchors.fill: parent
-                anchors.margins: Tokens.padding.medium
-                anchors.leftMargin: Tokens.padding.largeIncreased
-                anchors.rightMargin: Tokens.padding.largeIncreased
-                spacing: Tokens.spacing.medium
-
-                MaterialIcon {
-                    text: "restart_alt"
-                    color: Colours.palette.m3onSurfaceVariant
-                    fontStyle: Tokens.font.icon.medium
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-
-                    StyledText {
-                        Layout.fillWidth: true
-                        text: qsTr("Reload shell")
-                        color: Colours.palette.m3onSurface
-                        font: Tokens.font.body.small
-                        elide: Text.ElideRight
-                    }
-
-                    StyledText {
-                        Layout.fillWidth: true
-                        visible: root.checking && root.statusText === qsTr("Reloading...")
-                        text: root.statusText
-                        color: Colours.palette.m3outline
-                        font: Tokens.font.label.small
-                        elide: Text.ElideRight
-                    }
-                }
+            icon: "restart_alt"
+            text: qsTr("Reload shell")
+            subtext: (root.checking && root.statusText === qsTr("Reloading...")) ? root.statusText : ""
+            disabled: root.checking
+            onClicked: {
+                root.checking = true;
+                root.statusText = qsTr("Reloading...");
+                reloadRunProc.running = true;
             }
         }
 
