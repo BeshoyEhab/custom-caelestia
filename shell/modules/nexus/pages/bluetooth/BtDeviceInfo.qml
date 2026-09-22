@@ -195,10 +195,8 @@ PageBase {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.margins: Tokens.padding.medium
-                anchors.leftMargin: Tokens.padding.largeIncreased
-                anchors.rightMargin: Tokens.padding.largeIncreased
-                spacing: Tokens.spacing.medium
+                anchors.margins: Tokens.padding.large
+                spacing: Tokens.spacing.small
 
                 RowLayout {
                     Layout.fillWidth: true
@@ -241,9 +239,7 @@ PageBase {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.margins: Tokens.padding.medium
-                anchors.leftMargin: Tokens.padding.largeIncreased
-                anchors.rightMargin: Tokens.padding.largeIncreased
+                anchors.margins: Tokens.padding.large
                 spacing: Tokens.spacing.medium
 
                 StyledText {
