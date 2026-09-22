@@ -45,11 +45,18 @@ PageBase {
         }
 
         ToggleRow {
-            last: true
             text: qsTr("Show on hover")
             subtext: qsTr("Reveal when the cursor reaches the screen edge")
             checked: Config.dashboard.showOnHover
             onToggled: GlobalConfig.dashboard.showOnHover = checked
+        }
+
+        ToggleRow {
+            last: true
+            text: qsTr("Show clock seconds")
+            subtext: qsTr("Display seconds for the clock in the main panel")
+            checked: Config.dashboard.showClockSeconds
+            onToggled: GlobalConfig.dashboard.showClockSeconds = checked
         }
 
         // Hover area
