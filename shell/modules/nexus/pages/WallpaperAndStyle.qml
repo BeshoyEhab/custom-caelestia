@@ -376,5 +376,57 @@ PageBase {
                 GlobalConfig.services.forceMode = idx === 1 ? "light" : idx === 2 ? "dark" : "";
             }
         }
+
+        // Visualiser
+        SectionHeader {
+            text: qsTr("Visualiser")
+        }
+
+        ToggleRow {
+            first: true
+            text: qsTr("Background visualiser")
+            subtext: qsTr("Audio bars behind the wallpaper")
+            checked: Config.background.visualiser.enabled
+            onToggled: GlobalConfig.background.visualiser.enabled = checked
+        }
+
+        ToggleRow {
+            text: qsTr("Auto-hide")
+            subtext: qsTr("Hide when windows cover the desktop")
+            checked: Config.background.visualiser.autoHide
+            onToggled: GlobalConfig.background.visualiser.autoHide = checked
+            enabled: Config.background.visualiser.enabled
+        }
+
+        ToggleRow {
+            text: qsTr("Blur")
+            subtext: qsTr("Soften the bars into the wallpaper")
+            checked: Config.background.visualiser.blur
+            onToggled: GlobalConfig.background.visualiser.blur = checked
+            enabled: Config.background.visualiser.enabled
+        }
+
+        SliderRow {
+            Layout.topMargin: Tokens.spacing.extraSmall / 2 - parent.spacing
+
+            label: qsTr("Rounding")
+            valueLabel: `×${Config.background.visualiser.rounding.toFixed(1)}`
+            value: Config.background.visualiser.rounding / 2
+            wheelStep: 0.05
+            enabled: Config.background.visualiser.enabled
+            onMoved: v => GlobalConfig.background.visualiser.rounding = v * 2
+        }
+
+        SliderRow {
+            Layout.topMargin: Tokens.spacing.extraSmall / 2 - parent.spacing
+
+            last: true
+            label: qsTr("Spacing")
+            valueLabel: `×${Config.background.visualiser.spacing.toFixed(1)}`
+            value: Config.background.visualiser.spacing / 2
+            wheelStep: 0.05
+            enabled: Config.background.visualiser.enabled
+            onMoved: v => GlobalConfig.background.visualiser.spacing = v * 2
+        }
     }
 }
