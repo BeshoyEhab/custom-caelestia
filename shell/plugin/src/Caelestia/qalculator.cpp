@@ -36,6 +36,11 @@ Qalculator::Qalculator(QObject* parent)
         // but we need to assign it to a var so compiler doesn't flag it as a leak
         static const auto* const instance = new Calculator();
         Q_UNUSED(instance)
+        // Non-interactive: force dot decimal + comma arg separator.
+        // Without this `comb(4, 2)` (comma+space) hits the ambiguous-comma
+        // path (interactive qalc prompts for interpretation) and evaluates
+        // to an error / partial result instead of 6.
+        CALCULATOR->useDecimalPoint();
         CALCULATOR->loadExchangeRates();
         CALCULATOR->loadGlobalDefinitions();
         CALCULATOR->loadLocalDefinitions();
@@ -51,6 +56,12 @@ QString Qalculator::eval(const QString& expr, bool printExpr) const {
 
     EvaluationOptions eo;
     PrintOptions po;
+    // Force comma to be the function-argument separator (dot decimal).
+    // Fresh EvaluationOptions leaves these flags uninitialized (observed
+    // comma_as_separator=127), which makes unlocalizeExpression strip the
+    // comma so `comb(4, 2)` parses as `comb(42)` and errors.
+    eo.parse_options.comma_as_separator = false;
+    eo.parse_options.dot_as_separator = false;
 
     std::string parsed;
     std::string result = CALCULATOR->calculateAndPrint(
@@ -109,6 +120,10 @@ void Qalculator::evalAsync(const QString& expr) {
 
         EvaluationOptions eo;
         PrintOptions po;
+        // Same fix as eval(): fresh EvaluationOptions leaves the separator
+        // flags uninitialized, stripping commas (`comb(4, 2)` -> `comb(42)`).
+        eo.parse_options.comma_as_separator = false;
+        eo.parse_options.dot_as_separator = false;
 
         std::string parsed;
         std::string result = CALCULATOR->calculateAndPrint(

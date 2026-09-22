@@ -74,11 +74,13 @@ StyledListView {
             return "actions";
         }
 
-        // Auto-detect math: show calc if input has digits or math operators
+        // Auto-detect math: show calc if input has digits or math functions
+        // plus an operator. `!` (factorial) must be included or `4!` stays
+        // in apps state and the equation never appears.
         const t = text.trim();
         if (GlobalConfig.launcher.calcAutoDetect !== false
             && t.length > 0 && /[\d]|sqrt|log|sin|cos|tan|pi|abs|ceil|floor/i.test(t)
-            && /[+\-*/^%()]/.test(t))
+            && /[+\-*/^%()!]/.test(t))
             return "calc";
 
         return "apps";

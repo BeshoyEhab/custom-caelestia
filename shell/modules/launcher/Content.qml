@@ -105,6 +105,10 @@ Item {
                             currentItem.onClicked();
                         else
                             currentItem.modelData.onClicked(list.currentList);
+                    } else if (list.currentList?.state === "calc" && typeof currentItem.onClicked === "function") {
+                        // Auto-detected math (no `>calc` prefix): copy result
+                        // instead of treating modelData (0) as an app.
+                        currentItem.onClicked();
                     } else {
                         Apps.launch(currentItem.modelData);
                         root.visibilities.launcher = false;
@@ -116,17 +120,23 @@ Item {
             Keys.onDownPressed: list.currentList?.incrementCurrentIndex()
 
             // The wallpaper carousel is horizontal: Left/Right browse it.
-            // Outside wallpaper mode the keys fall through to the text cursor.
+            // Outside wallpaper mode the keys MUST fall through to the text
+            // cursor. Defining the handler at all accepts the event by
+            // default, so explicitly release it here or the cursor freezes.
             Keys.onLeftPressed: event => {
                 if (list.showWallpapers) {
                     list.currentList?.decrementCurrentIndex();
                     event.accepted = true;
+                } else {
+                    event.accepted = false;
                 }
             }
             Keys.onRightPressed: event => {
                 if (list.showWallpapers) {
                     list.currentList?.incrementCurrentIndex();
                     event.accepted = true;
+                } else {
+                    event.accepted = false;
                 }
             }
 
