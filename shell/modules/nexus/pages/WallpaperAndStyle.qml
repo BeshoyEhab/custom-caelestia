@@ -123,7 +123,14 @@ PageBase {
                     id: wallImg
 
                     anchors.fill: parent
-                    source: Wallpapers.current
+                    fillMode: {
+                        switch (GlobalConfig.background.wallpaperMode) {
+                        case "fit": return Image.PreserveAspectFit;
+                        case "stretch": return Image.Stretch;
+                        default: return Image.PreserveAspectCrop;
+                        }
+                    }
+                    source: Wallpapers.colourSource
                     preventInit: wallIndicatorLoader.opacity > 0
                     fadeOutAnim: Anim.DefaultEffects
                     fadeInAnim: Anim.SlowEffects
