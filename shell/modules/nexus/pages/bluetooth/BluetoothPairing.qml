@@ -121,7 +121,7 @@ PageBase {
 
                     anchors.fill: parent
                     anchors.margins: Tokens.padding.medium
-                anchors.leftMargin: Tokens.padding.large
+                    anchors.leftMargin: Tokens.padding.largeIncreased
                     anchors.rightMargin: Tokens.padding.largeIncreased
                     spacing: Tokens.spacing.medium
 
