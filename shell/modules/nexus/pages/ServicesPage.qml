@@ -108,9 +108,10 @@ PageBase {
         StepperRow {
             first: true
             label: qsTr("Media refresh")
+            // TRANSLATORS: ms is the millisecond unit, leave it untranslated
             subtext: qsTr("How often the media position updates (ms)")
             value: GlobalConfig.dashboard.mediaUpdateInterval
-            from: 500
+            from: 100
             to: 2000
             stepSize: 50
             onMoved: v => GlobalConfig.dashboard.mediaUpdateInterval = v
@@ -118,9 +119,10 @@ PageBase {
 
         StepperRow {
             label: qsTr("System stats refresh")
+            // TRANSLATORS: CPU and GPU are hardware abbreviations, leave them untranslated
             subtext: qsTr("CPU, memory and GPU update interval (seconds)")
             value: GlobalConfig.dashboard.resourceUpdateInterval / 1000
-            from: 2
+            from: 0.5
             to: 10
             stepSize: 0.5
             onMoved: v => GlobalConfig.dashboard.resourceUpdateInterval = Math.round(v * 1000)
@@ -131,7 +133,7 @@ PageBase {
             label: qsTr("Wi-Fi rescan")
             subtext: qsTr("How often available networks are rescanned (seconds)")
             value: GlobalConfig.nexus.networkRescanInterval / 1000
-            from: 15
+            from: 5
             to: 120
             stepSize: 5
             onMoved: v => GlobalConfig.nexus.networkRescanInterval = Math.round(v * 1000)
@@ -206,6 +208,7 @@ PageBase {
 
         StepperRow {
             first: true
+            // TRANSLATORS: bars of a spectrum analyser, not the taskbar
             label: qsTr("Visualiser bars")
             subtext: qsTr("Number of bars in the audio visualisers")
             value: GlobalConfig.services.visualiserBars

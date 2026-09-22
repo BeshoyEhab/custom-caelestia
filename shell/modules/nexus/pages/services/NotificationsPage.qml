@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Caelestia.Config
 import qs.components.controls
+import qs.services
 import qs.modules.nexus.common
 
 PageBase {
@@ -77,6 +78,7 @@ PageBase {
 
         StepperRow {
             label: qsTr("Default timeout")
+            // TRANSLATORS: ms is the millisecond unit, leave it untranslated
             subtext: qsTr("Time before a notification dismisses (ms)")
             value: GlobalConfig.notifs.defaultExpireTimeout
             from: 1000
