@@ -14,12 +14,6 @@ class ServiceConfig : public ConfigObject {
     QML_ANONYMOUS
 
     CONFIG_GLOBAL_PROPERTY(QString, weatherLocation)
-    // Guess based on locale
-    CONFIG_GLOBAL_PROPERTY(bool, useFahrenheit,
-        QLocale().measurementSystem() == QLocale::ImperialUSSystem ||
-            QLocale().measurementSystem() == QLocale::ImperialUKSystem)
-    // This is always false by default cause apparently even imperial system users don't use it for perf temps?
-    CONFIG_GLOBAL_PROPERTY(bool, useFahrenheitPerformance, false)
     // Attempt to guess based on locale
     CONFIG_GLOBAL_PROPERTY(
         bool, useTwelveHourClock, QLocale().timeFormat(QLocale::ShortFormat).toLower().contains(u"a"_s))
@@ -34,7 +28,6 @@ class ServiceConfig : public ConfigObject {
     CONFIG_GLOBAL_PROPERTY(QString, defaultPlayer, u"Spotify"_s)
     CONFIG_GLOBAL_PROPERTY(QVariantList, playerAliases,
         { vmap({ { u"from"_s, u"com.github.th_ch.youtube_music"_s }, { u"to"_s, u"YT Music"_s } }) })
-    CONFIG_GLOBAL_PROPERTY(QString, lyricsBackend, u"Auto"_s)
 
 public:
     explicit ServiceConfig(QObject* parent = nullptr)

@@ -95,7 +95,6 @@ private:
     QNetworkReply* getJson(const QUrl& url, const QHash<QByteArray, QByteArray>& headers = {});
     void trackReply(int reqId, QNetworkReply* reply);
 
-    void onPreferredBackendConfigChanged();
     void onLyricsDirChanged();
 
     void loadLyricsMap();

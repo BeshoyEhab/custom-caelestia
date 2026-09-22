@@ -70,13 +70,9 @@ Lyrics::Lyrics(QObject* parent)
     QObject::connect(m_loadDebounce, &QTimer::timeout, this, &Lyrics::doLoad);
 
     const auto* cfg = config::GlobalConfig::instance();
-    const auto* svcCfg = cfg->services();
     const auto* paths = cfg->paths();
 
-    m_preferredBackend = backendFromKey(svcCfg->lyricsBackend());
-
-    QObject::connect(
-        svcCfg, &config::ServiceConfig::lyricsBackendChanged, this, &Lyrics::onPreferredBackendConfigChanged);
+    // Preferred backend is session-only (no stored setting); defaults to Auto.
     QObject::connect(paths, &config::UserPaths::lyricsDirChanged, this, &Lyrics::onLyricsDirChanged);
 
     loadLyricsMap();
@@ -100,12 +96,6 @@ void Lyrics::setPreferredBackend(LyricsBackend::Backend value) {
     }
     m_preferredBackend = value;
     emit preferredBackendChanged();
-
-    auto* const svcCfg = config::GlobalConfig::instance()->services();
-    const QString key = backendKey(value);
-    if (svcCfg->lyricsBackend() != key) {
-        svcCfg->set_lyricsBackend(key);
-    }
 
     scheduleLoad();
 }
@@ -774,17 +764,6 @@ QNetworkReply* Lyrics::getJson(const QUrl& url, const QHash<QByteArray, QByteArr
         req.setRawHeader(it.key(), it.value());
     }
     return m_nam->get(req);
-}
-
-void Lyrics::onPreferredBackendConfigChanged() {
-    auto* svcCfg = config::GlobalConfig::instance()->services();
-    const LyricsBackend::Backend desired = backendFromKey(svcCfg->lyricsBackend());
-    if (desired == m_preferredBackend) {
-        return;
-    }
-    m_preferredBackend = desired;
-    emit preferredBackendChanged();
-    scheduleLoad();
 }
 
 void Lyrics::onLyricsDirChanged() {

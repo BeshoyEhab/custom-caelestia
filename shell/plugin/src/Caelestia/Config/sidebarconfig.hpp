@@ -15,10 +15,6 @@ class SidebarConfig : public ConfigObject {
     CONFIG_GLOBAL_PROPERTY(int, hoverHeight, 75)
     CONFIG_GLOBAL_PROPERTY(bool, showHoverIndicator, true)
     CONFIG_GLOBAL_PROPERTY(int, positioningEdge, 1)
-    CONFIG_GLOBAL_PROPERTY(qreal, positioningOffset, 0)
-    CONFIG_GLOBAL_PROPERTY(bool, positioningPixel, false)
-    CONFIG_GLOBAL_PROPERTY(int, positioningX, 0)
-    CONFIG_GLOBAL_PROPERTY(int, positioningY, 0)
 
 public:
     explicit SidebarConfig(QObject* parent = nullptr)
