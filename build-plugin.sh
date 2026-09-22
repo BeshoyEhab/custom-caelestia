@@ -57,5 +57,16 @@ find "$BUILD_DIR" -name "libcaelestia-*plugin.so" -type f | while read -r lib; d
     echo "  Installed: $modname -> $target_dir/"
 done
 
+# Root module libs have no dash (libcaelestia.so, libcaelestiaplugin.so) so the
+# globs above miss them: without this, Qalculator/CUtils run stale distro code.
+for lib in "$BUILD_DIR/shell/plugin/src/Caelestia/libcaelestia.so" "$BUILD_DIR/qml/Caelestia/libcaelestiaplugin.so"; do
+    if [[ -f "$lib" ]]; then
+        sudo cp -p "$lib" "$INSTALL_DIR/Caelestia/$(basename "$lib")"
+        echo "  Installed: $(basename "$lib") -> $INSTALL_DIR/Caelestia/"
+    else
+        warn "Missing (skipped): $lib"
+    fi
+done
+
 log "Done! Plugin rebuilt from custom-caelestia."
 log "Restart quickshell: pkill quickshell && qs -c caelestia &"
