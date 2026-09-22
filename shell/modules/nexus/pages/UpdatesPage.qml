@@ -187,10 +187,11 @@ PageBase {
             last: true
             icon: "restart_alt"
             text: qsTr("Reload shell")
-            subtext: (root.checking && root.statusText === qsTr("Reloading...")) ? root.statusText : ""
+            subtext: root.busyAction === "reload" ? root.statusText : ""
             disabled: root.checking
             onClicked: {
                 root.checking = true;
+                root.busyAction = "reload";
                 root.statusText = qsTr("Reloading...");
                 reloadRunProc.running = true;
             }

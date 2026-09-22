@@ -76,8 +76,7 @@ StyledRect {
 
                     text: {
                         const temp = Cpu.temperature;
-                        const useF = GlobalConfig.services.useFahrenheitPerformance;
-                        return `${Math.ceil(useF ? temp * 1.8 + 32 : temp)}°${useF ? "F" : "C"}`;
+                        return `${Math.ceil(temp)}°C`;
                     }
                     color: Cpu.temperature > 90 ? Colours.palette.m3onErrorContainer : Colours.palette.m3secondary
                     font: Tokens.font.title.builders.medium.scale(cpu.width / 112).width(50).build()

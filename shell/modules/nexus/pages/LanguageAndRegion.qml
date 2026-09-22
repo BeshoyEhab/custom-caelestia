@@ -9,16 +9,6 @@ import qs.modules.nexus.common
 PageBase {
     id: root
 
-    // Temperature units (index 0 = Celsius, 1 = Fahrenheit — matches Weather.formatTemp)
-    readonly property list<MenuItem> tempItems: [
-        MenuItem {
-            text: "°C"
-        },
-        MenuItem {
-            text: "°F"
-        }
-    ]
-
     // Clock format (index 0 = 24-hour, 1 = 12-hour — matches Time.useTwelveHourClock)
     readonly property list<MenuItem> clockItems: [
         MenuItem {
@@ -129,29 +119,6 @@ PageBase {
                     font: Tokens.font.body.small
                 }
             }
-        }
-
-        // Units
-        SectionHeader {
-            text: qsTr("Units")
-        }
-
-        SelectRow {
-            first: true
-            label: qsTr("Temperature")
-            subtext: qsTr("Units for weather temperatures")
-            menuItems: root.tempItems
-            active: root.tempItems[GlobalConfig.services.useFahrenheit ? 1 : 0]
-            onSelected: item => GlobalConfig.services.useFahrenheit = root.tempItems.indexOf(item) === 1
-        }
-
-        SelectRow {
-            last: true
-            label: qsTr("System temperatures")
-            subtext: qsTr("Units for CPU and GPU temperatures")
-            menuItems: root.tempItems
-            active: root.tempItems[GlobalConfig.services.useFahrenheitPerformance ? 1 : 0]
-            onSelected: item => GlobalConfig.services.useFahrenheitPerformance = root.tempItems.indexOf(item) === 1
         }
 
         // Time & date
