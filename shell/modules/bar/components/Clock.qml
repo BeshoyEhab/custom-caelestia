@@ -13,6 +13,12 @@ StyledRect {
     readonly property int padding: Config.bar.clock.background ? Tokens.padding.medium : Tokens.padding.extraSmall
     readonly property var font: Tokens.font.body.builders.small.scale(1.1)
 
+    function fontFor(text: string, metricWidth: int): font {
+        // We don't count seconds for the max width because it changes too often
+        const scale = text === "11" ? 1.15 : Math.min(1.05, Math.max(hourMetrics.width, minMetrics.width) / metricWidth);
+        return root.font.width(scale * 100).letterSpacing(scale).build();
+    }
+
     implicitWidth: Tokens.sizes.bar.innerWidth
     implicitHeight: layout.implicitHeight + root.padding * 2
 
@@ -86,6 +92,27 @@ StyledRect {
 
                 font: root.font.build()
                 text: Time.minuteStr
+            }
+        }
+
+        Loader {
+            Layout.topMargin: -parent.spacing - Tokens.spacing.extraSmall
+            Layout.alignment: Qt.AlignHCenter
+            asynchronous: true
+            active: Config.bar.clock.showSeconds
+            visible: active
+
+            sourceComponent: StyledText {
+                text: Time.format("ss")
+                font: root.fontFor(text, secMetrics.width)
+                color: root.colour
+
+                TextMetrics {
+                    id: secMetrics
+
+                    font: root.font.build()
+                    text: Time.format("ss")
+                }
             }
         }
 

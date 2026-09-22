@@ -147,28 +147,20 @@ StyledClippingRect {
         }
 
         // Upstream v2 GapMarkers (inactive by default: `showUnoccupied`
-        // falls back to true until the schema gains the key). NOTE: do NOT
-        // activate until `AnimatedRepeater` is ported into the custom C++
-        // plugin — GapMarkers.qml depends on it and the bar will log
-        // "AnimatedRepeater is not a type" otherwise. Activation additionally
-        // needs Workspace-item delegates exposing .ws/.focused/.y.
-        // Guarded until Task 10 plugin with AnimatedRepeater is installed; then restore active: opacity > 0
+        // falls back to true until the schema gains the key). The custom C++
+        // plugin ships `AnimatedRepeater`, so GapMarkers.qml resolves.
         Loader {
             asynchronous: true
             opacity: root.showUnoccupied ? 0 : 1
-            active: false
+            active: opacity > 0
 
             anchors.fill: parent
             anchors.margins: Tokens.padding.extraSmall
 
-            // sourceComponent disabled: even with active:false the QML compiler
-            // resolves the static GapMarkers type ref and aborts the Bar chain
-            // on "AnimatedRepeater is not a type". Restore (uncomment) together
-            // with active: opacity > 0 once the Task 10 plugin ships.
-            // sourceComponent: GapMarkers {
-            //     workspaces: circles
-            //     wsSpacing: root.itemStep - root.circleSize
-            // }
+            sourceComponent: GapMarkers {
+                workspaces: circles
+                wsSpacing: root.itemStep - root.circleSize
+            }
 
             Behavior on opacity {
                 Anim {

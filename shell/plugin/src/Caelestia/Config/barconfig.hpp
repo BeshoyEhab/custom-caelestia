@@ -103,14 +103,14 @@ class BarStatus : public ConfigObject {
     Q_OBJECT
     QML_ANONYMOUS
 
-    CONFIG_PROPERTY(bool, showAudio, false)
-    CONFIG_PROPERTY(bool, showMicrophone, false)
-    CONFIG_PROPERTY(bool, showKbLayout, false)
-    CONFIG_PROPERTY(bool, showNetwork, true)
-    CONFIG_PROPERTY(bool, showWifi, true)
-    CONFIG_PROPERTY(bool, showBluetooth, true)
-    CONFIG_PROPERTY(bool, showBattery, true)
-    CONFIG_PROPERTY(bool, showLockStatus, true)
+    CONFIG_GLOBAL_PROPERTY(QVariantList, statusIcons,
+        { vmap({ { u"id"_s, u"lockStatus"_s }, { u"enabled"_s, true } }),
+          vmap({ { u"id"_s, u"audio"_s }, { u"enabled"_s, false } }),
+          vmap({ { u"id"_s, u"microphone"_s }, { u"enabled"_s, false } }),
+          vmap({ { u"id"_s, u"kbLayout"_s }, { u"enabled"_s, false } }),
+          vmap({ { u"id"_s, u"network"_s }, { u"enabled"_s, true } }),
+          vmap({ { u"id"_s, u"bluetooth"_s }, { u"enabled"_s, true } }),
+          vmap({ { u"id"_s, u"battery"_s }, { u"enabled"_s, true } }) })
 
 public:
     explicit BarStatus(QObject* parent = nullptr)
@@ -124,6 +124,7 @@ class BarClock : public ConfigObject {
     CONFIG_PROPERTY(bool, background, false)
     CONFIG_PROPERTY(bool, showDate, false)
     CONFIG_PROPERTY(bool, showIcon, true)
+    CONFIG_PROPERTY(bool, showSeconds, false)
 
 public:
     explicit BarClock(QObject* parent = nullptr)

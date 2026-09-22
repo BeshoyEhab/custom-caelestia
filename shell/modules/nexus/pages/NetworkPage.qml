@@ -12,9 +12,8 @@ import qs.modules.nexus.common
 PageBase {
     id: root
 
-    // Custom: local NexusConfig lacks maxNetworksShown (upstream default 5);
-    // reference GlobalConfig.nexus.maxNetworksShown once the C++ config syncs.
-    readonly property int maxShown: 5
+    // Default 5 from NexusConfig backend.
+    readonly property int maxShown: Config.nexus.maxNetworksShown
 
     title: qsTr("Network")
 
