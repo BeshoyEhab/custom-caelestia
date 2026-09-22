@@ -19,7 +19,7 @@ PageBase {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         width: root.cappedWidth
-        spacing: Tokens.spacing.extraSmall / 2
+        spacing: Tokens.spacing.large
 
         StyledClippingRect {
             id: wallWrapper
@@ -123,14 +123,7 @@ PageBase {
                     id: wallImg
 
                     anchors.fill: parent
-                    fillMode: {
-                        switch (GlobalConfig.background.wallpaperMode) {
-                        case "fit": return Image.PreserveAspectFit;
-                        case "stretch": return Image.Stretch;
-                        default: return Image.PreserveAspectCrop;
-                        }
-                    }
-                    source: Wallpapers.colourSource
+                    source: Wallpapers.current
                     preventInit: wallIndicatorLoader.opacity > 0
                     fadeOutAnim: Anim.DefaultEffects
                     fadeInAnim: Anim.SlowEffects
@@ -177,6 +170,12 @@ PageBase {
             }
         }
 
+        // Wallpaper
+        SectionHeader {
+            first: true
+            text: qsTr("Wallpaper")
+        }
+
         ToggleRow {
             first: true
             text: qsTr("Display wallpaper")
@@ -185,6 +184,9 @@ PageBase {
         }
 
         SelectRow {
+            Layout.topMargin: Tokens.spacing.extraSmall / 2 - parent.spacing
+
+            last: true
             label: qsTr("Wallpaper mode")
             subtext: {
                 const m = GlobalConfig.background.wallpaperMode;
@@ -222,7 +224,13 @@ PageBase {
             }
         }
 
+        // Video
+        SectionHeader {
+            text: qsTr("Video")
+        }
+
         SelectRow {
+            first: true
             label: qsTr("Video backend")
             subtext: GlobalConfig.background.videoBackend === "qs" ? qsTr("In-shell player (more RAM)") : qsTr("mpvpaper (less RAM)")
             enabled: Config.background.wallpaperEnabled
@@ -245,6 +253,8 @@ PageBase {
         }
 
         ToggleRow {
+            Layout.topMargin: Tokens.spacing.extraSmall / 2 - parent.spacing
+
             text: qsTr("Stop video when hidden")
             subtext: GlobalConfig.background.videoAutoStop ? qsTr("Saves CPU + RAM, abrupt resume") : qsTr("Pause only, seamless resume")
             checked: GlobalConfig.background.videoAutoStop
@@ -253,6 +263,9 @@ PageBase {
         }
 
         SelectRow {
+            Layout.topMargin: Tokens.spacing.extraSmall / 2 - parent.spacing
+
+            last: true
             label: qsTr("Auto-stop trigger")
             subtext: GlobalConfig.background.videoAutoMode === "MAX" ? qsTr("Any fullscreen or maximized") : GlobalConfig.background.videoAutoMode === "FULL" ? qsTr("Any fullscreen window") : qsTr("Hidden only")
             enabled: Config.background.wallpaperEnabled && GlobalConfig.background.videoBackend !== "qs"
@@ -282,7 +295,13 @@ PageBase {
             }
         }
 
+        // Rotation
+        SectionHeader {
+            text: qsTr("Rotation")
+        }
+
         ToggleRow {
+            first: true
             text: qsTr("Auto-rotate wallpaper")
             subtext: GlobalConfig.background.wallpaperRotation ? qsTr("Every %1h").arg(GlobalConfig.background.wallpaperRotationInterval) : qsTr("Disabled")
             checked: GlobalConfig.background.wallpaperRotation
@@ -290,6 +309,9 @@ PageBase {
         }
 
         StepperRow {
+            Layout.topMargin: Tokens.spacing.extraSmall / 2 - parent.spacing
+
+            last: true
             label: qsTr("Rotation interval")
             subtext: qsTr("Hours between wallpaper changes")
             value: GlobalConfig.background.wallpaperRotationInterval
@@ -300,14 +322,23 @@ PageBase {
             onMoved: v => GlobalConfig.background.wallpaperRotationInterval = v
         }
 
+        // Style
+        SectionHeader {
+            text: qsTr("Style")
+        }
+
         ToggleRow {
+            first: true
             text: qsTr("Transparency")
+            // TRANSLATORS: %1/%2 = opacity values from 0 to 1 for the base surface and layered surfaces
             subtext: qsTr("Base %1, layers %2").arg(Colours.transparency.base).arg(Colours.transparency.layers)
             checked: Colours.transparency.enabled
             onToggled: GlobalConfig.appearance.transparency.enabled = checked
         }
 
         SelectRow {
+            Layout.topMargin: Tokens.spacing.extraSmall / 2 - parent.spacing
+
             last: true
             menuOnTop: true
             label: qsTr("Theme mode")
