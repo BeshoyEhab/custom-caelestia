@@ -19,7 +19,7 @@ VerticalFadeFlickable {
         const q = root.nState.searchText.trim().toLowerCase();
         if (!q)
             return PageRegistry.pages;
-        return PageRegistry.pages.filter(p => (p.label ?? "").toLowerCase().includes(q) || (p.description ?? "").toLowerCase().includes(q));
+        return PageRegistry.pages.filter(p => `${p.label ?? ""} ${p.description ?? ""} ${p.keywords ?? ""}`.toLowerCase().includes(q));
     }
 
     topMargin: Tokens.padding.large
