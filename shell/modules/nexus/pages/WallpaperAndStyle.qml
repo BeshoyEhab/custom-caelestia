@@ -391,6 +391,8 @@ PageBase {
         }
 
         ToggleRow {
+            Layout.topMargin: Tokens.spacing.extraSmall / 2 - parent.spacing
+
             text: qsTr("Auto-hide")
             subtext: qsTr("Hide when windows cover the desktop")
             checked: Config.background.visualiser.autoHide
@@ -399,6 +401,8 @@ PageBase {
         }
 
         ToggleRow {
+            Layout.topMargin: Tokens.spacing.extraSmall / 2 - parent.spacing
+
             text: qsTr("Blur")
             subtext: qsTr("Soften the bars into the wallpaper")
             checked: Config.background.visualiser.blur
