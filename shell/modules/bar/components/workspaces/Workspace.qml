@@ -68,7 +68,7 @@ Item {
     // Classic indicator: tinted circle + number/dot, app icon overlay.
     // (Ported from the pre-rework design; the displayType/shape branch
     // experiment is dropped.)
-    readonly property real circleSize: Tokens.sizes.bar.innerWidth - Tokens.padding.small * 2
+    readonly property real circleSize: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall * 2
     readonly property string appIcon: {
         Hypr.appIconsVersion;
         if (!Config.bar.workspaces.showAppIcon || !root.isOccupied)

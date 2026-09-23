@@ -20,16 +20,17 @@ StyledClippingRect {
     readonly property int activeWsId: monitor.activeWorkspace?.id ?? 1
     readonly property int activeWsIdx: workspaceIndex(activeWsId)
     readonly property int shown: Math.max(1, Config.bar.workspaces.shown)
+    readonly property real circleSize: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall * 2
+    readonly property real itemStep: circleSize + 2
 
     // Task 1 keys are source-built, not installed: fall back to true so the
     // bar keeps the fixed-group behaviour until the plugin is reinstalled.
     readonly property bool showUnoccupied: Config.bar.workspaces.showUnoccupied ?? true
 
-    // Single source for the workspace row pitch: the LazyListView below is
-    // assigned this same value. Read via root (not the view id): id lookups
-    // from inside asynchronous sourceComponent blocks have proven unreliable
-    // live (undefined .spacing -> int assignment throw).
-    readonly property real wsSpacing: Tokens.spacing.extraSmall
+    // Single source for the workspace row pitch: matches the pre-rework
+    // rhythm (circle + 2px). The LazyListView spacing below uses it, so the
+    // classic indicator math stays aligned with the delegates.
+    readonly property real wsSpacing: root.itemStep - root.circleSize
 
     readonly property var wsIds: {
         if (root.showUnoccupied)
@@ -219,18 +220,33 @@ StyledClippingRect {
             }
         }
 
-        Loader {
-            asynchronous: true
-            anchors.left: workspaces.left
-            anchors.right: workspaces.right
-            active: Config.bar.workspaces.activeIndicator
+        // Classic active circle (pre-rework look): solid primary disc that
+        // slides between workspaces, above the circles, below numbers/icons.
+        Rectangle {
+            id: indicator
 
-            sourceComponent: ActiveIndicator {
-                activeWs: {
-                    workspaces.itemsDirty;
-                    return workspaces.itemAtIndex(root.activeWsIdx) as Workspace;
+            property int targetIdx: root.activeWsIdx
+
+            x: (root.width - root.circleSize) / 2
+            y: targetIdx >= 0 && targetIdx < root.wsIds.length ? Tokens.padding.extraSmall + targetIdx * root.itemStep : -root.circleSize
+            width: root.circleSize
+            height: root.circleSize
+            radius: width / 2
+            color: Colours.palette.m3primary
+            opacity: (targetIdx >= 0 && targetIdx < root.wsIds.length) && Config.bar.workspaces.activeIndicator ? 1 : 0
+            z: 1
+
+            Behavior on y {
+                enabled: root.animationsReady
+                Anim {
+                    type: Anim.Emphasized
                 }
-                mask: workspaces
+            }
+            Behavior on opacity {
+                enabled: root.animationsReady
+                Anim {
+                    type: Anim.DefaultEffects
+                }
             }
         }
 
