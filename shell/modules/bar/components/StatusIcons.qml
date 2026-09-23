@@ -126,9 +126,9 @@ StyledRect {
             }
         }
 
-        // Audio icon
+        // Audio icon (emits "audiopopout" — Content.qml's canonical audio popout name)
         WrappedLoader {
-            name: "audio"
+            name: "audiopopout"
             active: root.enabledIcons.includes("audio")
 
             sourceComponent: MaterialIcon {
