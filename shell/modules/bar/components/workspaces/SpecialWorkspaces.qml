@@ -235,10 +235,14 @@ Item {
         Repeater {
             model: root.wsIds.length
 
-            Item {
-                required property int index
+                Item {
+                    required property int index
 
-                readonly property int ws: root.wsIds[index]
+                    // Live delegate position when available (exact with
+                    // window rows), fixed pitch fallback (matches normal
+                    // list rhythm when delegates are absent mid-transition).
+                    readonly property var delegate: view.itemAtIndex(index)
+                    readonly property int ws: root.wsIds[index]
                 readonly property bool occupied: {
                     const w = Hypr.workspaces.values.find(w => w.id === ws);
                     return ((w?.lastIpcObject?.windows ?? 0) > 0) || root.activeSpecialId === ws;
@@ -251,10 +255,10 @@ Item {
                     return Hypr.appIconsPerWorkspace[ws] ?? "";
                 }
 
-                x: view.x
-                width: view.width
-                y: view.y + index * (Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall + Tokens.spacing.extraSmall / 2)
-                height: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall
+                    x: view.x
+                    width: view.width
+                    y: view.y + (delegate ? delegate.y + view.contentY : index * (Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall + Tokens.spacing.extraSmall / 2))
+                    height: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall
 
                 StyledText {
                     anchors.centerIn: parent
