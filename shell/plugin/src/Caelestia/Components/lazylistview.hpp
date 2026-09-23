@@ -15,6 +15,7 @@ class LazyListViewAttached : public QObject {
     Q_OBJECT
 
     Q_PROPERTY(qreal preferredHeight READ preferredHeight WRITE setPreferredHeight NOTIFY preferredHeightChanged)
+    Q_PROPERTY(qreal layoutY READ layoutY NOTIFY layoutYChanged)
     Q_PROPERTY(qreal visibleHeight READ visibleHeight WRITE setVisibleHeight NOTIFY visibleHeightChanged)
     Q_PROPERTY(bool ready READ ready NOTIFY readyChanged)
     Q_PROPERTY(bool adding READ adding NOTIFY addingChanged)
@@ -26,6 +27,9 @@ public:
 
     [[nodiscard]] qreal preferredHeight() const;
     void setPreferredHeight(qreal height);
+
+    [[nodiscard]] qreal layoutY() const;
+    void setLayoutY(qreal y);
 
     [[nodiscard]] qreal visibleHeight() const;
     void setVisibleHeight(qreal height);
@@ -44,6 +48,7 @@ public:
 
 signals:
     void preferredHeightChanged();
+    void layoutYChanged();
     void visibleHeightChanged();
     void readyChanged();
     void addingChanged();
@@ -52,6 +57,7 @@ signals:
 
 private:
     qreal m_preferredHeight = -1;
+    qreal m_layoutY = 0;
     qreal m_visibleHeight = -1;
     bool m_ready = false;
     bool m_adding = false;

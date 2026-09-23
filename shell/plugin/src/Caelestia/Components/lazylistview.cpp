@@ -29,6 +29,17 @@ void LazyListViewAttached::setPreferredHeight(qreal height) {
     emit preferredHeightChanged();
 }
 
+qreal LazyListViewAttached::layoutY() const {
+    return m_layoutY;
+}
+
+void LazyListViewAttached::setLayoutY(qreal y) {
+    if (qFuzzyCompare(m_layoutY + 1.0, y + 1.0))
+        return;
+    m_layoutY = y;
+    emit layoutYChanged();
+}
+
 qreal LazyListViewAttached::visibleHeight() const {
     return m_visibleHeight;
 }
@@ -431,8 +442,11 @@ void LazyListView::updatePolish() {
                     }
 
                     // Animate from visual position to layout position
-                    if (idx >= 0 && idx < static_cast<int>(m_layout.size()))
+                    if (idx >= 0 && idx < static_cast<int>(m_layout.size())) {
                         item->setProperty("y", m_layout[idx].targetY - m_contentY);
+                        if (att)
+                            att->setLayoutY(m_layout[idx].targetY - m_contentY);
+                    }
 
                     polish();
                 });
@@ -473,6 +487,8 @@ void LazyListView::updatePolish() {
         // Use setProperty to go through the QML property system,
         // which triggers Behaviors (setY bypasses them).
         entry.item->setProperty("y", m_layout[idx].targetY - m_contentY);
+        if (auto* att = qobject_cast<LazyListViewAttached*>(qmlAttachedPropertiesObject<LazyListView>(entry.item, false)))
+            att->setLayoutY(m_layout[idx].targetY - m_contentY);
     }
 }
 

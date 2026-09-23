@@ -61,8 +61,11 @@ StyledClippingRect {
 
     // Workspace-shaped delegates owned by the LazyListView below. OccupiedBg
     // and GapMarkers consume this array (their delegates require Workspace
-    // items exposing .ws/.focused/.y), mirroring upstream exactly.
-    readonly property var workspaces: {
+    // items exposing .ws/.focused/.y), mirroring upstream exactly. Named
+    // workspaceItems (not workspaces): a root property shadows the child
+    // LazyListView id of the same name, which made every bare `workspaces.*`
+    // read resolve to the array (undefined .spacing/.layoutHeight/.itemAt).
+    readonly property var workspaceItems: {
         workspaces.itemsDirty;
         return wsIds.map(id => workspaces.itemAtIndex(workspaceIndex(id)));
     }
@@ -128,7 +131,7 @@ StyledClippingRect {
         }
     }
 
-    function hidePreview(): void {
+    function hidePreview(pressed: bool): void {
         if (!pressed)
             root.bar?.popouts && (root.bar.popouts.hasCurrent = false);
     }
@@ -161,7 +164,7 @@ StyledClippingRect {
             anchors.margins: Tokens.padding.extraSmall
 
             sourceComponent: OccupiedBg {
-                workspaces: root.workspaces
+                workspaces: root.workspaceItems
                 wsSpacing: workspaces.spacing
             }
 
@@ -213,7 +216,7 @@ StyledClippingRect {
             anchors.margins: Tokens.padding.extraSmall
 
             sourceComponent: GapMarkers {
-                workspaces: root.workspaces
+                workspaces: root.workspaceItems
                 wsSpacing: workspaces.spacing
             }
 
@@ -253,7 +256,7 @@ StyledClippingRect {
                 if (containsMouse)
                     root.showPreviewAt(mouseX, mouseY);
                 else
-                    root.hidePreview();
+                    root.hidePreview(pressed);
             }
             onClicked: event => {
                 const ws = (workspaces.itemAt(event.x, event.y) as Workspace)?.ws;

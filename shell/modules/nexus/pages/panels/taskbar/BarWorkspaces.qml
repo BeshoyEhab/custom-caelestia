@@ -1,5 +1,6 @@
 import QtQuick.Layouts
 import Caelestia.Config
+import qs.components.controls
 import qs.modules.nexus.common
 import qs.services
 
@@ -64,6 +65,27 @@ PageBase {
             subtext: qsTr("Show the last focused app icon instead of dots/pacman")
             checked: Config.bar.workspaces.showAppIcon
             onToggled: GlobalConfig.bar.workspaces.showAppIcon = checked
+        }
+
+        SelectRow {
+            label: qsTr("Workspace display")
+            subtext: qsTr("Shapes, text or app icons in the bar")
+            menuItems: [
+                MenuItem {
+                    text: qsTr("Shapes")
+                },
+                MenuItem {
+                    text: qsTr("Text")
+                },
+                MenuItem {
+                    text: qsTr("Icons")
+                }
+            ]
+            active: menuItems[Config.bar.workspaces.displayType] ?? menuItems[2]
+            onSelected: {
+                const map = [0, 1, 2];
+                GlobalConfig.bar.workspaces.displayType = map[menuItems.indexOf(item)] ?? 2;
+            }
         }
 
         ToggleRow {
