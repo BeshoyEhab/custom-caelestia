@@ -96,6 +96,13 @@ PageBase {
         }
 
         ToggleRow {
+            text: qsTr("Hover preview")
+            subtext: qsTr("Show a workspace preview when hovering indicators")
+            checked: Config.bar.workspaces.workspacePreviewEnabled ?? true
+            onToggled: GlobalConfig.bar.workspaces.workspacePreviewEnabled = checked
+        }
+
+        ToggleRow {
             text: qsTr("Windows on special workspaces")
             checked: Config.bar.workspaces.showWindowsOnSpecialWorkspaces
             onToggled: GlobalConfig.bar.workspaces.showWindowsOnSpecialWorkspaces = checked

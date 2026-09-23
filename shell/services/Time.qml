@@ -18,6 +18,12 @@ Singleton {
     readonly property string hourStr: timeComponents[0] ?? ""
     readonly property string minuteStr: timeComponents[1] ?? ""
     readonly property string amPmStr: timeComponents[2] ?? ""
+    // Wall-clock seconds for ticking displays: format() reads the
+    // minute-precision clock (always :00), so this re-evaluates per tick.
+    readonly property string secondsStr: {
+        secClock.seconds;
+        return String(new Date().getSeconds()).padStart(2, "0");
+    }
 
     function format(fmt: string): string {
         return Qt.formatDateTime(clock.date, fmt);
