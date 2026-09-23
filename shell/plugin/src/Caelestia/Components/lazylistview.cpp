@@ -316,6 +316,37 @@ int LazyListView::count() const {
     return m_model ? m_model->rowCount() : 0;
 }
 
+// Always false; bind through it to re-run itemAtIndex/itemAt on mapping changes
+bool LazyListView::itemsDirty() {
+    return false;
+}
+
+// Instantiated delegate for a model index, nullptr if outside the cache
+QQuickItem* LazyListView::itemAtIndex(int index) const {
+    return m_delegates.value(index).item;
+}
+
+// Hit test against instantiated delegates at their current visual positions
+QQuickItem* LazyListView::itemAt(qreal x, qreal y) const {
+    if (x < 0 || x >= width() || y < 0)
+        return nullptr;
+
+    const auto children = childItems();
+    for (int i = children.size() - 1; i >= 0; --i) {
+        auto* const item = children.at(i);
+        if (!m_itemToIndex.contains(item) || !item->isVisible())
+            continue;
+
+        const auto top = item->y() + m_contentY;
+        const auto bottom = top + delegateVisibleHeight(item);
+
+        if (y >= top && y < bottom)
+            return item;
+    }
+
+    return nullptr;
+}
+
 // --- QQuickItem Overrides ---
 
 void LazyListView::componentComplete() {
@@ -660,6 +691,9 @@ void LazyListView::syncDelegates() {
     if (created > 0 || (m_asynchronous && (destroyed < static_cast<int>(toRemove.size()) ||
                                               created < static_cast<int>(toCreate.size()))))
         polish();
+
+    if (created > 0 || destroyed > 0)
+        emit itemsDirtyChanged();
 }
 
 LazyListView::DelegateEntry LazyListView::createDelegate(int modelIndex) {
@@ -905,6 +939,7 @@ void LazyListView::resetContent() {
         emit countChanged();
     }
 
+    emit itemsDirtyChanged();
     polish();
 }
 
