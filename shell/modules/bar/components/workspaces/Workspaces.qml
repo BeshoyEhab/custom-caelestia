@@ -225,12 +225,16 @@ StyledClippingRect {
 
         // Active disc: solid primary, slides with Emphasized easing. It sits
         // below the delegate list (z:2 above), so numbers/icons stay visible;
-        // the focused circle goes transparent to reveal it.
+        // the focused circle goes transparent to reveal it. Position tracks
+        // the live delegate (not pitch math) so variable-height rows with
+        // window icons stay aligned.
         Rectangle {
             property int targetIdx: root.activeWsIdx
 
+            readonly property var targetDelegate: targetIdx >= 0 ? workspaces.itemAtIndex(targetIdx) : null
+
             x: (root.width - root.circleSize) / 2
-            y: targetIdx >= 0 && targetIdx < root.wsIds.length ? Tokens.padding.extraSmall + targetIdx * root.itemStep : -root.circleSize
+            y: targetDelegate ? targetDelegate.y + workspaces.contentY + workspaces.y : -root.circleSize
             width: root.circleSize
             height: root.circleSize
             radius: width / 2
