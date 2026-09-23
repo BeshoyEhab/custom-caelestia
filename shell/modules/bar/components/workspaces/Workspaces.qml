@@ -273,12 +273,17 @@ StyledClippingRect {
             Repeater {
                 model: root.wsIds.length
 
+                // Fixed-pitch positioning like the classic numbers layer (no
+                // delegate lookup: itemAtIndex is null-prone during list
+                // transitions and silently blanks the overlay).
                 Item {
                     required property int index
 
-                    readonly property var delegate: workspaces.itemAtIndex(index)
                     readonly property int ws: root.showUnoccupied ? root.groupOffset + index + 1 : root.wsIds[index]
-                    readonly property bool occupied: delegate?.isOccupied ?? false
+                    readonly property bool occupied: {
+                        const w = Hypr.workspaces.values.find(w => w.id === ws);
+                        return ((w?.lastIpcObject?.windows ?? 0) > 0) || root.activeWsId === ws;
+                    }
                     readonly property bool focused: root.activeWsId === ws
                     readonly property string appIcon: {
                         Hypr.appIconsVersion;
@@ -289,9 +294,8 @@ StyledClippingRect {
 
                     x: workspaces.x
                     width: workspaces.width
-                    y: delegate ? delegate.y + workspaces.contentY + workspaces.y : 0
+                    y: workspaces.y + Tokens.padding.extraSmall + index * root.itemStep
                     height: root.circleSize
-                    visible: delegate !== null
 
                     StyledText {
                         anchors.centerIn: parent
