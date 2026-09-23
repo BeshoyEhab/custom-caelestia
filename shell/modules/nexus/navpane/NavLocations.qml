@@ -7,6 +7,7 @@ import qs.components
 import qs.components.containers
 import qs.services
 import qs.modules.nexus
+import qs.modules.nexus.common
 
 VerticalFadeFlickable {
     id: root
@@ -32,6 +33,64 @@ VerticalFadeFlickable {
         return out;
     }
 
+    readonly property bool showingResults: root.nState.searchText.trim().length > 0
+
+    // Deep-search results: SearchIndex.query returns RAW entries
+    // {item,labelFn,subFn,page,subs} — materialize the label strings here,
+    // rank label-matches before sub-matches (stable), and number each row's
+    // occurrence among same-(page,subs,label) matches so a click can jump
+    // to the exact duplicate via gotoRow.
+    // Int-model + index lookup (see filteredPages above): the Repeater uses
+    // searchResults.length as its model and reads searchResults[index] per
+    // delegate — never model:<js-array>.
+    readonly property var searchResults: {
+        const q = root.nState.searchText.trim().toLowerCase();
+        const raw = SearchIndex.query(root.nState.searchText);
+        const mat = [];
+        for (let i = 0; i < raw.length; i++) {
+            const e = raw[i];
+            const label = String(e.labelFn ? e.labelFn() : "");
+            const sub = String(e.subFn ? e.subFn() : "");
+            mat.push({
+                page: e.page,
+                subs: e.subs,
+                label: label,
+                sub: sub,
+                labelHit: label.toLowerCase().includes(q)
+            });
+        }
+        // Stable rank: label hits first, sub-only hits after.
+        const ranked = mat.filter(r => r.labelHit).concat(mat.filter(r => !r.labelHit));
+        const sameKey = (a, b) => {
+            if (a.page !== b.page || a.label !== b.label)
+                return false;
+            const sa = a.subs ?? [];
+            const sb = b.subs ?? [];
+            if (sa.length !== sb.length)
+                return false;
+            for (let k = 0; k < sa.length; k++)
+                if (sa[k] !== sb[k])
+                    return false;
+            return true;
+        };
+        const out = [];
+        for (let i = 0; i < ranked.length; i++) {
+            const r = ranked[i];
+            let n = 0;
+            for (let j = 0; j < i; j++)
+                if (sameKey(ranked[j], r))
+                    n++;
+            out.push({
+                page: r.page,
+                subs: r.subs,
+                label: r.label,
+                sub: r.sub,
+                occurrence: n
+            });
+        }
+        return out;
+    }
+
     topMargin: Tokens.padding.large
     bottomMargin: Tokens.padding.large
     contentHeight: content.implicitHeight
@@ -46,12 +105,20 @@ VerticalFadeFlickable {
         Repeater {
             id: list
 
-            model: root.filteredPages.length
+            model: root.showingResults ? root.searchResults.length : root.filteredPages.length
 
             StyledRect {
                 id: item
 
                 required property int index
+
+                // Results branch (search non-empty): materialized row match.
+                // Pages branch (empty query): identical reads to before.
+                readonly property var result: root.showingResults ? root.searchResults[index] : null
+                readonly property string resultPageLabel: result == null ? "" : (PageRegistry.pages[result.page]?.label ?? "")
+                readonly property string resultIcon: result == null ? "" : (PageRegistry.pages[result.page]?.icon ?? "")
+                readonly property bool resultNoFill: result != null && PageRegistry.pages[result.page]?.noFill === true
+                readonly property string resultSub: result == null ? "" : (result.sub !== "" ? `${resultPageLabel} › ${result.sub}` : resultPageLabel)
 
                 readonly property var modelData: root.filteredPages[index]?.page
                 // Filtered position differs from registry position: the entry
@@ -62,9 +129,11 @@ VerticalFadeFlickable {
                 // that.
                 readonly property int pageIdx: root.filteredPages[index]?.idx ?? -1
 
-                readonly property bool isCurrentPage: pageIdx === root.nState.currentPageIdx
-                readonly property bool isCategoryStart: index === 0 || root.filteredPages[index - 1]?.page.category !== modelData?.category
-                readonly property bool isCategoryEnd: index === root.filteredPages.length - 1 || root.filteredPages[index + 1]?.page.category !== modelData?.category
+                readonly property bool isCurrentPage: root.showingResults ? false : pageIdx === root.nState.currentPageIdx
+                // Results are one flat group (first/last rounding); pages
+                // branch keeps the per-category grouping exactly as before.
+                readonly property bool isCategoryStart: root.showingResults ? index === 0 : (index === 0 || root.filteredPages[index - 1]?.page.category !== modelData?.category)
+                readonly property bool isCategoryEnd: root.showingResults ? index === root.searchResults.length - 1 : (index === root.filteredPages.length - 1 || root.filteredPages[index + 1]?.page.category !== modelData?.category)
 
                 Layout.fillWidth: true
                 Layout.topMargin: index !== 0 && isCategoryStart ? Tokens.spacing.medium : 0
@@ -95,10 +164,22 @@ VerticalFadeFlickable {
                     bottomRightRadius: parent.bottomRightRadius
 
                     onClicked: {
-                        // Never write a stale -1 (transient delegate): it would
-                        // stick the content on the under-construction fallback.
-                        if (item.pageIdx >= 0)
+                        if (root.showingResults) {
+                            // Jump to the exact row; keep the search text so
+                            // back navigation returns to this results list.
+                            const r = item.result;
+                            if (r != null)
+                                root.nState.gotoRow({
+                                    page: r.page,
+                                    subs: r.subs,
+                                    label: r.label,
+                                    occurrence: r.occurrence
+                                });
+                        } else if (item.pageIdx >= 0) {
+                            // Never write a stale -1 (transient delegate): it would
+                            // stick the content on the under-construction fallback.
                             root.nState.currentPageIdx = item.pageIdx;
+                        }
                     }
                 }
 
@@ -122,11 +203,11 @@ VerticalFadeFlickable {
                             anchors.centerIn: parent
                             anchors.verticalCenterOffset: 1
 
-                            text: item.modelData?.icon ?? ""
+                            text: root.showingResults ? item.resultIcon : (item.modelData?.icon ?? "")
                             color: item.isCurrentPage ? Colours.palette.m3onPrimary : Colours.palette.m3onSecondaryContainer
                             fontStyle: Tokens.font.icon.builders.medium.weight(Font.Medium).build()
                             grade: 25
-                            fill: item.modelData?.noFill ? 0 : 1
+                            fill: (root.showingResults ? item.resultNoFill : item.modelData?.noFill) ? 0 : 1
                         }
                     }
 
@@ -136,14 +217,14 @@ VerticalFadeFlickable {
 
                         StyledText {
                             Layout.fillWidth: true
-                            text: item.modelData?.label ?? ""
+                            text: root.showingResults ? (item.result?.label ?? "") : (item.modelData?.label ?? "")
                             font: Tokens.font.body.medium
                             elide: Text.ElideRight
                         }
 
                         StyledText {
                             Layout.fillWidth: true
-                            text: item.modelData?.description ?? ""
+                            text: root.showingResults ? item.resultSub : (item.modelData?.description ?? "")
                             color: Colours.palette.m3onSurfaceVariant
                             font: Tokens.font.label.small
                             elide: Text.ElideRight
