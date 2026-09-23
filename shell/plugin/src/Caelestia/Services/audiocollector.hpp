@@ -38,11 +38,20 @@ private:
     AudioCollector* m_collector;
     bool m_micEnabled;
 
+    // Stream setup state must outlive the async PipeWire connect negotiation
+    // (which runs after createStream returns), so it lives here rather than
+    // on a helper stack frame.
+    pw_stream_events m_eventsMonitor = {};
+    pw_stream_events m_eventsMic = {};
+    spa_pod_builder m_paramBuilder;
+    std::array<uint8_t, ac::CHUNK_SIZE> m_paramBuffer;
+    const spa_pod* m_params[1] = { nullptr };
+
     static void handleTimeout(void* data, uint64_t expirations);
     void streamStateChanged(pw_stream_state state);
     void processStream(pw_stream* stream, bool mic);
 
-    pw_stream* createStream(const char* name, bool captureSink);
+    pw_stream* createStream(const char* name, bool captureSink, pw_stream_events& events);
 
     [[nodiscard]] unsigned int nextPowerOf2(unsigned int n);
 };

@@ -45,7 +45,7 @@ PipeWireWorker::PipeWireWorker(std::stop_token token, AudioCollector* collector,
     }
     pw_loop_update_timer(pw_main_loop_get_loop(m_loop), m_timer, &timeout, &timeout, false);
 
-    m_stream = createStream("caelestia-shell", true);
+    m_stream = createStream("caelestia-shell", true, m_eventsMonitor);
     if (!m_stream) {
         pw_main_loop_destroy(m_loop);
         pw_deinit();
@@ -56,7 +56,7 @@ PipeWireWorker::PipeWireWorker(std::stop_token token, AudioCollector* collector,
     // created when enabled. WirePlumber auto-links the stream to the
     // default source since it is not a sink capture.
     if (m_micEnabled) {
-        m_micStream = createStream("caelestia-shell-mic", false);
+        m_micStream = createStream("caelestia-shell-mic", false, m_eventsMic);
         if (!m_micStream)
             qCWarning(lcAcWorker) << "init: mic stream failed, continuing monitor-only";
     }
@@ -70,7 +70,7 @@ PipeWireWorker::PipeWireWorker(std::stop_token token, AudioCollector* collector,
     pw_deinit();
 }
 
-pw_stream* PipeWireWorker::createStream(const char* name, bool captureSink) {
+pw_stream* PipeWireWorker::createStream(const char* name, bool captureSink, pw_stream_events& events) {
     auto props = pw_properties_new(
         PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_MEDIA_ROLE, "Music", nullptr);
     if (captureSink)
@@ -82,19 +82,19 @@ pw_stream* PipeWireWorker::createStream(const char* name, bool captureSink) {
     pw_properties_set(props, PW_KEY_STREAM_DONT_REMIX, "false");
     pw_properties_set(props, "channelmix.upmix", "true");
 
-    std::vector<uint8_t> buffer(ac::CHUNK_SIZE);
-    spa_pod_builder b;
-    spa_pod_builder_init(&b, buffer.data(), static_cast<quint32>(buffer.size()));
+    // NOTE: buffer/params/events must outlive the async connect negotiation,
+    // so they live in member storage (m_paramBuffer/m_params), not on a
+    // helper stack frame: a previous revision kept them local to this
+    // function and segfaulted inside pw_main_loop_run.
+    spa_pod_builder_init(&m_paramBuilder, m_paramBuffer.data(), static_cast<quint32>(m_paramBuffer.size()));
 
     spa_audio_info_raw info{};
     info.format = SPA_AUDIO_FORMAT_S16;
     info.rate = ac::SAMPLE_RATE;
     info.channels = 1;
 
-    const spa_pod* params[1];
-    params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
+    m_params[0] = spa_format_audio_raw_build(&m_paramBuilder, SPA_PARAM_EnumFormat, &info);
 
-    pw_stream_events events{};
     events.version = PW_VERSION_STREAM_EVENTS;
     events.state_changed = [](void* data, pw_stream_state, pw_stream_state state, const char*) {
         auto* self = static_cast<PipeWireWorker*>(data);
@@ -123,7 +123,7 @@ pw_stream* PipeWireWorker::createStream(const char* name, bool captureSink) {
     const int success = pw_stream_connect(stream, PW_DIRECTION_INPUT, PW_ID_ANY,
         static_cast<pw_stream_flags>(
             PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_RT_PROCESS),
-        params, 1);
+        m_params, 1);
     if (success < 0) {
         qCWarning(lcAcWorker) << "init: failed to connect stream" << name;
         pw_stream_destroy(stream);

@@ -40,7 +40,8 @@ void CavaProcessor::process() {
     // enabled. The mic stream only exists while the option is on; silence
     // otherwise leaves the monitor signal untouched.
     if (config::GlobalConfig::instance()->background()->visualiser()->mic()) {
-        const int micCount = static_cast<int>(AudioCollector::instance().readMicChunk(m_micIn, count));
+        const int micCount = static_cast<int>(
+            AudioCollector::instance().readMicChunk(m_micIn, static_cast<quint32>(std::max(count, 0))));
         const int n = std::min(count, micCount);
         for (int i = 0; i < n; ++i)
             if (std::fabs(m_micIn[i]) > std::fabs(m_in[i]))
