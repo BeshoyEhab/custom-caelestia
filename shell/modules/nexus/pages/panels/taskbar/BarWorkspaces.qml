@@ -49,14 +49,14 @@ PageBase {
         ToggleRow {
             text: qsTr("Show unoccupied")
             subtext: qsTr("Show workspaces that are inactive and empty")
-            checked: Config.bar.workspaces.showUnoccupied
+            checked: Config.bar.workspaces.showUnoccupied ?? true
             onToggled: GlobalConfig.bar.workspaces.showUnoccupied = checked
         }
 
         ToggleRow {
             text: qsTr("Show app icon")
             subtext: qsTr("Show the last focused app icon instead of dots/pacman")
-            checked: Config.bar.workspaces.showAppIcon
+            checked: Config.bar.workspaces.showAppIcon ?? true
             onToggled: GlobalConfig.bar.workspaces.showAppIcon = checked
         }
 

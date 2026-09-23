@@ -253,7 +253,7 @@ StyledClippingRect {
         MouseArea {
             anchors.fill: workspaces
             acceptedButtons: Qt.LeftButton | Qt.RightButton
-            hoverEnabled: Config.bar.workspaces.workspacePreviewEnabled ?? false
+            hoverEnabled: Config.bar.workspaces.workspacePreviewEnabled ?? true
 
             onPositionChanged: event => {
                 if (containsMouse)

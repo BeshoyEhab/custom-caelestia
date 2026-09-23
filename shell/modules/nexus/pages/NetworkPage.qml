@@ -13,7 +13,7 @@ PageBase {
     id: root
 
     // Default 5 from NexusConfig backend.
-    readonly property int maxShown: Config.nexus.maxNetworksShown
+    readonly property int maxShown: Config.nexus.maxNetworksShown ?? 5
 
     title: qsTr("Network")
 

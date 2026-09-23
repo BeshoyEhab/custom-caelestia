@@ -98,7 +98,7 @@ Item {
             popouts.currentName = id.toLowerCase();
             popouts.currentCenter = ch.activeWindowItem.mapToItem(root, 0, ch.activeWindowItem.implicitHeight / 2).y ?? 0;
             popouts.hasCurrent = true;
-        } else if (id === "workspaces" && Config.bar.workspaces.workspacePreviewEnabled) {
+        } else if (id === "workspaces" && (Config.bar.workspaces.workspacePreviewEnabled ?? true)) {
             // Delegate to the engine's LazyListView hit-test (Task 2 port);
             // the old ColumnLayout > Repeater DOM walk is stale. Pre-clear so
             // a miss leaves no preview (showPreviewAt only sets on hit).

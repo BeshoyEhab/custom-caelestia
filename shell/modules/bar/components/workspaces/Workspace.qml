@@ -215,7 +215,9 @@ Item {
             Layout.preferredHeight: Tokens.sizes.bar.innerWidth - Tokens.padding.small
             sourceComponent: {
                 // Show app icon path only when enabled; otherwise shapes.
-                if (root.displayType === BarWorkspaceDisplay.Icons && Config.bar.workspaces.showAppIcon)
+                // ?? true matches the backend default (unset keys read
+                // undefined through per-screen Config).
+                if (root.displayType === BarWorkspaceDisplay.Icons && (Config.bar.workspaces.showAppIcon ?? true))
                     return iconLoaderComponent;
                 if (root.displayType === BarWorkspaceDisplay.Text)
                     return textComponent;

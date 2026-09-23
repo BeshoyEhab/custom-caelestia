@@ -15,22 +15,32 @@ Item {
     required property color handColor
     required property color secondColor
 
-    // Second ticks depend on Time.seconds so all hands stay live. Angles
-    // use wall time (not Time.date, which is minute-aligned and would freeze
-    // the second hand at :00).
+    // Smooth sweep: re-evaluate 10x per second on wall time (minute wrap
+    // is invisible — 359.9deg and 0deg are the same position).
+    property int msTick: 0
+
+    Timer {
+        interval: 100
+        running: root.visible
+        repeat: true
+        onTriggered: root.msTick++
+    }
+
+    // Second ticks depend on msTick so all hands stay live. Angles use wall
+    // time (not Time.date, which is minute-aligned and would freeze hands).
     readonly property real secondAngle: {
-        Time.seconds;
-        return (new Date().getSeconds() % 60) * 6;
+        root.msTick;
+        return ((new Date().getSeconds() % 60) + new Date().getMilliseconds() / 1000) * 6;
     }
     readonly property real minuteAngle: {
-        Time.seconds;
+        root.msTick;
         const d = new Date();
-        return d.getMinutes() * 6 + d.getSeconds() * 0.1;
+        return d.getMinutes() * 6 + (d.getSeconds() + d.getMilliseconds() / 1000) * 0.1;
     }
     readonly property real hourAngle: {
-        Time.seconds;
+        root.msTick;
         const d = new Date();
-        return (d.getHours() % 12) * 30 + d.getMinutes() * 0.5;
+        return (d.getHours() % 12) * 30 + d.getMinutes() * 0.5 + d.getSeconds() * (0.5 / 60);
     }
 
     Rectangle {
@@ -67,6 +77,8 @@ Item {
     }
 
     // Hands: full-face items rotated about the center, rects in top half.
+    // Even widths so odd-free edges land on integer pixels (no half-pixel
+    // blur that reads as a 1px pivot offset).
     Item {
         anchors.fill: parent
         rotation: root.hourAngle
@@ -75,7 +87,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.verticalCenter
             anchors.bottomMargin: -8 * root.clockScale
-            width: 9 * root.clockScale
+            width: 8 * root.clockScale
             height: parent.height * 0.26
             radius: width / 2
             color: root.handColor
@@ -90,7 +102,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.verticalCenter
             anchors.bottomMargin: -8 * root.clockScale
-            width: 7 * root.clockScale
+            width: 6 * root.clockScale
             height: parent.height * 0.38
             radius: width / 2
             color: root.handColor
@@ -105,7 +117,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.verticalCenter
             anchors.bottomMargin: -14 * root.clockScale
-            width: 2.5 * root.clockScale
+            width: 2 * root.clockScale
             height: parent.height * 0.46
             radius: width / 2
             color: root.secondColor
