@@ -2,6 +2,7 @@ import QtQuick
 import Caelestia.Config
 import qs.components
 import qs.modules.nexus
+import qs.modules.nexus.common
 
 Item {
     id: root
@@ -13,6 +14,7 @@ Item {
     property Item currentItem
 
     function loadPage(idx: int): void {
+        SearchIndex.setLocation(idx, []);
         if (currentItem)
             currentItem.destroy();
 

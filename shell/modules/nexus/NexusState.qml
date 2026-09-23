@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Bluetooth
+import qs.modules.nexus.common
 
 QtObject {
     property ShellScreen screen
@@ -10,6 +11,7 @@ QtObject {
     property var subPageIdxStack: []
     property bool searchOpen
     property string searchText
+    property var pendingRow: null
 
     property string selectedWallpaperCategory
     property BluetoothDevice selectedBtDevice
@@ -28,12 +30,23 @@ QtObject {
 
     function openSubPage(idx: int): void {
         subPageIdxStack = [...subPageIdxStack, idx];
+        SearchIndex.pushSub(idx);
         subPageOpened(idx);
     }
 
     function closeSubPage(): void {
         subPageClosed();
         subPageIdxStack = subPageIdxStack.slice(0, -1);
+        SearchIndex.popSub();
+    }
+
+    function gotoRow(e: var): void {
+        currentPageIdx = e.page;
+        subPageIdxStack = [];
+        SearchIndex.setLocation(e.page, []);
+        pendingRow = e;
+        for (const s of e.subs)
+            openSubPage(s);
     }
 
     onCurrentPageIdxChanged: subPageIdxStack = []
