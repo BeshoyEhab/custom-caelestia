@@ -103,7 +103,12 @@ StyledRect {
             visible: active
 
             sourceComponent: StyledText {
-                text: Time.format("ss")
+                // Depend on Time.seconds so the text re-evaluates every tick
+                // (format() reads the minute-precision clock and would freeze).
+                text: {
+                    Time.seconds;
+                    return Time.format("ss");
+                }
                 font: root.fontFor(text, secMetrics.width)
                 color: root.colour
 
@@ -111,7 +116,10 @@ StyledRect {
                     id: secMetrics
 
                     font: root.font.build()
-                    text: Time.format("ss")
+                    text: {
+                        Time.seconds;
+                        return Time.format("ss");
+                    }
                 }
             }
         }

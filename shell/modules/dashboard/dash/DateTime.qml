@@ -64,7 +64,10 @@ Item {
             visible: active
 
             sourceComponent: StyledText {
-                text: Time.format("ss")
+                text: {
+                    Time.seconds;
+                    return Time.format("ss");
+                }
                 color: Colours.palette.m3secondary
                 font: Tokens.font.clock.size(28).weight(Font.DemiBold).build()
             }
