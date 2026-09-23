@@ -223,9 +223,9 @@ StyledClippingRect {
             }
         }
 
-        // Active ring: transparent fill so it never covers numbers/icons,
-        // Emphasized slide like the old disc. Honors the Active indicator
-        // toggle (also gates the special-strip highlight).
+        // Active disc: solid primary, slides with Emphasized easing. It sits
+        // below the delegate list (z:2 above), so numbers/icons stay visible;
+        // the focused circle goes transparent to reveal it.
         Rectangle {
             property int targetIdx: root.activeWsIdx
 
@@ -234,9 +234,7 @@ StyledClippingRect {
             width: root.circleSize
             height: root.circleSize
             radius: width / 2
-            color: "transparent"
-            border.color: Colours.palette.m3primary
-            border.width: Math.max(2, Math.round(3 * root.circleSize / 32))
+            color: Colours.palette.m3primary
             opacity: (targetIdx >= 0 && targetIdx < root.wsIds.length) && Config.bar.workspaces.activeIndicator ? 1 : 0
 
             Behavior on y {
