@@ -24,6 +24,7 @@ protected:
 private:
     struct cava_plan* m_plan;
     double* m_in;
+    double* m_micIn;
     double* m_out;
 
     int m_bars;

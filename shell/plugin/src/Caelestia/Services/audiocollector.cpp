@@ -1,5 +1,7 @@
 #include "audiocollector.hpp"
 
+#include "../Config/backgroundconfig.hpp"
+#include "../Config/config.hpp"
 #include "service.hpp"
 #include <algorithm>
 #include <pipewire/pipewire.h>
@@ -15,13 +17,15 @@ Q_LOGGING_CATEGORY(lcAcWorker, "caelestia.services.ac.worker", QtInfoMsg)
 
 namespace caelestia::services {
 
-PipeWireWorker::PipeWireWorker(std::stop_token token, AudioCollector* collector)
+PipeWireWorker::PipeWireWorker(std::stop_token token, AudioCollector* collector, bool micEnabled)
     : m_loop(nullptr)
     , m_stream(nullptr)
+    , m_micStream(nullptr)
     , m_timer(nullptr)
     , m_idle(true)
     , m_token(token)
-    , m_collector(collector) {
+    , m_collector(collector)
+    , m_micEnabled(micEnabled) {
     pw_init(nullptr, nullptr);
 
     m_loop = pw_main_loop_new(nullptr);
@@ -41,9 +45,36 @@ PipeWireWorker::PipeWireWorker(std::stop_token token, AudioCollector* collector)
     }
     pw_loop_update_timer(pw_main_loop_get_loop(m_loop), m_timer, &timeout, &timeout, false);
 
+    m_stream = createStream("caelestia-shell", true);
+    if (!m_stream) {
+        pw_main_loop_destroy(m_loop);
+        pw_deinit();
+        return;
+    }
+
+    // Microphone capture is opt-in (it lights the mic indicator): only
+    // created when enabled. WirePlumber auto-links the stream to the
+    // default source since it is not a sink capture.
+    if (m_micEnabled) {
+        m_micStream = createStream("caelestia-shell-mic", false);
+        if (!m_micStream)
+            qCWarning(lcAcWorker) << "init: mic stream failed, continuing monitor-only";
+    }
+
+    pw_main_loop_run(m_loop);
+
+    if (m_micStream)
+        pw_stream_destroy(m_micStream);
+    pw_stream_destroy(m_stream);
+    pw_main_loop_destroy(m_loop);
+    pw_deinit();
+}
+
+pw_stream* PipeWireWorker::createStream(const char* name, bool captureSink) {
     auto props = pw_properties_new(
         PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_MEDIA_ROLE, "Music", nullptr);
-    pw_properties_set(props, PW_KEY_STREAM_CAPTURE_SINK, "true");
+    if (captureSink)
+        pw_properties_set(props, PW_KEY_STREAM_CAPTURE_SINK, "true");
     pw_properties_setf(
         props, PW_KEY_NODE_LATENCY, "%u/%u", nextPowerOf2(512 * ac::SAMPLE_RATE / 48000), ac::SAMPLE_RATE);
     pw_properties_set(props, PW_KEY_NODE_PASSIVE, "true");
@@ -69,36 +100,37 @@ PipeWireWorker::PipeWireWorker(std::stop_token token, AudioCollector* collector)
         auto* self = static_cast<PipeWireWorker*>(data);
         self->streamStateChanged(state);
     };
-    events.process = [](void* data) {
-        auto* self = static_cast<PipeWireWorker*>(data);
-        self->processStream();
-    };
-
-    m_stream = pw_stream_new_simple(pw_main_loop_get_loop(m_loop), "caelestia-shell", props, &events, this);
-    if (!m_stream) {
-        qCWarning(lcAcWorker) << "init: failed to create stream";
-        pw_main_loop_destroy(m_loop);
-        pw_deinit();
-        return;
+    if (captureSink) {
+        events.process = [](void* data) {
+            auto* self = static_cast<PipeWireWorker*>(data);
+            self->processStream(self->m_stream, false);
+        };
+    } else {
+        events.process = [](void* data) {
+            auto* self = static_cast<PipeWireWorker*>(data);
+            if (self->m_micStream)
+                self->processStream(self->m_micStream, true);
+        };
     }
 
-    const int success = pw_stream_connect(m_stream, PW_DIRECTION_INPUT, PW_ID_ANY,
+    pw_stream* stream =
+        pw_stream_new_simple(pw_main_loop_get_loop(m_loop), name, props, &events, this);
+    if (!stream) {
+        qCWarning(lcAcWorker) << "init: failed to create stream" << name;
+        return nullptr;
+    }
+
+    const int success = pw_stream_connect(stream, PW_DIRECTION_INPUT, PW_ID_ANY,
         static_cast<pw_stream_flags>(
             PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_RT_PROCESS),
         params, 1);
     if (success < 0) {
-        qCWarning(lcAcWorker) << "init: failed to connect stream";
-        pw_stream_destroy(m_stream);
-        pw_main_loop_destroy(m_loop);
-        pw_deinit();
-        return;
+        qCWarning(lcAcWorker) << "init: failed to connect stream" << name;
+        pw_stream_destroy(stream);
+        return nullptr;
     }
 
-    pw_main_loop_run(m_loop);
-
-    pw_stream_destroy(m_stream);
-    pw_main_loop_destroy(m_loop);
-    pw_deinit();
+    return stream;
 }
 
 void PipeWireWorker::handleTimeout(void* data, uint64_t expirations) {
@@ -139,13 +171,13 @@ void PipeWireWorker::streamStateChanged(pw_stream_state state) {
     }
 }
 
-void PipeWireWorker::processStream() {
+void PipeWireWorker::processStream(pw_stream* stream, bool mic) {
     if (m_token.stop_requested()) {
         pw_main_loop_quit(m_loop);
         return;
     }
 
-    pw_buffer* buffer = pw_stream_dequeue_buffer(m_stream);
+    pw_buffer* buffer = pw_stream_dequeue_buffer(stream);
     if (buffer == nullptr) {
         return;
     }
@@ -155,10 +187,13 @@ void PipeWireWorker::processStream() {
     const qint16* samples = buf ? reinterpret_cast<const qint16*>(buf->datas[0].data) : nullptr;
     if (samples != nullptr && chunk != nullptr) {
         const quint32 count = chunk->size / 2;
-        m_collector->loadChunk(samples, count);
+        if (mic)
+            m_collector->loadMicChunk(samples, count);
+        else
+            m_collector->loadChunk(samples, count);
     }
 
-    pw_stream_queue_buffer(m_stream, buffer);
+    pw_stream_queue_buffer(stream, buffer);
 }
 
 unsigned int PipeWireWorker::nextPowerOf2(unsigned int n) {
@@ -188,6 +223,12 @@ void AudioCollector::clearBuffer() {
 
     auto* oldRead = m_readBuffer.exchange(writeBuffer, std::memory_order_acq_rel);
     m_writeBuffer.store(oldRead, std::memory_order_release);
+
+    auto* micWrite = m_micWriteBuffer.load(std::memory_order_relaxed);
+    std::fill(micWrite->begin(), micWrite->end(), 0.0f);
+
+    auto* micOldRead = m_micReadBuffer.exchange(micWrite, std::memory_order_acq_rel);
+    m_micWriteBuffer.store(micOldRead, std::memory_order_release);
 }
 
 void AudioCollector::loadChunk(const qint16* samples, quint32 count) {
@@ -228,26 +269,70 @@ quint32 AudioCollector::readChunk(double* out, quint32 count) {
     return count;
 }
 
+void AudioCollector::loadMicChunk(const qint16* samples, quint32 count) {
+    if (count > ac::CHUNK_SIZE) {
+        count = ac::CHUNK_SIZE;
+    }
+
+    auto* writeBuffer = m_micWriteBuffer.load(std::memory_order_relaxed);
+    std::transform(samples, samples + count, writeBuffer->begin(), [](qint16 sample) {
+        return sample / 32768.0f;
+    });
+
+    auto* oldRead = m_micReadBuffer.exchange(writeBuffer, std::memory_order_acq_rel);
+    m_micWriteBuffer.store(oldRead, std::memory_order_release);
+}
+
+quint32 AudioCollector::readMicChunk(double* out, quint32 count) {
+    if (count == 0 || count > ac::CHUNK_SIZE) {
+        count = ac::CHUNK_SIZE;
+    }
+
+    auto* readBuffer = m_micReadBuffer.load(std::memory_order_acquire);
+    std::transform(readBuffer->begin(), readBuffer->begin() + count, out, [](float sample) {
+        return static_cast<double>(sample);
+    });
+
+    return count;
+}
+
 AudioCollector::AudioCollector(QObject* parent)
     : Service(parent)
     , m_buffer1(ac::CHUNK_SIZE)
     , m_buffer2(ac::CHUNK_SIZE)
     , m_readBuffer(&m_buffer1)
-    , m_writeBuffer(&m_buffer2) {}
+    , m_writeBuffer(&m_buffer2)
+    , m_micBuffer1(ac::CHUNK_SIZE)
+    , m_micBuffer2(ac::CHUNK_SIZE)
+    , m_micReadBuffer(&m_micBuffer1)
+    , m_micWriteBuffer(&m_micBuffer2) {}
 
 AudioCollector::~AudioCollector() {
     AudioCollector::stop();
 }
 
 void AudioCollector::start() {
+    if (!m_connected) {
+        m_connected = true;
+        // Mic capture needs its own stream: rebuild the worker when toggled.
+        connect(config::GlobalConfig::instance()->background()->visualiser(), &config::BackgroundVisualiser::micChanged,
+            this, [this] {
+                if (m_thread.joinable()) {
+                    stop();
+                    start();
+                }
+            });
+    }
+
     if (m_thread.joinable()) {
         return;
     }
 
     clearBuffer();
 
-    m_thread = std::jthread([this](std::stop_token token) {
-        PipeWireWorker worker(token, this);
+    const bool mic = config::GlobalConfig::instance()->background()->visualiser()->mic();
+    m_thread = std::jthread([this, mic](std::stop_token token) {
+        PipeWireWorker worker(token, this, mic);
     });
 }
 

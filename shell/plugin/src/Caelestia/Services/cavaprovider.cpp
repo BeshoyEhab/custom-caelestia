@@ -1,8 +1,12 @@
 #include "cavaprovider.hpp"
 
+#include "../Config/backgroundconfig.hpp"
+#include "../Config/config.hpp"
 #include "audiocollector.hpp"
 #include "audioprovider.hpp"
 #include <cava/cavacore.h>
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <qloggingcategory.h>
 
@@ -15,12 +19,14 @@ CavaProcessor::CavaProcessor(QObject* parent)
     : AudioProcessor(parent)
     , m_plan(nullptr)
     , m_in(new double[ac::CHUNK_SIZE])
+    , m_micIn(new double[ac::CHUNK_SIZE])
     , m_out(nullptr)
     , m_bars(0) {};
 
 CavaProcessor::~CavaProcessor() {
     cleanup();
     delete[] m_in;
+    delete[] m_micIn;
 }
 
 void CavaProcessor::process() {
@@ -29,6 +35,17 @@ void CavaProcessor::process() {
     }
 
     const int count = static_cast<int>(AudioCollector::instance().readChunk(m_in));
+
+    // Mix microphone input sample-wise (loudest wins, sign preserved) when
+    // enabled. The mic stream only exists while the option is on; silence
+    // otherwise leaves the monitor signal untouched.
+    if (config::GlobalConfig::instance()->background()->visualiser()->mic()) {
+        const int micCount = static_cast<int>(AudioCollector::instance().readMicChunk(m_micIn, count));
+        const int n = std::min(count, micCount);
+        for (int i = 0; i < n; ++i)
+            if (std::fabs(m_micIn[i]) > std::fabs(m_in[i]))
+                m_in[i] = m_micIn[i];
+    }
 
     // Process in data via cava
     cava_execute(m_in, count, m_out, m_plan);

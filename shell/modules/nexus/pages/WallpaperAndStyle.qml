@@ -417,6 +417,14 @@ PageBase {
             enabled: Config.background.visualiser.enabled
         }
 
+        ToggleRow {
+            text: qsTr("Microphone")
+            subtext: qsTr("React to microphone input too (lights the mic indicator)")
+            checked: Config.background.visualiser.mic
+            onToggled: GlobalConfig.background.visualiser.mic = checked
+            enabled: Config.background.visualiser.enabled
+        }
+
         SliderRow {
             Layout.topMargin: Tokens.spacing.extraSmall / 2 - parent.spacing
 

@@ -23,22 +23,26 @@ class AudioCollector;
 
 class PipeWireWorker {
 public:
-    explicit PipeWireWorker(std::stop_token token, AudioCollector* collector);
+    explicit PipeWireWorker(std::stop_token token, AudioCollector* collector, bool micEnabled);
 
     void run();
 
 private:
     pw_main_loop* m_loop;
     pw_stream* m_stream;
+    pw_stream* m_micStream;
     spa_source* m_timer;
     bool m_idle;
 
     std::stop_token m_token;
     AudioCollector* m_collector;
+    bool m_micEnabled;
 
     static void handleTimeout(void* data, uint64_t expirations);
     void streamStateChanged(pw_stream_state state);
-    void processStream();
+    void processStream(pw_stream* stream, bool mic);
+
+    pw_stream* createStream(const char* name, bool captureSink);
 
     [[nodiscard]] unsigned int nextPowerOf2(unsigned int n);
 };
@@ -54,8 +58,10 @@ public:
 
     void clearBuffer();
     void loadChunk(const qint16* samples, quint32 count);
+    void loadMicChunk(const qint16* samples, quint32 count);
     quint32 readChunk(float* out, quint32 count = 0);
     quint32 readChunk(double* out, quint32 count = 0);
+    quint32 readMicChunk(double* out, quint32 count = 0);
 
 private:
     explicit AudioCollector(QObject* parent = nullptr);
@@ -66,7 +72,12 @@ private:
     std::vector<float> m_buffer2;
     std::atomic<std::vector<float>*> m_readBuffer;
     std::atomic<std::vector<float>*> m_writeBuffer;
+    std::vector<float> m_micBuffer1;
+    std::vector<float> m_micBuffer2;
+    std::atomic<std::vector<float>*> m_micReadBuffer;
+    std::atomic<std::vector<float>*> m_micWriteBuffer;
     quint32 m_sampleCount;
+    bool m_connected = false;
 
     void reload();
     void start() override;
