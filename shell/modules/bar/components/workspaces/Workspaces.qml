@@ -294,7 +294,10 @@ StyledClippingRect {
 
                     x: workspaces.x
                     width: workspaces.width
-                    y: workspaces.y + Tokens.padding.extraSmall + index * root.itemStep
+                    // Same box as the delegate circle: list offset + pitch.
+                    // (No extra padding: workspaces.y already holds the top
+                    // margin; adding it again drifts every row downward.)
+                    y: workspaces.y + index * root.itemStep
                     height: root.circleSize
 
                     StyledText {
