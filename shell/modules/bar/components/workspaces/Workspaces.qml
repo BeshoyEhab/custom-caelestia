@@ -186,7 +186,10 @@ StyledClippingRect {
 
                 // Backend default is Icons (2); ?? must match it, because
                 // per-screen Config reads of never-set keys yield undefined.
-                displayType: Config.bar.workspaces.displayType ?? BarWorkspaceDisplay.Icons
+                // Prefer the global value: per-screen Config reads of keys
+                // absent from shell.json yield undefined here even when the
+                // backend default exists. Fallback matches backend default.
+                displayType: GlobalConfig.bar.workspaces.displayType ?? Config.bar.workspaces.displayType ?? BarWorkspaceDisplay.Text
                 showWindows: Config.bar.workspaces.showWindows
                 iconRules: GlobalConfig.bar.workspaces.workspaceIcons ?? []
                 activeLabel: Config.bar.workspaces.activeLabel
