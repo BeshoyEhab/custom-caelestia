@@ -227,7 +227,9 @@ StyledClippingRect {
         // the live delegate (not pitch math) so variable-height rows with
         // window icons stay aligned.
         Rectangle {
-            property int targetIdx: root.activeWsIdx
+            // Starts on the first workspace every load, then glides to the
+            // active one once animations arm.
+            property int targetIdx: root.animationsReady ? root.activeWsIdx : 0
 
             readonly property var targetDelegate: targetIdx >= 0 ? workspaces.itemAtIndex(targetIdx) : null
 
@@ -280,7 +282,7 @@ StyledClippingRect {
                     readonly property bool focused: root.activeWsId === ws
                     readonly property string appIcon: {
                         Hypr.appIconsVersion;
-                        if (!Config.bar.workspaces.showAppIcon || !occupied)
+                        if (!(Config.bar.workspaces.showAppIcon ?? true) || !occupied)
                             return "";
                         return Hypr.appIconsPerWorkspace[ws] ?? "";
                     }
