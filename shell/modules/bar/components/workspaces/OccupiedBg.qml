@@ -35,7 +35,30 @@ Item {
         CAnim {}
     }
 
-    // Item wrappers because `layer.enabled` clips the content, and the rects extend 1px outside the parent
+    // Continuous pill per run of adjacent occupied workspaces (classic
+    // connector look), computed from the engine-owned Workspace items.
+    readonly property var groups: {
+        const items = root.workspaces ?? [];
+        const out = [];
+        let start = -1;
+        const occ = i => !!(items[i] && items[i].isOccupied);
+        for (let i = 0; i <= items.length; i++) {
+            if (i < items.length && occ(i)) {
+                if (start < 0)
+                    start = i;
+            } else if (start >= 0) {
+                out.push({
+                    from: start,
+                    to: i - 1
+                });
+                start = -1;
+            }
+        }
+        return out;
+    }
+
+    // Item wrappers because `layer.enabled` clips the content, and the pills
+    // extend 1px outside the parent.
     Item {
         anchors.fill: parent
         anchors.margins: -1
@@ -47,80 +70,46 @@ Item {
             anchors.fill: parent
             anchors.margins: 1
 
-            AnimatedRepeater {
-                model: ScriptModel {
-                    values: root.workspaces
+            Repeater {
+                model: root.groups.length
+
+                StyledRect {
+                    required property int index
+
+                    readonly property var group: root.groups[index]
+                    readonly property var first: root.workspaces[group.from]
+                    readonly property var last: root.workspaces[group.to]
+
+                    anchors.left: parent?.left
+                    anchors.right: parent?.right
+                    anchors.margins: -1
+
+                    y: first ? first.y + anchors.margins : 0
+                    implicitHeight: first && last ? (last.y + last.LazyListView.visibleHeight) - first.y - anchors.margins * 2 : 0
+
+                    color: Qt.alpha(root.colour, 1)
+                    radius: Tokens.rounding.full
+
+                    scale: 0
+                    Component.onCompleted: scale = 1
+
+                    Behavior on scale {
+                        enabled: root.animationsReady
+                        Anim {
+                            easing: Tokens.anim.standardDecel
+                        }
+                    }
+
+                    Behavior on y {
+                        enabled: root.animationsReady
+                        Anim {}
+                    }
+
+                    Behavior on implicitHeight {
+                        enabled: root.animationsReady
+                        Anim {}
+                    }
                 }
-
-                removeDuration: Tokens.anim.durations.expressiveDefaultEffects
-
-                OccupiedRect {}
-            }
-        }
-    }
-
-    component OccupiedRect: StyledRect {
-        required property int index
-        required property Workspace modelData
-
-        property real topRadius: ifAdjacent(0, -1, 0, width / 2)
-        property real bottomRadius: ifAdjacent(root.workspaces.length - 1, 1, 0, width / 2)
-        property real topPadding: 0
-        property real bottomPadding: 0
-
-        function ifAdjacent(exclIdx: int, adj: int, yes: real, no: real): real {
-            if (AnimatedRepeater.adding || AnimatedRepeater.removing || !modelData?.isOccupied || index === exclIdx)
-                return no;
-            return root.workspaces[index + adj]?.isOccupied ? yes : no;
-        }
-
-        anchors.left: parent?.left
-        anchors.right: parent?.right
-        anchors.margins: -1
-
-        y: modelData ? modelData.y + anchors.margins - topPadding : 0
-        implicitHeight: modelData ? modelData.LazyListView.visibleHeight - anchors.margins * 2 + topPadding + bottomPadding : 0
-
-        color: Qt.alpha(root.colour, 1)
-        topLeftRadius: topRadius
-        topRightRadius: topRadius
-        bottomLeftRadius: bottomRadius
-        bottomRightRadius: bottomRadius
-
-        opacity: modelData?.isOccupied ? 1 : 0
-
-        Behavior on topRadius {
-            enabled: root.animationsReady
-            Anim {
-                type: Anim.DefaultEffects
-            }
-        }
-
-        Behavior on bottomRadius {
-            enabled: root.animationsReady
-            Anim {
-                type: Anim.DefaultEffects
-            }
-        }
-
-        Behavior on topPadding {
-            enabled: root.animationsReady
-            Anim {
-                type: Anim.DefaultEffects
-            }
-        }
-
-        Behavior on bottomPadding {
-            enabled: root.animationsReady
-            Anim {
-                type: Anim.DefaultEffects
-            }
-        }
-
-        Behavior on opacity {
-            enabled: root.animationsReady
-            Anim {
-                type: Anim.DefaultEffects
             }
         }
     }
