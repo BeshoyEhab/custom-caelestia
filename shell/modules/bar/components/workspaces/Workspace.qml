@@ -115,7 +115,9 @@ Item {
             Layout.preferredHeight: root.circleSize
             radius: width / 2
 
-            color: root.isOccupied ? Qt.rgba(
+            // Active workspace: the circle itself goes primary (no overlay
+            // disc, so nothing can cover the number/icon).
+            color: root.focused ? Colours.palette.m3primary : root.isOccupied ? Qt.rgba(
                 (Colours.palette.m3primary.r + Colours.tPalette.m3surfaceContainer.r) / 2,
                 (Colours.palette.m3primary.g + Colours.tPalette.m3surfaceContainer.g) / 2,
                 (Colours.palette.m3primary.b + Colours.tPalette.m3surfaceContainer.b) / 2,

@@ -223,36 +223,6 @@ StyledClippingRect {
             }
         }
 
-        // Classic active circle (pre-rework look): solid primary disc that
-        // slides between workspaces, above the circles, below numbers/icons.
-        Rectangle {
-            id: indicator
-
-            property int targetIdx: root.activeWsIdx
-
-            x: (root.width - root.circleSize) / 2
-            y: targetIdx >= 0 && targetIdx < root.wsIds.length ? Tokens.padding.extraSmall + targetIdx * root.itemStep : -root.circleSize
-            width: root.circleSize
-            height: root.circleSize
-            radius: width / 2
-            color: Colours.palette.m3primary
-            opacity: (targetIdx >= 0 && targetIdx < root.wsIds.length) && Config.bar.workspaces.activeIndicator ? 1 : 0
-            z: 1
-
-            Behavior on y {
-                enabled: root.animationsReady
-                Anim {
-                    type: Anim.Emphasized
-                }
-            }
-            Behavior on opacity {
-                enabled: root.animationsReady
-                Anim {
-                    type: Anim.DefaultEffects
-                }
-            }
-        }
-
         MouseArea {
             anchors.fill: workspaces
             acceptedButtons: Qt.LeftButton | Qt.RightButton
