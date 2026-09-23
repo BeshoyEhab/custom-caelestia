@@ -6,6 +6,7 @@ import M3Shapes
 import Caelestia.Components
 import Caelestia.Config
 import qs.components
+import qs.components.images
 import qs.services
 import qs.utils
 
@@ -215,7 +216,8 @@ Item {
             Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
             Layout.preferredHeight: Tokens.sizes.bar.innerWidth - Tokens.padding.small
             sourceComponent: {
-                if (root.displayType === BarWorkspaceDisplay.Icons)
+                // Show app icon path only when enabled; otherwise shapes.
+                if (root.displayType === BarWorkspaceDisplay.Icons && Config.bar.workspaces.showAppIcon)
                     return iconLoaderComponent;
                 if (root.displayType === BarWorkspaceDisplay.Text)
                     return textComponent;
@@ -250,16 +252,36 @@ Item {
                     }
                 }
 
-                delegate: MaterialIcon {
+                delegate: Item {
                     id: win
 
                     required property var modelData
                     required property int index // Needed, LazyListView will fail to set it if it doesn't exist
 
-                    grade: 0
-                    horizontalAlignment: Text.AlignHCenter
-                    text: Icons.getAppCategoryIcon(modelData.lastIpcObject.class, "terminal")
-                    color: root.onOtherMonitor ? root.offMonitorColour : Colours.palette.m3onSurfaceVariant
+                    // Real app icon when resolvable, monochrome category glyph
+                    // otherwise (same DesktopEntries lookup as Icons service).
+                    readonly property var appEntry: DesktopEntries.heuristicLookup(modelData.lastIpcObject.class)
+                    readonly property url appIconSource: appEntry?.icon ? Quickshell.iconPath(appEntry.icon) : ""
+
+                    implicitWidth: fallback.implicitWidth
+                    implicitHeight: fallback.implicitHeight
+
+                    CachingIconImage {
+                        anchors.fill: parent
+                        source: win.appIconSource
+                        visible: win.appIconSource != ""
+                    }
+
+                    MaterialIcon {
+                        id: fallback
+
+                        anchors.centerIn: parent
+                        grade: 0
+                        horizontalAlignment: Text.AlignHCenter
+                        text: Icons.getAppCategoryIcon(modelData.lastIpcObject.class, "terminal")
+                        color: root.onOtherMonitor ? root.offMonitorColour : Colours.palette.m3onSurfaceVariant
+                        visible: win.appIconSource == ""
+                    }
 
                     opacity: LazyListView.adding || LazyListView.removing ? 0 : 1
 
