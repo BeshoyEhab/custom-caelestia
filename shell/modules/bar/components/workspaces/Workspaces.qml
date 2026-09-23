@@ -166,6 +166,9 @@ StyledClippingRect {
         LazyListView {
             id: workspaces
 
+            // Above the indicator disc (z:1) and connector pills, like the
+            // old numbers layer (z:2 over circles z:0).
+            z: 2
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top

@@ -172,7 +172,8 @@ Item {
         anchors.right: parent.right
         implicitHeight: contentHeight
 
-        spacing: Tokens.spacing.small
+        // Same pitch as the normal list (Workspaces.wsSpacing).
+        spacing: Tokens.spacing.extraSmall / 2
         removeDuration: Tokens.anim.durations.expressiveDefaultEffects
 
         onContentHeightChanged: root.ensureVisible()
