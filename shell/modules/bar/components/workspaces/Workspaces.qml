@@ -223,6 +223,36 @@ StyledClippingRect {
             }
         }
 
+        // Active ring: transparent fill so it never covers numbers/icons,
+        // Emphasized slide like the old disc. Honors the Active indicator
+        // toggle (also gates the special-strip highlight).
+        Rectangle {
+            property int targetIdx: root.activeWsIdx
+
+            x: (root.width - root.circleSize) / 2
+            y: targetIdx >= 0 && targetIdx < root.wsIds.length ? Tokens.padding.extraSmall + targetIdx * root.itemStep : -root.circleSize
+            width: root.circleSize
+            height: root.circleSize
+            radius: width / 2
+            color: "transparent"
+            border.color: Colours.palette.m3primary
+            border.width: Math.max(2, Math.round(3 * root.circleSize / 32))
+            opacity: (targetIdx >= 0 && targetIdx < root.wsIds.length) && Config.bar.workspaces.activeIndicator ? 1 : 0
+
+            Behavior on y {
+                enabled: root.animationsReady
+                Anim {
+                    type: Anim.Emphasized
+                }
+            }
+            Behavior on opacity {
+                enabled: root.animationsReady
+                Anim {
+                    type: Anim.DefaultEffects
+                }
+            }
+        }
+
         MouseArea {
             anchors.fill: workspaces
             acceptedButtons: Qt.LeftButton | Qt.RightButton
