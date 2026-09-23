@@ -78,4 +78,7 @@ ConnectedRect {
             elide: Text.ElideRight
         }
     }
+
+    Component.onCompleted: SearchIndex.registerRow(root, () => root.label, () => root.subtext || root.value)
+    Component.onDestruction: SearchIndex.unregisterRow(root)
 }

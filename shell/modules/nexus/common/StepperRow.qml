@@ -62,4 +62,7 @@ ConnectedRect {
             onValueModified: v => root.moved(v)
         }
     }
+
+    Component.onCompleted: SearchIndex.registerRow(root, () => root.label, () => root.subtext)
+    Component.onDestruction: SearchIndex.unregisterRow(root)
 }

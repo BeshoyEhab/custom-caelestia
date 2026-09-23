@@ -63,4 +63,7 @@ ConnectedRect {
             menu.onItemSelected: item => root.selected(item)
         }
     }
+
+    Component.onCompleted: SearchIndex.registerRow(root, () => root.label, () => root.subtext)
+    Component.onDestruction: SearchIndex.unregisterRow(root)
 }

@@ -4,6 +4,7 @@ import Caelestia.Config
 import qs.components
 import qs.components.controls
 import qs.services
+import qs.modules.nexus.common
 
 StyledSwitch {
     id: root
@@ -80,4 +81,7 @@ StyledSwitch {
             }
         }
     }
+
+    Component.onCompleted: SearchIndex.registerRow(root, () => root.text, () => root.subtext)
+    Component.onDestruction: SearchIndex.unregisterRow(root)
 }

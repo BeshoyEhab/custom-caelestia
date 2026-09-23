@@ -2,6 +2,7 @@ import QtQuick
 import Caelestia.Config
 import qs.components
 import qs.services
+import qs.modules.nexus.common
 
 RowButton {
     id: root
@@ -16,4 +17,7 @@ RowButton {
     subtext: root.status
     trailingIcon: "chevron_right"
     subLabel.animate: true
+
+    Component.onCompleted: SearchIndex.registerRow(root, () => root.label, () => root.status)
+    Component.onDestruction: SearchIndex.unregisterRow(root)
 }

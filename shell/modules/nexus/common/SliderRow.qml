@@ -90,4 +90,7 @@ ConnectedRect {
             }
         }
     }
+
+    Component.onCompleted: SearchIndex.registerRow(root, () => root.label, () => root.valueLabel)
+    Component.onDestruction: SearchIndex.unregisterRow(root)
 }
