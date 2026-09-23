@@ -439,5 +439,34 @@ PageBase {
             enabled: Config.background.visualiser.enabled
             onMoved: v => GlobalConfig.background.visualiser.spacing = v * 2
         }
+
+        // Clock
+        SectionHeader {
+            text: qsTr("Clock")
+        }
+
+        SelectRow {
+            first: true
+            last: true
+            label: qsTr("Clock style")
+            subtext: qsTr("Digital text or classical analog face")
+            menuItems: [
+                MenuItem {
+                    text: qsTr("Digital")
+                    icon: GlobalConfig.background.desktopClock.clockStyle !== "analog" ? "check" : ""
+                    activeIcon: "schedule"
+                },
+                MenuItem {
+                    text: qsTr("Analog")
+                    icon: GlobalConfig.background.desktopClock.clockStyle === "analog" ? "check" : ""
+                    activeIcon: "schedule"
+                }
+            ]
+            active: GlobalConfig.background.desktopClock.clockStyle === "analog" ? menuItems[1] : menuItems[0]
+            onSelected: {
+                const idx = menuItems.indexOf(item);
+                GlobalConfig.background.desktopClock.clockStyle = idx === 1 ? "analog" : "digital";
+            }
+        }
     }
 }

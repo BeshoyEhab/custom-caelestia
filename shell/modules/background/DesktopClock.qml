@@ -30,8 +30,12 @@ Item {
         return pos === "left" || pos === "right";
     }
 
-    implicitWidth: layout.implicitWidth + (Tokens.padding.large * 4 * root.clockScale)
-    implicitHeight: layout.implicitHeight + (Tokens.padding.extraLargeIncreased * root.clockScale)
+    // Classical analog face instead of the digital layouts
+    readonly property bool isAnalog: Config.background.desktopClock.clockStyle === "analog"
+    readonly property real analogDiameter: 300 * root.clockScale
+
+    implicitWidth: root.isAnalog ? root.analogDiameter + (Tokens.padding.large * 4 * root.clockScale) : layout.implicitWidth + (Tokens.padding.large * 4 * root.clockScale)
+    implicitHeight: root.isAnalog ? root.analogDiameter + (Tokens.padding.extraLargeIncreased * root.clockScale) : layout.implicitHeight + (Tokens.padding.extraLargeIncreased * root.clockScale)
 
     Item {
         id: clockContainer
@@ -80,7 +84,7 @@ Item {
         // Horizontal mode (default)
         RowLayout {
             id: layout
-            visible: !root.isVertical
+            visible: !root.isVertical && !root.isAnalog
 
             anchors.centerIn: parent
             spacing: Tokens.spacing.large * root.clockScale
@@ -164,7 +168,7 @@ Item {
         // Vertical mode (for left/right positioned clocks)
         ColumnLayout {
             id: verticalLayout
-            visible: root.isVertical
+            visible: root.isVertical && !root.isAnalog
 
             anchors.centerIn: parent
             spacing: Tokens.spacing.small * root.clockScale
@@ -220,6 +224,20 @@ Item {
                 color: root.safeTertiary
                 horizontalAlignment: Text.AlignHCenter
             }
+        }
+        // Classical analog face
+        AnalogClock {
+            visible: root.isAnalog
+
+            anchors.centerIn: parent
+            width: root.analogDiameter
+            height: root.analogDiameter
+
+            clockScale: root.clockScale
+            faceColor: Colours.palette.m3surfaceContainerHigh
+            tickColor: Colours.palette.m3onSurfaceVariant
+            handColor: root.safePrimary
+            secondColor: root.safeTertiary
         }
     }
 
