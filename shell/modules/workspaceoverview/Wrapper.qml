@@ -16,7 +16,7 @@ Item {
 
     readonly property bool shouldBeActive: visibilities.workspaceOverview && Config.bar.workspaces.overviewEnabled
     readonly property HyprlandMonitor monitor: Hyprland.monitorFor(QsWindow.window?.screen ?? null)
-    readonly property int activeWsId: (Config.bar.workspaces.perMonitor ?? true) ? (monitor?.activeWorkspace?.id ?? 1) : Hypr.activeWsId
+    readonly property int activeWsId: monitor?.activeWorkspace?.id ?? 1
     readonly property int rows: Config.bar.workspaces.overviewRows ?? 2
     readonly property int columns: Config.bar.workspaces.overviewColumns ?? 5
     readonly property real overviewScale: Config.bar.workspaces.overviewScale ?? 0.18

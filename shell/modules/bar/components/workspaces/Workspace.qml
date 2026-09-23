@@ -51,8 +51,6 @@ Item {
 
     property color offMonitorColour: Colours.palette.m3outlineVariant
     readonly property bool onOtherMonitor: {
-        if (Config.bar.workspaces.perMonitor ?? true)
-            return false;
         const mon = Hypr.workspaces.values.find(w => w.id === ws)?.monitor;
         return !!(mon && mon !== monitor);
     }

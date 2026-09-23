@@ -15,7 +15,7 @@ Item {
 
     readonly property int activeSpecialId: monitor?.lastIpcObject.specialWorkspace?.id ?? 0
     readonly property var wsIds: {
-        const allMonitors = !(Config.bar.workspaces.perMonitor ?? true);
+        const allMonitors = false; // per-monitor filtering is now unconditional
         return Hypr.workspaces.values.filter(w => w.name.startsWith("special:") && (allMonitors || w.monitor === root.monitor)).map(w => w.id);
     }
     readonly property int activeIdx: wsIds.indexOf(activeSpecialId)

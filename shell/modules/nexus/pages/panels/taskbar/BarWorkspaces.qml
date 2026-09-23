@@ -54,13 +54,6 @@ PageBase {
         }
 
         ToggleRow {
-            text: qsTr("Per monitor")
-            subtext: qsTr("Hide workspaces not on the current monitor")
-            checked: Config.bar.workspaces.perMonitor
-            onToggled: GlobalConfig.bar.workspaces.perMonitor = checked
-        }
-
-        ToggleRow {
             text: qsTr("Show app icon")
             subtext: qsTr("Show the last focused app icon instead of dots/pacman")
             checked: Config.bar.workspaces.showAppIcon

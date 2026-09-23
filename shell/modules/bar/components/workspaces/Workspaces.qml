@@ -24,7 +24,6 @@ StyledClippingRect {
     // Task 1 keys are source-built, not installed: fall back to true so the
     // bar keeps the fixed-group behaviour until the plugin is reinstalled.
     readonly property bool showUnoccupied: Config.bar.workspaces.showUnoccupied ?? true
-    readonly property bool perMonitor: Config.bar.workspaces.perMonitor ?? true
 
     // Single source for the workspace row pitch: the LazyListView below is
     // assigned this same value. Read via root (not the view id): id lookups
@@ -38,7 +37,7 @@ StyledClippingRect {
                 length: shown
             }, (_, i) => i + 1);
 
-        const allMonitors = !root.perMonitor;
+        const allMonitors = false; // per-monitor filtering is now unconditional
         const ignoredTags = GlobalConfig.bar.workspaces.ignoredTags ?? [];
         // Local Hypr service has no isToplevelIgnored helper; count any
         // mapped toplevel (or IPC-reported windows) when it is absent.
