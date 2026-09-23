@@ -314,11 +314,15 @@ Item {
         // Local Icons service has no matchIconRuleList; matchIconConfig is
         // the same single-rule matcher, so loop here with identical outcome.
         readonly property string icon: {
+            if (!name)
+                return "";
             const clean = root.trimName(name);
             const rules = root.iconRules;
             const list = rules?.values ?? rules ?? [];
+            if (typeof list !== "object" || typeof list[Symbol.iterator] !== "function")
+                return "";
             for (const rule of list)
-                if (Icons.matchIconConfig(clean, rule))
+                if (rule && Icons.matchIconConfig(clean, rule))
                     return rule.icon;
             return "";
         }

@@ -26,6 +26,12 @@ StyledClippingRect {
     readonly property bool showUnoccupied: Config.bar.workspaces.showUnoccupied ?? true
     readonly property bool perMonitor: Config.bar.workspaces.perMonitor ?? true
 
+    // Single source for the workspace row pitch: the LazyListView below is
+    // assigned this same value. Read via root (not the view id): id lookups
+    // from inside asynchronous sourceComponent blocks have proven unreliable
+    // live (undefined .spacing -> int assignment throw).
+    readonly property real wsSpacing: Tokens.spacing.extraSmall
+
     readonly property var wsIds: {
         if (root.showUnoccupied)
             return Array.from({
@@ -165,7 +171,7 @@ StyledClippingRect {
 
             sourceComponent: OccupiedBg {
                 workspaces: root.workspaceItems
-                wsSpacing: workspaces.spacing
+                wsSpacing: root.wsSpacing
             }
 
             Behavior on opacity {
@@ -185,7 +191,7 @@ StyledClippingRect {
             anchors.margins: Tokens.padding.extraSmall
             implicitHeight: contentHeight
 
-            spacing: Tokens.spacing.extraSmall
+            spacing: root.wsSpacing
             removeDuration: Tokens.anim.durations.expressiveDefaultEffects
 
             model: ScriptModel {
@@ -217,7 +223,7 @@ StyledClippingRect {
 
             sourceComponent: GapMarkers {
                 workspaces: root.workspaceItems
-                wsSpacing: workspaces.spacing
+                wsSpacing: root.wsSpacing
             }
 
             Behavior on opacity {
