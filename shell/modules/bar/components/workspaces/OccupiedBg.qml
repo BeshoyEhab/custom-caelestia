@@ -11,7 +11,13 @@ Item {
     required property var workspaces
     required property int wsSpacing
 
-    readonly property color colour: Colours.layer(Colours.palette.m3surfaceContainerHighest, 2)
+    // Connected primary-tinted pill (classic look): no separations, true color.
+    readonly property color colour: Qt.rgba(
+        (Colours.palette.m3primary.r + Colours.tPalette.m3surfaceContainer.r) / 2,
+        (Colours.palette.m3primary.g + Colours.tPalette.m3surfaceContainer.g) / 2,
+        (Colours.palette.m3primary.b + Colours.tPalette.m3surfaceContainer.b) / 2,
+        1
+    )
     property color colourAnimated: colour
 
     // Instant on fresh Bar load (hover-open): suppress replays so the
@@ -59,8 +65,8 @@ Item {
 
         property real topRadius: ifAdjacent(0, -1, 0, width / 2)
         property real bottomRadius: ifAdjacent(root.workspaces.length - 1, 1, 0, width / 2)
-        property real topPadding: ifAdjacent(0, -1, root.wsSpacing, 0)
-        property real bottomPadding: ifAdjacent(root.workspaces.length - 1, 1, root.wsSpacing, 0)
+        property real topPadding: 0
+        property real bottomPadding: 0
 
         function ifAdjacent(exclIdx: int, adj: int, yes: real, no: real): real {
             if (AnimatedRepeater.adding || AnimatedRepeater.removing || !modelData?.isOccupied || index === exclIdx)

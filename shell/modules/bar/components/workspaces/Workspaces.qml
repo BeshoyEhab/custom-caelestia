@@ -122,25 +122,6 @@ StyledClippingRect {
             Hypr.dispatch(Hypr.usingLua ? 'hl.dsp.workspace.toggle_special("special")' : "togglespecialworkspace special");
     }
 
-    function showPreviewAt(x: real, y: real): void {
-        if (!(Config.bar.workspaces.workspacePreviewEnabled ?? false))
-            return;
-        const ws = (workspaces.itemAt(x, y) as Workspace)?.ws;
-        if (ws && root.bar?.popouts) {
-            root.bar.popouts.workspacePreviewId = ws;
-            const wsObj = Hypr.workspaces.values.find(w => w.id === ws);
-            root.bar.popouts.workspacePreviewName = wsObj?.name || ws.toString();
-            root.bar.popouts.currentName = "workspacepreview";
-            root.bar.popouts.currentCenter = mapToItem(root.bar, 0, y).y;
-            root.bar.popouts.hasCurrent = true;
-        }
-    }
-
-    function hidePreview(pressed: bool): void {
-        if (!pressed)
-            root.bar?.popouts && (root.bar.popouts.hasCurrent = false);
-    }
-
     implicitWidth: Tokens.sizes.bar.innerWidth
     implicitHeight: workspaces.layoutHeight + workspaces.anchors.margins * 2
 
@@ -253,18 +234,8 @@ StyledClippingRect {
         MouseArea {
             anchors.fill: workspaces
             acceptedButtons: Qt.LeftButton | Qt.RightButton
-            hoverEnabled: Config.bar.workspaces.workspacePreviewEnabled ?? true
+            hoverEnabled: false
 
-            onPositionChanged: event => {
-                if (containsMouse)
-                    root.showPreviewAt(event.x, event.y);
-            }
-            onHoveredChanged: {
-                if (containsMouse)
-                    root.showPreviewAt(mouseX, mouseY);
-                else
-                    root.hidePreview(pressed);
-            }
             onClicked: event => {
                 const ws = (workspaces.itemAt(event.x, event.y) as Workspace)?.ws;
                 if (!ws)

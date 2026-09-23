@@ -74,10 +74,10 @@ PageBase {
                     text: qsTr("Icons")
                 }
             ]
-            active: menuItems[Config.bar.workspaces.displayType] ?? menuItems[2]
+            active: menuItems[Config.bar.workspaces.displayType] ?? menuItems[1]
             onSelected: {
                 const map = [0, 1, 2];
-                GlobalConfig.bar.workspaces.displayType = map[menuItems.indexOf(item)] ?? 2;
+                GlobalConfig.bar.workspaces.displayType = map[menuItems.indexOf(item)] ?? 1;
             }
         }
 
@@ -86,13 +86,6 @@ PageBase {
             subtext: qsTr("Show icons of open windows on each workspace")
             checked: Config.bar.workspaces.showWindows
             onToggled: GlobalConfig.bar.workspaces.showWindows = checked
-        }
-
-        ToggleRow {
-            text: qsTr("Hover preview")
-            subtext: qsTr("Show a workspace preview when hovering indicators")
-            checked: Config.bar.workspaces.workspacePreviewEnabled ?? true
-            onToggled: GlobalConfig.bar.workspaces.workspacePreviewEnabled = checked
         }
 
         ToggleRow {
