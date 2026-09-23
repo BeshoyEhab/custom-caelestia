@@ -450,6 +450,7 @@ PageBase {
             last: true
             label: qsTr("Clock style")
             subtext: qsTr("Digital text or classical analog face")
+            menuOnTop: true
             menuItems: [
                 MenuItem {
                     text: qsTr("Digital")
