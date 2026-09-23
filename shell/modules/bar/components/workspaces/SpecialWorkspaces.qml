@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Widgets
 import Caelestia
 import Caelestia.Components
 import Caelestia.Config
@@ -215,12 +216,70 @@ Item {
             // Gate on a real target: without it the pill renders at a stale
             // position when no special workspace is open.
             active: Config.bar.workspaces.activeIndicator && root.activeIdx >= 0
+            z: 1
 
         sourceComponent: ActiveIndicator {
             activeWs: root.activeWs
             mask: view
             color: Colours.palette.m3tertiary
             contentColour: Colours.palette.m3onTertiary
+        }
+    }
+
+    // Content overlay: numbers + app icons above the highlight pill
+    // (same layering as the normal list).
+    Item {
+        anchors.fill: parent
+        z: 2
+
+        Repeater {
+            model: root.wsIds.length
+
+            Item {
+                required property int index
+
+                readonly property int ws: root.wsIds[index]
+                readonly property bool occupied: {
+                    const w = Hypr.workspaces.values.find(w => w.id === ws);
+                    return ((w?.lastIpcObject?.windows ?? 0) > 0) || root.activeSpecialId === ws;
+                }
+                readonly property bool focused: root.activeSpecialId === ws
+                readonly property string appIcon: {
+                    Hypr.appIconsVersion;
+                    if (!(Config.bar.workspaces.showAppIcon ?? true) || !occupied)
+                        return "";
+                    return Hypr.appIconsPerWorkspace[ws] ?? "";
+                }
+
+                x: view.x
+                width: view.width
+                y: view.y + index * (Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall + Tokens.spacing.extraSmall / 2)
+                height: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall
+
+                StyledText {
+                    anchors.centerIn: parent
+                    visible: parent.appIcon === ""
+                    animate: true
+                    text: {
+                        const w = Hypr.workspaces.values.find(w => w.id === parent.ws);
+                        const wsName = !w || w.name == parent.ws ? parent.ws : w.name.replace(/^special:/, "")[0];
+                        return wsName;
+                    }
+                    color: parent.focused ? Colours.palette.m3onPrimary : (parent.occupied ? Colours.palette.m3onSurface : Colours.palette.m3onSurfaceVariant)
+                    verticalAlignment: Qt.AlignVCenter
+                    font.family: Tokens.font.workspaces
+                }
+
+                IconImage {
+                    anchors.centerIn: parent
+                    visible: parent.appIcon !== ""
+                    implicitSize: Tokens.sizes.bar.innerWidth * 0.55
+                    source: {
+                        Hypr.appIconsVersion;
+                        return parent.appIcon ? Quickshell.iconPath(parent.appIcon, "image-missing") : "";
+                    }
+                }
+            }
         }
     }
 
