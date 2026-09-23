@@ -99,22 +99,15 @@ Item {
             popouts.currentCenter = ch.activeWindowItem.mapToItem(root, 0, ch.activeWindowItem.implicitHeight / 2).y ?? 0;
             popouts.hasCurrent = true;
         } else if (id === "workspaces" && Config.bar.workspaces.workspacePreviewEnabled) {
+            // Delegate to the engine's LazyListView hit-test (Task 2 port);
+            // the old ColumnLayout > Repeater DOM walk is stale. Pre-clear so
+            // a miss leaves no preview (showPreviewAt only sets on hit).
             const workspacesItem = ch.workspacesItem;
             if (workspacesItem) {
                 const localPos = mapToItem(workspacesItem, 0, pos);
-                const layout = workspacesItem.contentItem?.children[1]?.children[0]; // ColumnLayout > Repeater > Workspace
-                if (layout) {
-                    const child = layout.childAt(localPos.x, localPos.y);
-                    if (child?.isWorkspace) {
-                        popouts.workspacePreviewId = child.ws;
-                        const wsObj = Hypr.workspaces.values.find(w => w.id === child.ws);
-                        popouts.workspacePreviewName = wsObj?.name || child.ws.toString();
-                        popouts.currentName = "workspacepreview";
-                        popouts.currentCenter = child.mapToItem(root, 0, child.implicitHeight / 2).y;
-                        popouts.hasCurrent = true;
-                        return;
-                    }
-                }
+                popouts.hasCurrent = false;
+                workspacesItem.showPreviewAt(localPos.x, localPos.y);
+                return;
             }
             popouts.hasCurrent = false;
         }
@@ -229,6 +222,7 @@ Item {
     Component {
         id: workspacesComp
         Workspaces {
+            bar: root
             screen: root.screen
             fullscreen: root.fullscreen
         }
@@ -257,6 +251,7 @@ Item {
 
         readonly property string entryId: modelData.id
         property var trayItem: item as Tray
+        property var workspacesItem: item as Workspaces
 
         Layout.alignment: Qt.AlignHCenter
 
