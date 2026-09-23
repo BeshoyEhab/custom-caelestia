@@ -22,7 +22,10 @@ Item {
     readonly property real maxViewY: Math.max(0, view.contentHeight - height)
 
     readonly property Workspace activeWs: {
+        // count/itemsDirty: itemAtIndex is a plain function call, so without
+        // these the binding never re-evaluates when delegates appear.
         view.itemsDirty;
+        view.count;
         return view.itemAtIndex(activeIdx) as Workspace;
     }
 
@@ -187,7 +190,7 @@ Item {
             ws: modelData
             monitor: root.monitor
             offMonitorColour: Colours.palette.m3outline
-            displayType: Config.bar.workspaces.specialDisplayType ?? BarWorkspaceDisplay.Shapes
+            displayType: Config.bar.workspaces.specialDisplayType ?? BarWorkspaceDisplay.Icons
             showWindows: Config.bar.workspaces.showWindowsOnSpecialWorkspaces
             iconRules: GlobalConfig.bar.workspaces.specialWorkspaceIcons ?? []
         }
@@ -205,11 +208,13 @@ Item {
         }
     }
 
-    Loader {
-        asynchronous: true
-        anchors.left: view.left
-        anchors.right: view.right
-        active: Config.bar.workspaces.activeIndicator
+        Loader {
+            asynchronous: true
+            anchors.left: view.left
+            anchors.right: view.right
+            // Gate on a real target: without it the pill renders at a stale
+            // position when no special workspace is open.
+            active: Config.bar.workspaces.activeIndicator && root.activeIdx >= 0
 
         sourceComponent: ActiveIndicator {
             activeWs: root.activeWs

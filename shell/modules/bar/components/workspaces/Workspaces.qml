@@ -231,7 +231,13 @@ StyledClippingRect {
             // active one once animations arm.
             property int targetIdx: root.animationsReady ? root.activeWsIdx : 0
 
-            readonly property var targetDelegate: targetIdx >= 0 ? workspaces.itemAtIndex(targetIdx) : null
+            // itemsDirty+count: itemAtIndex alone never notifies, so the disc
+            // would stick off-screen when delegates appear after it.
+            readonly property var targetDelegate: {
+                workspaces.itemsDirty;
+                workspaces.count;
+                return targetIdx >= 0 ? workspaces.itemAtIndex(targetIdx) : null;
+            }
 
             x: (root.width - root.circleSize) / 2
             y: targetDelegate ? targetDelegate.y + workspaces.contentY + workspaces.y : -root.circleSize
