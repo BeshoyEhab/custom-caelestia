@@ -204,7 +204,9 @@ StyledClippingRect {
                 monitor: root.monitor
                 bar: root.bar
 
-                displayType: Config.bar.workspaces.displayType ?? BarWorkspaceDisplay.Shapes
+                // Backend default is Icons (2); ?? must match it, because
+                // per-screen Config reads of never-set keys yield undefined.
+                displayType: Config.bar.workspaces.displayType ?? BarWorkspaceDisplay.Icons
                 showWindows: Config.bar.workspaces.showWindows
                 iconRules: GlobalConfig.bar.workspaces.workspaceIcons ?? []
                 activeLabel: Config.bar.workspaces.activeLabel

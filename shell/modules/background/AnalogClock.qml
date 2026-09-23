@@ -15,19 +15,21 @@ Item {
     required property color handColor
     required property color secondColor
 
-    // Second ticks depend on Time.seconds so all hands stay live.
+    // Second ticks depend on Time.seconds so all hands stay live. Angles
+    // use wall time (not Time.date, which is minute-aligned and would freeze
+    // the second hand at :00).
     readonly property real secondAngle: {
         Time.seconds;
-        return (Time.date.getSeconds() % 60) * 6;
+        return (new Date().getSeconds() % 60) * 6;
     }
     readonly property real minuteAngle: {
         Time.seconds;
-        const d = Time.date;
+        const d = new Date();
         return d.getMinutes() * 6 + d.getSeconds() * 0.1;
     }
     readonly property real hourAngle: {
         Time.seconds;
-        const d = Time.date;
+        const d = new Date();
         return (d.getHours() % 12) * 30 + d.getMinutes() * 0.5;
     }
 
