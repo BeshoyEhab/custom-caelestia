@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Widgets
 import Caelestia
 import Caelestia.Components
 import Caelestia.Config
@@ -166,9 +167,6 @@ StyledClippingRect {
         LazyListView {
             id: workspaces
 
-            // Above the indicator disc (z:1) and connector pills, like the
-            // old numbers layer (z:2 over circles z:0).
-            z: 2
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
@@ -240,6 +238,7 @@ StyledClippingRect {
             radius: width / 2
             color: Colours.palette.m3primary
             opacity: (targetIdx >= 0 && targetIdx < root.wsIds.length) && Config.bar.workspaces.activeIndicator ? 1 : 0
+            z: 1
 
             Behavior on y {
                 enabled: root.animationsReady
@@ -251,6 +250,92 @@ StyledClippingRect {
                 enabled: root.animationsReady
                 Anim {
                     type: Anim.DefaultEffects
+                }
+            }
+        }
+
+        // Content overlay: numbers + app icons above the active disc (old
+        // numbers-layer architecture: circles z:0, disc z:1, content z:2).
+        Item {
+            id: contentOverlay
+
+            anchors.fill: parent
+            z: 2
+
+            function trimWsName(name: string): string {
+                if (typeof Hypr.trimWsName === "function")
+                    return Hypr.trimWsName(name);
+                return name.startsWith("special:") ? name.slice("special:".length) : name;
+            }
+
+            Repeater {
+                model: root.wsIds.length
+
+                Item {
+                    required property int index
+
+                    readonly property var delegate: workspaces.itemAtIndex(index)
+                    readonly property int ws: root.showUnoccupied ? root.groupOffset + index + 1 : root.wsIds[index]
+                    readonly property bool occupied: delegate?.isOccupied ?? false
+                    readonly property bool focused: root.activeWsId === ws
+                    readonly property string appIcon: {
+                        Hypr.appIconsVersion;
+                        if (!Config.bar.workspaces.showAppIcon || !occupied)
+                            return "";
+                        return Hypr.appIconsPerWorkspace[ws] ?? "";
+                    }
+
+                    x: workspaces.x
+                    width: workspaces.width
+                    y: delegate ? delegate.y + workspaces.contentY + workspaces.y : 0
+                    height: root.circleSize
+                    visible: delegate !== null
+
+                    StyledText {
+                        anchors.centerIn: parent
+                        visible: parent.appIcon === ""
+                        animate: true
+                        text: {
+                            if (parent.focused) {
+                                const label = Config.bar.workspaces.activeLabel;
+                                if (label)
+                                    return label;
+                            }
+
+                            if (parent.focused || parent.occupied) {
+                                const label = Config.bar.workspaces.occupiedLabel;
+                                if (label)
+                                    return label;
+                            }
+
+                            const label = Config.bar.workspaces.label;
+                            if (label)
+                                return label;
+
+                            const w = Hypr.workspaces.values.find(w => w.id === parent.ws);
+                            const wsName = !w || w.name == parent.ws ? parent.ws : contentOverlay.trimWsName(w.name)[0];
+
+                            const capitalisation = Config.bar.workspaces.capitalisation;
+                            if (capitalisation === BarWorkspaceCapitalisation.Upper || String(capitalisation).toLowerCase() === "upper")
+                                return String(wsName).toUpperCase();
+                            else if (capitalisation === BarWorkspaceCapitalisation.Lower || String(capitalisation).toLowerCase() === "lower")
+                                return String(wsName).toLowerCase();
+                            return wsName;
+                        }
+                        color: parent.focused ? Colours.palette.m3onPrimary : (parent.occupied ? Colours.palette.m3onSurface : Colours.palette.m3onSurfaceVariant)
+                        verticalAlignment: Qt.AlignVCenter
+                        font.family: Tokens.font.workspaces
+                    }
+
+                    IconImage {
+                        anchors.centerIn: parent
+                        visible: parent.appIcon !== ""
+                        implicitSize: Tokens.sizes.bar.innerWidth * 0.55
+                        source: {
+                            Hypr.appIconsVersion;
+                            return parent.appIcon ? Quickshell.iconPath(parent.appIcon, "image-missing") : "";
+                        }
+                    }
                 }
             }
         }

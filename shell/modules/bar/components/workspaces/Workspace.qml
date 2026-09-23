@@ -65,16 +65,11 @@ Item {
         onTriggered: root.animationsReady = true
     }
 
-    // Classic indicator: tinted circle + number/dot, app icon overlay.
+    // Classic indicator: tinted circle. Number/icon content lives in the
+    // overlay layer (Workspaces.qml) above the active disc.
     // (Ported from the pre-rework design; the displayType/shape branch
     // experiment is dropped.)
     readonly property real circleSize: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall * 2
-    readonly property string appIcon: {
-        Hypr.appIconsVersion;
-        if (!Config.bar.workspaces.showAppIcon || !root.isOccupied)
-            return "";
-        return Hypr.appIconsPerWorkspace[root.ws] ?? "";
-    }
 
     anchors.horizontalCenter: parent?.horizontalCenter
     LazyListView.preferredHeight: LazyListView.removing ? 0 : layout.implicitHeight + (hasWindows ? Tokens.padding.extraSmall : 0)
@@ -106,7 +101,9 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        // Classic circle background for every workspace.
+        // Classic circle background for every workspace. The number/icon
+        // content lives in the overlay layer (Workspaces.qml) above the
+        // active disc; this rect is background only.
         Rectangle {
             id: circleBg
 
@@ -115,9 +112,7 @@ Item {
             Layout.preferredHeight: root.circleSize
             radius: width / 2
 
-            // Active workspace: transparent so the sliding primary disc
-            // beneath shows through; number/icon float above it.
-            color: root.focused ? "transparent" : root.isOccupied ? Qt.rgba(
+            color: root.isOccupied ? Qt.rgba(
                 (Colours.palette.m3primary.r + Colours.tPalette.m3surfaceContainer.r) / 2,
                 (Colours.palette.m3primary.g + Colours.tPalette.m3surfaceContainer.g) / 2,
                 (Colours.palette.m3primary.b + Colours.tPalette.m3surfaceContainer.b) / 2,
@@ -129,54 +124,6 @@ Item {
                 enabled: root.animationsReady
                 Anim {
                     type: Anim.DefaultEffects
-                }
-            }
-
-            // Workspace number (empty workspaces show their number too).
-            StyledText {
-                anchors.centerIn: parent
-                visible: root.appIcon === ""
-                animate: true
-                text: {
-                    if (root.focused) {
-                        const label = root.activeLabel;
-                        if (label)
-                            return label;
-                    }
-
-                    if (root.focused || root.isOccupied) {
-                        const label = root.occupiedLabel;
-                        if (label)
-                            return label;
-                    }
-
-                    const label = root.label;
-                    if (label)
-                        return label;
-
-                    const ws = Hypr.workspaces.values.find(w => w.id === root.ws);
-                    const wsName = !ws || ws.name == root.ws ? root.ws : trimName(ws.name)[0];
-
-                    const capitalisation = Config.bar.workspaces.capitalisation;
-                    if (capitalisation === BarWorkspaceCapitalisation.Upper || String(capitalisation).toLowerCase() === "upper")
-                        return String(wsName).toUpperCase();
-                    else if (capitalisation === BarWorkspaceCapitalisation.Lower || String(capitalisation).toLowerCase() === "lower")
-                        return String(wsName).toLowerCase();
-                    return wsName;
-                }
-                color: root.focused ? Colours.palette.m3onPrimary : (root.isOccupied ? Colours.palette.m3onSurface : Colours.palette.m3onSurfaceVariant)
-                verticalAlignment: Qt.AlignVCenter
-                font.family: Tokens.font.workspaces
-            }
-
-            // App icon overlay (when available).
-            IconImage {
-                anchors.centerIn: parent
-                visible: root.appIcon !== ""
-                implicitSize: Tokens.sizes.bar.innerWidth * 0.55
-                source: {
-                    Hypr.appIconsVersion;
-                    return root.appIcon ? Quickshell.iconPath(root.appIcon, "image-missing") : "";
                 }
             }
         }
