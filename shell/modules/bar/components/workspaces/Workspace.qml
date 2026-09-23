@@ -1,39 +1,70 @@
-pragma ComponentBehavior: Bound
-
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Widgets
+import Quickshell.Hyprland
+import M3Shapes
+import Caelestia.Components
 import Caelestia.Config
 import qs.components
 import qs.services
+import qs.utils
 
 Item {
     id: root
 
+    required property int modelData
     required property int index
     required property int activeWsId
-    required property var occupied
-    required property int groupOffset
-    required property Repeater workspaces
+    required property int ws
+    required property HyprlandMonitor monitor
+
+    required property int displayType
+    required property bool showWindows
+    required property var iconRules
+    property string activeLabel
+    property string occupiedLabel
+    property string label
+
+    // Chain from the bar (popout wiring lives in Workspaces/Bar); kept for
+    // hook parity with the previous delegate.
     property var bar
 
+    // Bar-level hover preview looks up delegates via this flag.
     readonly property bool isWorkspace: true
-    readonly property int ws: groupOffset + index + 1
-    readonly property bool isOccupied: occupied[ws] ?? false
-    readonly property bool isActive: root.activeWsId === root.ws
 
-    readonly property string appIcon: {
-        Hypr.appIconsVersion;
-        if (!Config.bar.workspaces.showAppIcon || !root.isOccupied)
-            return "";
-        return Hypr.appIconsPerWorkspace[root.ws] ?? "";
+    // Local Hypr service has no toplevelsForWs/isToplevelIgnored helpers, so
+    // resolve occupancy here with the same semantics (unmapped or
+    // tag-ignored toplevels do not count). Falls back to any mapped
+    // toplevel when the filter helper is absent.
+    readonly property list<HyprlandToplevel> toplevels: {
+        const ignored = GlobalConfig.bar.workspaces.ignoredTags ?? [];
+        if (typeof Hypr.toplevelsForWs === "function")
+            return Hypr.toplevelsForWs(ws, ignored);
+        const filter = typeof Hypr.isToplevelIgnored === "function" ? t => Hypr.isToplevelIgnored(t, ignored) : t => !(t?.lastIpcObject?.mapped ?? false);
+        return Hypr.toplevels.values.filter(t => t.workspace && t.workspace.id === ws && !filter(t));
     }
-    readonly property bool showAppIcon: appIcon !== ""
+    readonly property bool isOccupied: toplevels.length > 0
+    readonly property bool hasWindows: isOccupied && showWindows && Config.bar.workspaces.maxWindowIcons > 0
+    readonly property bool focused: activeWsId === ws
+    readonly property list<int> focusedShapeList: [MaterialShape.Slanted, MaterialShape.Oval, MaterialShape.Pill, MaterialShape.Triangle, MaterialShape.Arrow, MaterialShape.Diamond, MaterialShape.Pentagon, MaterialShape.Gem, MaterialShape.VerySunny, MaterialShape.Sunny, MaterialShape.Cookie4Sided, MaterialShape.Cookie6Sided, MaterialShape.Cookie7Sided, MaterialShape.Cookie9Sided, MaterialShape.Cookie12Sided, MaterialShape.Clover4Leaf, MaterialShape.SoftBurst, MaterialShape.Ghostish]
 
-    readonly property real circleSize: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall * 2
-    readonly property int size: circleSize + 2
+    property color offMonitorColour: Colours.palette.m3outlineVariant
+    readonly property bool onOtherMonitor: {
+        if (Config.bar.workspaces.perMonitor ?? true)
+            return false;
+        const mon = Hypr.workspaces.values.find(w => w.id === ws)?.monitor;
+        return !!(mon && mon !== monitor);
+    }
+    readonly property color fgColour: {
+        if (onOtherMonitor)
+            return offMonitorColour;
+        if (focused || isOccupied || Config.bar.workspaces.occupiedBg)
+            return Colours.palette.m3onSurface;
+        return Colours.layer(Colours.palette.m3outlineVariant, 2);
+    }
 
+    // Instant on fresh Bar load (hover-open): suppress size/opacity replays.
+    // Enabled shortly after load so workspace switches animate normally.
     property bool animationsReady: false
 
     Timer {
@@ -43,77 +74,248 @@ Item {
         onTriggered: root.animationsReady = true
     }
 
-    Layout.alignment: Qt.AlignHCenter
-    Layout.preferredWidth: root.circleSize
-    Layout.preferredHeight: root.size
+    function updateShape(): void {
+        const shape = indicator.item as MaterialShape;
+        if (!shape)
+            return;
 
-    // Grey circle background for ALL workspaces
-    Rectangle {
-        id: circleBg
+        if (focused)
+            shape.shape = focusedShapeList[Math.floor(Math.random() * focusedShapeList.length)];
+        else
+            shape.shape = Qt.binding(() => isOccupied ? MaterialShape.Square : MaterialShape.Circle);
+    }
 
-        anchors.centerIn: parent
-        width: root.circleSize
-        height: root.circleSize
-        radius: width / 2
+    anchors.horizontalCenter: parent?.horizontalCenter
+    LazyListView.preferredHeight: LazyListView.removing ? 0 : layout.implicitHeight + (hasWindows ? Tokens.padding.extraSmall : 0)
+    LazyListView.visibleHeight: LazyListView.preferredHeight
 
-        color: root.isOccupied ? Qt.rgba(
-            (Colours.palette.m3primary.r + Colours.tPalette.m3surfaceContainer.r) / 2,
-            (Colours.palette.m3primary.g + Colours.tPalette.m3surfaceContainer.g) / 2,
-            (Colours.palette.m3primary.b + Colours.tPalette.m3surfaceContainer.b) / 2,
-            1
-        ) : Colours.palette.m3surfaceContainerHighest
-        opacity: root.isOccupied || root.isActive ? 1.0 : 0.5
+    opacity: LazyListView.removing || LazyListView.adding ? 0 : 1
 
-        Behavior on opacity {
-            enabled: root.animationsReady
-            Anim { type: Anim.DefaultEffects }
+    onFocusedChanged: updateShape()
+    Component.onCompleted: updateShape()
+
+    Behavior on LazyListView.visibleHeight {
+        enabled: root.animationsReady
+        Anim {}
+    }
+
+    Behavior on y {
+        enabled: root.LazyListView.ready
+
+        Anim {}
+    }
+
+    Behavior on opacity {
+        enabled: root.animationsReady
+        Anim {
+            type: Anim.DefaultEffects
         }
     }
 
-    // Workspace number or dot (when no app icon)
-    MaterialIcon {
-        id: numberIndicator
+    Component {
+        id: shapeComponent
 
-        anchors.centerIn: circleBg
-        visible: !root.showAppIcon
+        MaterialShape {
+            implicitSize: Tokens.sizes.bar.innerWidth - Tokens.padding.small
 
-        animate: true
-        text: {
-            if (Config.bar.workspaces.showEmptyAsNumber)
-                return root.ws.toString();
-            if (!root.isOccupied && !root.isActive)
-                return "\u2022";
-            const ws = Hypr.workspaces.values.find(w => w.id === root.ws);
-            const wsName = !ws || ws.name == root.ws ? root.ws : ws.name[0];
-            let displayName = wsName.toString();
-            if (Config.bar.workspaces.capitalisation.toLowerCase() === "upper") {
-                displayName = displayName.toUpperCase();
-            } else if (Config.bar.workspaces.capitalisation.toLowerCase() === "lower") {
-                displayName = displayName.toLowerCase();
+            color: root.fgColour
+            scale: root.focused ? 2 / 3 : root.isOccupied ? 1 / 3 : 1 / 4
+
+            animationEasing: Tokens.anim.expressiveDefaultSpatial
+            animationDuration: Tokens.anim.durations.expressiveDefaultSpatial * Tokens.anim.durations.scale
+
+            Behavior on color {
+                CAnim {}
             }
-            const label = Config.bar.workspaces.label || displayName;
-            const occupiedLabel = Config.bar.workspaces.occupiedLabel || label;
-            const activeLabel = Config.bar.workspaces.activeLabel || (root.isOccupied ? occupiedLabel : label);
-            return root.isActive ? activeLabel : root.isOccupied ? occupiedLabel : label;
+
+            Behavior on scale {
+                Anim {}
+            }
         }
-        color: root.isActive ? Colours.palette.m3onPrimary : (root.isOccupied ? Colours.palette.m3onSurface : Colours.palette.m3onSurfaceVariant)
-        verticalAlignment: Qt.AlignVCenter
-        font.family: Tokens.font.workspaces
-        font.pixelSize: root.isOccupied ? undefined : Tokens.sizes.bar.innerWidth * 0.4
     }
 
-    // App icon (when available)
-    IconImage {
-        id: appIconDisplay
+    Component {
+        id: textComponent
 
-        anchors.centerIn: circleBg
-        visible: root.showAppIcon
+        StyledText {
+            animate: true
+            text: {
+                if (root.focused) {
+                    const label = root.activeLabel;
+                    if (label)
+                        return label;
+                }
 
-        implicitSize: Tokens.sizes.bar.innerWidth * 0.55
+                if (root.focused || root.isOccupied) {
+                    const label = root.occupiedLabel;
+                    if (label)
+                        return label;
+                }
 
-        source: {
-            Hypr.appIconsVersion;
-            return root.appIcon ? Quickshell.iconPath(root.appIcon, "image-missing") : "";
+                const label = root.label;
+                if (label)
+                    return label;
+
+                const ws = Hypr.workspaces.values.find(w => w.id === root.ws);
+                const wsName = !ws || ws.name == root.ws ? root.ws : trimName(ws.name)[0];
+
+                // The local schema stores capitalisation as a string while
+                // upstream compares the BarWorkspaceCapitalisation enum;
+                // accept both so JSON string values keep working.
+                const capitalisation = Config.bar.workspaces.capitalisation;
+                if (capitalisation === BarWorkspaceCapitalisation.Upper || String(capitalisation).toLowerCase() === "upper")
+                    return String(wsName).toUpperCase();
+                else if (capitalisation === BarWorkspaceCapitalisation.Lower || String(capitalisation).toLowerCase() === "lower")
+                    return String(wsName).toLowerCase();
+                return wsName;
+            }
+            color: root.fgColour
+            verticalAlignment: Qt.AlignVCenter
+            font.family: Tokens.font.workspaces
         }
+    }
+
+    Component {
+        id: iconComponent
+
+        MaterialIcon {
+            fill: 1
+            grade: 25
+            text: iconCacher.icon
+            color: root.fgColour
+            verticalAlignment: Qt.AlignVCenter
+
+            WsIconCacher {
+                id: iconCacher
+            }
+        }
+    }
+
+    Component {
+        id: iconLoaderComponent
+
+        Loader {
+            sourceComponent: loaderIconCacher.icon ? iconComponent : textComponent
+
+            WsIconCacher {
+                id: loaderIconCacher
+            }
+        }
+    }
+
+    ColumnLayout {
+        id: layout
+
+        anchors.fill: parent
+        spacing: 0
+
+        Loader {
+            id: indicator
+
+            Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+            Layout.preferredHeight: Tokens.sizes.bar.innerWidth - Tokens.padding.small
+            sourceComponent: {
+                if (root.displayType === BarWorkspaceDisplay.Icons)
+                    return iconLoaderComponent;
+                if (root.displayType === BarWorkspaceDisplay.Text)
+                    return textComponent;
+                return shapeComponent;
+            }
+
+            onItemChanged: root.updateShape()
+        }
+
+        Loader {
+            id: windows
+
+            asynchronous: true
+
+            Layout.fillWidth: true
+            Layout.topMargin: -Tokens.spacing.extraSmall / 2
+            Layout.preferredHeight: root.hasWindows && item ? (item as LazyListView).layoutHeight : 0
+
+            visible: active
+            active: root.showWindows && Config.bar.workspaces.maxWindowIcons > 0
+
+            sourceComponent: LazyListView {
+                spacing: 0
+                implicitHeight: contentHeight
+                removeDuration: Tokens.anim.durations.expressiveDefaultEffects
+
+                model: ScriptModel {
+                    values: {
+                        const windows = root.toplevels;
+                        const maxIcons = Config.bar.workspaces.maxWindowIcons;
+                        return maxIcons > 0 ? windows.slice(0, maxIcons) : windows;
+                    }
+                }
+
+                delegate: MaterialIcon {
+                    id: win
+
+                    required property var modelData
+                    required property int index // Needed, LazyListView will fail to set it if it doesn't exist
+
+                    grade: 0
+                    horizontalAlignment: Text.AlignHCenter
+                    text: Icons.getAppCategoryIcon(modelData.lastIpcObject.class, "terminal")
+                    color: root.onOtherMonitor ? root.offMonitorColour : Colours.palette.m3onSurfaceVariant
+
+                    opacity: LazyListView.adding || LazyListView.removing ? 0 : 1
+
+                    Behavior on opacity {
+                        Anim {
+                            type: Anim.DefaultEffects
+                        }
+                    }
+
+                    Behavior on y {
+                        Anim {}
+                    }
+                }
+            }
+        }
+    }
+
+    // Local trim: the Hypr service has no trimWsName helper (upstream strips
+    // the "special:" prefix); identical semantics.
+    function trimName(name: string): string {
+        if (typeof Hypr.trimWsName === "function")
+            return Hypr.trimWsName(name);
+        return name.startsWith("special:") ? name.slice("special:".length) : name;
+    }
+
+    component WsIconCacher: QtObject {
+        id: cacher
+
+        property string name
+        // Local Icons service has no matchIconRuleList; matchIconConfig is
+        // the same single-rule matcher, so loop here with identical outcome.
+        readonly property string icon: {
+            const clean = root.trimName(name);
+            const rules = root.iconRules;
+            const list = rules?.values ?? rules ?? [];
+            for (const rule of list)
+                if (Icons.matchIconConfig(clean, rule))
+                    return rule.icon;
+            return "";
+        }
+        readonly property HyprlandWorkspace wsObj: Hypr.workspaces.values.find(w => w.id === root.ws) ?? null
+
+        readonly property Connections conn: Connections {
+            function onNameChanged(): void {
+                cacher.updateName();
+            }
+
+            target: cacher.wsObj
+        }
+
+        function updateName(): void {
+            if (wsObj)
+                name = wsObj.name;
+        }
+
+        onWsObjChanged: updateName()
+        Component.onCompleted: updateName()
     }
 }

@@ -123,11 +123,11 @@ Item {
     function handleWheel(pos: real, angleDelta: point): void {
         const ch = findEntry(pos);
         if (ch?.entryId === "workspaces" && Config.bar.scrollActions.workspaces) {
-            const mon = (GlobalConfig.bar.workspaces.perMonitorWorkspaces ? Hypr.monitorFor(screen) : Hypr.focusedMonitor);
+            const mon = ((Config.bar.workspaces.perMonitor ?? true) ? Hypr.monitorFor(screen) : Hypr.focusedMonitor);
             const specialWs = mon?.lastIpcObject.specialWorkspace.name;
             if (specialWs?.length > 0)
                 Hypr.dispatch(Hypr.usingLua ? `hl.dsp.workspace.toggle_special("${specialWs.slice(8)}")` : `togglespecialworkspace ${specialWs.slice(8)}`);
-            else if (angleDelta.y < 0 || (GlobalConfig.bar.workspaces.perMonitorWorkspaces ? mon.activeWorkspace?.id : Hypr.activeWsId) > 1)
+            else if (angleDelta.y < 0 || ((Config.bar.workspaces.perMonitor ?? true) ? mon.activeWorkspace?.id : Hypr.activeWsId) > 1)
                 Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ workspace = "r${angleDelta.y > 0 ? "-" : "+"}1" })` : `workspace r${angleDelta.y > 0 ? "-" : "+"}1`);
         } else if (pos < screen.height / 2 && Config.bar.scrollActions.volume) {
             if (angleDelta.y > 0)

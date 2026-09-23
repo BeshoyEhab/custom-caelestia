@@ -1,8 +1,7 @@
-pragma ComponentBehavior: Bound
-
 import QtQuick.Layouts
 import Caelestia.Config
 import qs.modules.nexus.common
+import qs.services
 
 PageBase {
     id: root
@@ -47,17 +46,24 @@ PageBase {
         }
 
         ToggleRow {
+            text: qsTr("Show unoccupied")
+            subtext: qsTr("Show workspaces that are inactive and empty")
+            checked: Config.bar.workspaces.showUnoccupied
+            onToggled: GlobalConfig.bar.workspaces.showUnoccupied = checked
+        }
+
+        ToggleRow {
+            text: qsTr("Per monitor")
+            subtext: qsTr("Hide workspaces not on the current monitor")
+            checked: Config.bar.workspaces.perMonitor
+            onToggled: GlobalConfig.bar.workspaces.perMonitor = checked
+        }
+
+        ToggleRow {
             text: qsTr("Show app icon")
             subtext: qsTr("Show the last focused app icon instead of dots/pacman")
             checked: Config.bar.workspaces.showAppIcon
             onToggled: GlobalConfig.bar.workspaces.showAppIcon = checked
-        }
-
-        ToggleRow {
-            text: qsTr("Show workspace number")
-            subtext: qsTr("Show workspace number instead of dot when empty")
-            checked: Config.bar.workspaces.showEmptyAsNumber
-            onToggled: GlobalConfig.bar.workspaces.showEmptyAsNumber = checked
         }
 
         ToggleRow {
@@ -81,13 +87,6 @@ PageBase {
             to: 20
             stepSize: 1
             onMoved: v => GlobalConfig.bar.workspaces.maxWindowIcons = v
-        }
-
-        ToggleRow {
-            text: qsTr("Per-monitor workspaces")
-            subtext: qsTr("Show each monitor's workspaces independently")
-            checked: GlobalConfig.bar.workspaces.perMonitorWorkspaces
-            onToggled: GlobalConfig.bar.workspaces.perMonitorWorkspaces = checked
         }
 
         SectionHeader {
