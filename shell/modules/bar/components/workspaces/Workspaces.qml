@@ -311,20 +311,22 @@ StyledClippingRect {
                         visible: parent.appIcon === ""
                         animate: true
                         text: {
+                            // Backend label defaults are blank padding ("  "),
+                            // so only non-blank labels override the number.
                             if (parent.focused) {
                                 const label = Config.bar.workspaces.activeLabel;
-                                if (label)
+                                if (label && label.trim())
                                     return label;
                             }
 
                             if (parent.focused || parent.occupied) {
                                 const label = Config.bar.workspaces.occupiedLabel;
-                                if (label)
+                                if (label && label.trim())
                                     return label;
                             }
 
                             const label = Config.bar.workspaces.label;
-                            if (label)
+                            if (label && label.trim())
                                 return label;
 
                             const w = Hypr.workspaces.values.find(w => w.id === parent.ws);
