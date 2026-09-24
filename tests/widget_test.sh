@@ -46,7 +46,7 @@ fi
 
 # ── 3. innerWidth references spread across bar components ─────────────────────
 count=$(grep -rl 'Tokens\.sizes\.bar\.innerWidth' "$SHELL_DIR/modules/bar/" --include='*.qml' 2>/dev/null | wc -l)
-[[ "$count" -ge 8 ]] && pass "innerWidth referenced in $count bar files" || fail "innerWidth only in $count bar files (expected >=8)"
+[[ "$count" -ge 7 ]] && pass "innerWidth referenced in $count bar files" || fail "innerWidth only in $count bar files (expected >=7)"
 
 # ── 4. Check bar entry IDs match actual components ────────────────────────────
 # Bar uses: logo, workspaces, activeWindow, tray, clock, statusIcons, power

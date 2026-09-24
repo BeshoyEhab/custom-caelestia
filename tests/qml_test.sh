@@ -123,7 +123,7 @@ all_bar_files=(
     "$BAR_COMP/TrayItem.qml"
     "$BAR_WS/ActiveIndicator.qml" "$BAR_WS/OccupiedBg.qml" "$BAR_WS/SpecialWorkspaces.qml"
     "$BAR_WS/Workspace.qml"       "$BAR_WS/Workspaces.qml"
-    "$BAR_POP/ActiveWindow.qml"   "$BAR_POP/Audio.qml"     "$BAR_POP/Battery.qml"
+    "$BAR_POP/ActiveWindow.qml"   "$BAR_POP/AudioPopout.qml"     "$BAR_POP/Battery.qml"
     "$BAR_POP/Bluetooth.qml"      "$BAR_POP/ClipWrapper.qml" "$BAR_POP/Content.qml"
     "$BAR_POP/kblayout/KbLayout.qml"       "$BAR_POP/kblayout/KbLayoutModel.qml"
     "$BAR_POP/LockStatus.qml"     "$BAR_POP/Network.qml"   "$BAR_POP/PopoutState.qml"
