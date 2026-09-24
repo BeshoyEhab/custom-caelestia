@@ -41,12 +41,15 @@ QtObject {
     }
 
     function gotoRow(e: var): void {
+        const samePage = currentPageIdx === e.page;
         currentPageIdx = e.page;
         subPageIdxStack = [];
         SearchIndex.setLocation(e.page, []);
         pendingRow = e;
         for (const s of e.subs)
             openSubPage(s);
+        if (samePage)
+            pendingRow = null;
     }
 
     onCurrentPageIdxChanged: subPageIdxStack = []
