@@ -42,8 +42,13 @@ void Cpu::readNameOnce() {
 
     static const QByteArray prefix("model name");
     QByteArray model;
-    while (!f.atEnd()) {
+    // NOTE: QFile::atEnd() is always true for procfs/sysfs (kernel reports
+    // size 0), so loop on readLine() returning empty at EOF instead.
+    for (;;) {
         const QByteArray line = f.readLine();
+        if (line.isEmpty()) {
+            break;
+        }
         if (!line.startsWith(prefix)) {
             continue;
         }

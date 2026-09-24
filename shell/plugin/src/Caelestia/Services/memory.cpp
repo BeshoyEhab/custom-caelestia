@@ -30,8 +30,13 @@ void Memory::tick() {
     unsigned long long availKibRaw = 0;
     bool haveTotal = false;
     bool haveAvail = false;
-    while (!f.atEnd()) {
+    // NOTE: QFile::atEnd() is always true for procfs/sysfs (kernel reports
+    // size 0), so loop on readLine() returning empty at EOF instead.
+    for (;;) {
         const QByteArray line = f.readLine();
+        if (line.isEmpty()) {
+            break;
+        }
         if (!haveTotal && line.startsWith("MemTotal:")) {
             haveTotal = std::sscanf(line.constData(), "MemTotal: %llu", &totalKibRaw) == 1;
         } else if (!haveAvail && line.startsWith("MemAvailable:")) {
