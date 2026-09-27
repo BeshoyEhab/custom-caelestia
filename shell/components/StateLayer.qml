@@ -13,8 +13,9 @@ MouseArea {
     property bool manualHoverOverride
     readonly property alias rect: base
 
+    property real hoverOpacity: 0.08
     property bool shapeMorph
-    property real stateOpacity: containsMouse || manualHoverOverride ? 0.08 : 0
+    property real stateOpacity: containsMouse || manualHoverOverride ? hoverOpacity : 0
 
     property real pressX: width / 2
     property real pressY: height / 2

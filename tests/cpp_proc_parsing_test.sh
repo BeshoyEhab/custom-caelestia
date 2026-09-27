@@ -49,6 +49,14 @@ echo "$MEM_BODY" | grep -q "MemAvailable" && echo "  PASS mem looks for MemAvail
 echo "$CPU_BODY" | grep -q "QRegularExpression" && { echo "  FAIL cpu hot path still uses QRegularExpression"; FAIL=1; } || echo "  PASS cpu hot path has no QRegularExpression"
 grep -q "qregularexpression" "$MEM" && { echo "  FAIL memory.cpp still includes qregularexpression"; FAIL=1; } || echo "  PASS memory.cpp has no qregularexpression include"
 
+# QFile::atEnd() is always true on procfs/sysfs (kernel reports size 0),
+# so any atEnd()-gated read loop over /proc never executes (Memory stuck at
+# 0 / 1 KiB). Loops must terminate on empty readLine() instead.
+echo "-- procfs loops must not gate on atEnd() --"
+echo "$MEM_BODY" | grep -q "atEnd()" && { echo "  FAIL mem tick still gates on atEnd"; FAIL=1; } || echo "  PASS mem tick avoids atEnd"
+CPU_NAME_BODY=$(awk '/void Cpu::readNameOnce/,/^}/' "$CPU")
+echo "$CPU_NAME_BODY" | grep -q "atEnd()" && { echo "  FAIL cpu readNameOnce still gates on atEnd"; FAIL=1; } || echo "  PASS cpu readNameOnce avoids atEnd"
+
 if [[ $FAIL -ne 0 ]]; then
     echo "RESULT: FAIL (red - optimization missing)"
     exit 1
