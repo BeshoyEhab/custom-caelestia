@@ -40,7 +40,7 @@ check "NetworkUsage interval stretch" "$S/services/NetworkUsage.qml" "intervalSt
 # Surfaces
 check "Quick toggle eco" "$S/modules/utilities/cards/Toggles.qml" 'roleValue: "eco"'
 check "UtilitiesPanel eco row" "$S/modules/nexus/pages/panels/UtilitiesPanel.qml" '"eco"'
-check "Battery popout eco" "$S/modules/bar/popouts/Battery.qml" "PowerSaver"
+check "Battery popout eco" "$S/modules/bar/popouts/Battery.qml" "PowerSaver\.ecoActive"
 check "Nexus Power section" "$S/modules/nexus/pages/ServicesPage.qml" "PowerSaver"
 check "C++ quick-toggle default" "$S/plugin/src/Caelestia/Config/utilitiesconfig.hpp" '"eco"'
 
