@@ -5,6 +5,8 @@ import Quickshell
 import Caelestia.Config
 
 Singleton {
+    id: root
+
     property alias enabled: clock.enabled
     readonly property date date: clock.date
     readonly property int hours: clock.hours
@@ -35,9 +37,15 @@ Singleton {
         precision: SystemClock.Minutes
     }
 
+    // Seconds wake the shell every second; only run when a visible
+    // seconds consumer exists. Bar seconds are Loader-gated in
+    // bar/components/Clock.qml:102; desktop clocks only exist when enabled.
+    readonly property bool secondsNeeded: Config.bar.clock.showSeconds || Config.background.desktopClock.enabled
+
     SystemClock {
         id: secClock
 
+        enabled: root.secondsNeeded
         precision: SystemClock.Seconds
     }
 }
