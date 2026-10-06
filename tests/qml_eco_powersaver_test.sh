@@ -44,6 +44,14 @@ check "Battery popout eco" "$S/modules/bar/popouts/Battery.qml" "PowerSaver\.eco
 check "Nexus Power section" "$S/modules/nexus/pages/ServicesPage.qml" "PowerSaver"
 check "C++ quick-toggle default" "$S/plugin/src/Caelestia/Config/utilitiesconfig.hpp" '"eco"'
 
+# QML-side animation gates (eco drives durations.scale=0: freezes all
+# durations-derived motion incl. every explicit override site, no per-site edits)
+check "Anim scale eco drive" "$S/services/PowerSaver.qml" "durations.scale = 0"
+check "Anim scale save/restore" "$S/services/PowerSaver.qml" "prevAnimScale"
+check "Media wave eco gate" "$S/modules/dashboard/dash/Media.qml" "wavePaused:.*PowerSaver.ecoActive"
+check "Details wave eco gate" "$S/modules/dashboard/media/Details.qml" "animateWave:.*PowerSaver.ecoActive"
+check "Bongocat eco gate" "$S/modules/dashboard/dash/Media.qml" "playing:.*PowerSaver.ecoActive"
+
 if [[ $FAIL -ne 0 ]]; then
     echo "RESULT: FAIL (red - eco not implemented)"
     exit 1

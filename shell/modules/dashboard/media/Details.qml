@@ -77,7 +77,7 @@ ColumnLayout {
             value: Players.active ? Players.active.position / (Players.active.length || 1) : 0
             enabled: Players.active?.canSeek ?? false
             wavy: true
-            animateWave: Players.active?.isPlaying ?? false
+            animateWave: (Players.active?.isPlaying ?? false) && !PowerSaver.ecoActive
             waveFrequency: 5
             waveDuration: 2000
             interactionOnMove: false

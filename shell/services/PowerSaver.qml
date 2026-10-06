@@ -61,10 +61,17 @@ Singleton {
     }
 
     onEcoActiveChanged: {
-        if (root.ecoActive)
+        if (root.ecoActive) {
+            // Freeze all durations-derived QML motion (Anim.qml + every
+            // explicit durations.* override site) in one shot. The previous
+            // scale is saved so release restores exactly what was there.
+            props.prevAnimScale = GlobalConfig.appearance.anim.durations.scale;
+            GlobalConfig.appearance.anim.durations.scale = 0;
             root.setLowGfx();
-        else
+        } else {
+            GlobalConfig.appearance.anim.durations.scale = props.prevAnimScale > 0 ? props.prevAnimScale : 1;
             root.restoreGfx();
+        }
         if (props.toastOnChange)
             root.ecoActive ? Toaster.toast(qsTr("Eco mode enabled"), qsTr("Reduced visuals and background work to save power"), "energy_savings_leaf") : Toaster.toast(qsTr("Eco mode disabled"), qsTr("Full visuals restored"), "energy_savings_leaf");
     }
@@ -100,7 +107,15 @@ Singleton {
         onTriggered: root.evalAuto()
     }
 
-    Component.onCompleted: root.evalAuto()
+    Component.onCompleted: {
+        root.evalAuto();
+        // Heal a scale=0 persisted by a crash mid-eco; re-assert eco's 0
+        // when booting straight into eco.
+        if (root.ecoActive)
+            GlobalConfig.appearance.anim.durations.scale = 0;
+        else if (GlobalConfig.appearance.anim.durations.scale === 0)
+            GlobalConfig.appearance.anim.durations.scale = props.prevAnimScale > 0 ? props.prevAnimScale : 1;
+    }
 
     Connections {
         function onConfigReloaded(): void {
@@ -117,6 +132,7 @@ Singleton {
         property bool enabled: false
         property bool autoOnBattery: true
         property bool toastOnChange: true
+        property real prevAnimScale: 1
 
         reloadableId: "powerSaver"
     }
