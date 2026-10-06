@@ -132,6 +132,14 @@ StyledRect {
                     }
                 }
                 DelegateChoice {
+                    roleValue: "eco"
+                    delegate: Toggle {
+                        icon: "energy_savings_leaf"
+                        checked: PowerSaver.ecoActive
+                        onClicked: PowerSaver.enabled = !PowerSaver.enabled
+                    }
+                }
+                DelegateChoice {
                     roleValue: "dnd"
                     delegate: Toggle {
                         icon: "notifications_off"

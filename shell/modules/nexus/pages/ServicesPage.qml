@@ -226,13 +226,33 @@ PageBase {
         }
 
         SelectRow {
-            last: true
             label: qsTr("GPU")
             subtext: Gpu.name ? qsTr("Monitoring: %1").arg(Gpu.name) : qsTr("Override for GPU type")
             menuOnTop: true
             menuItems: root.gpuItems
             active: root.gpuItems[root.gpuKeyToIndex(GlobalConfig.services.gpuType)]
             onSelected: item => GlobalConfig.services.gpuType = root.gpuValues[root.gpuItems.indexOf(item)]
+        }
+
+        // Power
+        SectionHeader {
+            text: qsTr("Power")
+        }
+
+        ToggleRow {
+            first: true
+            text: qsTr("Eco mode")
+            subtext: qsTr("Reduce visuals, video wallpaper and polling")
+            checked: PowerSaver.ecoActive
+            onToggled: PowerSaver.enabled = checked
+        }
+
+        ToggleRow {
+            last: true
+            text: qsTr("Auto eco on battery")
+            subtext: qsTr("Engage automatically at the low-battery warning level")
+            checked: PowerSaver.autoOnBattery
+            onToggled: PowerSaver.autoOnBattery = checked
         }
     }
 }

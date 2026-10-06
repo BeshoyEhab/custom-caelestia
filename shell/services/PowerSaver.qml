@@ -64,6 +64,8 @@ Singleton {
             root.setLowGfx();
         else
             root.restoreGfx();
+        if (props.toastOnChange)
+            root.ecoActive ? Toaster.toast(qsTr("Eco mode enabled"), qsTr("Reduced visuals and background work to save power"), "energy_savings_leaf") : Toaster.toast(qsTr("Eco mode disabled"), qsTr("Full visuals restored"), "energy_savings_leaf");
     }
 
     Connections {

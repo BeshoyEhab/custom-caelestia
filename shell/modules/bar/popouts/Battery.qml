@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell.Services.UPower
 import Caelestia.Config
 import qs.components
+import qs.components.controls
 import qs.services
 
 Column {
@@ -91,6 +92,28 @@ Column {
                     color: Colours.palette.m3onError
                 }
             }
+        }
+    }
+
+    Row {
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: Tokens.spacing.small
+
+        MaterialIcon {
+            anchors.verticalCenter: parent.verticalCenter
+            text: "energy_savings_leaf"
+            color: Colours.palette.m3onSurfaceVariant
+        }
+
+        StyledText {
+            anchors.verticalCenter: parent.verticalCenter
+            text: PowerSaver.ecoActive ? qsTr("Eco on") : qsTr("Eco off")
+        }
+
+        StyledSwitch {
+            anchors.verticalCenter: parent.verticalCenter
+            checked: PowerSaver.enabled
+            onToggled: PowerSaver.enabled = checked
         }
     }
 

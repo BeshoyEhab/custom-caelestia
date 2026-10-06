@@ -126,6 +126,14 @@ PageBase {
         }
 
         ToggleRow {
+            text: qsTr("Eco mode")
+            subtext: qsTr("Shell power saver (visuals, video, polling)")
+            disabled: !Config.utilities.cards.quickToggles
+            checked: root.isToggleOn("eco")
+            onToggled: root.setToggleOn("eco", checked)
+        }
+
+        ToggleRow {
             text: qsTr("Do not disturb")
             subtext: qsTr("Silence notifications")
             disabled: !Config.utilities.cards.quickToggles
