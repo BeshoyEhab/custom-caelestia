@@ -25,6 +25,7 @@ Singleton {
         && Wallpapers.actualCurrent !== ""
         && Images.isVideo(Wallpapers.actualCurrent)
         && root.workspaceVisible
+        && !PowerSaver.videoBlocked
 
     // True unless every output's active workspace is fullscreen-covered.
     // Fail-visible: unknown Hypr state keeps the video playing (never black).

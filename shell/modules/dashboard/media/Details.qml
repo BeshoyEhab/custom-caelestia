@@ -16,7 +16,7 @@ ColumnLayout {
     Timer {
         running: Players.active?.isPlaying ?? false
         // Clamped: stored configs may predate the raised stepper minimum.
-        interval: Math.max(500, GlobalConfig.dashboard.mediaUpdateInterval)
+        interval: Math.max(500, GlobalConfig.dashboard.mediaUpdateInterval) * PowerSaver.intervalStretch
         triggeredOnStart: true
         repeat: true
         onTriggered: Players.active?.positionChanged()

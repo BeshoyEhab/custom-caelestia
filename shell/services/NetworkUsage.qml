@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import Caelestia.Config
 import Caelestia.Internal
+import qs.services
 
 Singleton {
     id: root
@@ -156,7 +157,7 @@ Singleton {
 
     Timer {
         // Clamped: stored configs may predate the raised stepper minimum.
-        interval: Math.max(2000, GlobalConfig.dashboard.resourceUpdateInterval)
+        interval: Math.max(2000, GlobalConfig.dashboard.resourceUpdateInterval) * PowerSaver.intervalStretch
         running: root.refCount > 0
         repeat: true
         triggeredOnStart: true

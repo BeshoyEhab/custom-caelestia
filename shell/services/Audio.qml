@@ -7,6 +7,7 @@ import Quickshell.Services.Pipewire
 import Caelestia
 import Caelestia.Config
 import Caelestia.Services
+import qs.services
 
 Singleton {
     id: root
@@ -175,7 +176,7 @@ Singleton {
     CavaProvider {
         id: cava
 
-        bars: GlobalConfig.services.visualiserBars
+        bars: PowerSaver.ecoActive ? PowerSaver.ecoVisualiserBars : GlobalConfig.services.visualiserBars
     }
 
     BeatTracker {
