@@ -21,7 +21,7 @@ check() { # check <desc> <file> <grep-pattern>
     fi
 }
 
-check "Visualiser 30fps cap" "$S/modules/background/Visualiser.qml" "frameAccum"
+check "Visualiser 30fps cap" "$S/modules/background/Visualiser.qml" "frameAccum >= 1 / 30"
 check "Tray icon debounce" "$S/modules/bar/components/TrayItem.qml" "iconDebounce"
 check "Tray shown icon" "$S/modules/bar/components/TrayItem.qml" "shownIcon"
 check "ImageCache prune" "$S/plugin/src/Caelestia/Images/imagecacher.cpp" "prune"

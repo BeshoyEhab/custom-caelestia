@@ -51,8 +51,9 @@ Item {
             active: root.opacity > 0
 
             sourceComponent: Item {
-                // 30fps cap: accumulate frame time and advance the bars at
-                // most every 33ms. Halves repaint cost; motion stays smooth.
+                // 30fps cap: frameTime is SECONDS (see advance() contract in
+                // visualiserbars.cpp). Accumulate and advance at most every
+                // 1/30s. Halves repaint cost; motion stays smooth.
                 // (Flat audio already stops via bars.settled in advance().)
                 property real frameAccum: 0
 
@@ -84,7 +85,7 @@ Item {
                     running: root.opacity > 0 && !bars.settled
                     onTriggered: {
                         frameAccum += frameTime;
-                        if (frameAccum >= 33) {
+                        if (frameAccum >= 1 / 30) {
                             bars.advance(frameAccum);
                             frameAccum = 0;
                         }
