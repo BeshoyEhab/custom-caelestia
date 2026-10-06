@@ -244,7 +244,14 @@ PageBase {
             text: qsTr("Eco mode")
             subtext: qsTr("Reduce visuals, video wallpaper and polling")
             checked: PowerSaver.ecoActive
-            onToggled: PowerSaver.enabled = checked
+            onToggled: checked ? PowerSaver.enable() : PowerSaver.disable()
+        }
+
+        ToggleRow {
+            text: qsTr("Eco change toast")
+            subtext: qsTr("Notify when eco mode engages or releases")
+            checked: PowerSaver.toastOnChange
+            onToggled: PowerSaver.toastOnChange = checked
         }
 
         ToggleRow {

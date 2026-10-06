@@ -136,7 +136,7 @@ StyledRect {
                     delegate: Toggle {
                         icon: "energy_savings_leaf"
                         checked: PowerSaver.ecoActive
-                        onClicked: PowerSaver.enabled = !PowerSaver.enabled
+                        onClicked: PowerSaver.ecoActive ? PowerSaver.disable() : PowerSaver.enable()
                     }
                 }
                 DelegateChoice {

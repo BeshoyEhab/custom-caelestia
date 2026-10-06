@@ -107,7 +107,7 @@ Column {
 
         StyledText {
             anchors.verticalCenter: parent.verticalCenter
-            text: PowerSaver.ecoActive ? qsTr("Eco on") : qsTr("Eco off")
+            text: PowerSaver.ecoActive ? (PowerSaver.enabled ? qsTr("Eco on (manual)") : qsTr("Eco on (low battery)")) : qsTr("Eco off")
         }
 
         StyledSwitch {

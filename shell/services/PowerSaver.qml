@@ -13,6 +13,7 @@ Singleton {
 
     property alias enabled: props.enabled
     property alias autoOnBattery: props.autoOnBattery
+    property alias toastOnChange: props.toastOnChange
 
     readonly property bool hasBattery: UPower.displayDevice.isLaptopBattery
     readonly property bool onBattery: UPower.onBattery
@@ -70,7 +71,7 @@ Singleton {
 
     Connections {
         function onOnBatteryChanged(): void {
-            root.evalAuto();
+            evalCoalesce.restart();
         }
 
         target: UPower
@@ -78,7 +79,7 @@ Singleton {
 
     Connections {
         function onPercentageChanged(): void {
-            root.evalAuto();
+            evalCoalesce.restart();
         }
 
         target: UPower.displayDevice
@@ -86,11 +87,20 @@ Singleton {
 
     Connections {
         function onWarningLevelChanged(): void {
-            root.evalAuto();
+            evalCoalesce.restart();
         }
 
         target: GlobalConfig.general.battery
     }
+
+    Timer {
+        id: evalCoalesce
+        interval: 400
+        repeat: false
+        onTriggered: root.evalAuto()
+    }
+
+    Component.onCompleted: root.evalAuto()
 
     Connections {
         function onConfigReloaded(): void {
