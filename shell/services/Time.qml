@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Caelestia.Config
+import qs.services
 
 Singleton {
     id: root
@@ -40,7 +41,9 @@ Singleton {
     // Seconds wake the shell every second; only run when a visible
     // seconds consumer exists. Bar seconds are Loader-gated in
     // bar/components/Clock.qml:102; desktop clocks only exist when enabled.
-    readonly property bool secondsNeeded: Config.bar.clock.showSeconds || Config.background.desktopClock.enabled
+    // Dashboard seconds (dash/DateTime.qml:67) render whenever the dashboard
+    // is open, so keep ticking while it is visible to avoid frozen seconds.
+    readonly property bool secondsNeeded: Config.bar.clock.showSeconds || Config.background.desktopClock.enabled || (Visibilities.getForActive()?.dashboard ?? false)
 
     SystemClock {
         id: secClock
