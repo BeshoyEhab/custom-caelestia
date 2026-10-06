@@ -30,6 +30,9 @@ private:
     explicit ImageCacher(QObject* parent = nullptr);
 
     static void runJob(const QString& sourcePath, const QString& cachePath, const QSize& size, FillMode fillMode);
+    // Drop oldest entries beyond the caps (unbounded growth: every
+    // wallpaper x size/mode combo, incl. transient sizes, lives forever).
+    static void prune();
 
     QMutex m_mutex;
     QSet<QString> m_inflight;

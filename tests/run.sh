@@ -25,6 +25,7 @@ cd "$REPO_DIR"
 
 test_suite "install_test" "tests/install_test.sh"
 test_suite "qml_test"     "tests/qml_test.sh"
+test_suite "ram_cpu_test" "tests/qml_ram_cpu_test.sh"
 test_suite "widget_test"  "tests/widget_test.sh"
 
 echo ""

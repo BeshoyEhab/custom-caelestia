@@ -51,6 +51,11 @@ Item {
             active: root.opacity > 0
 
             sourceComponent: Item {
+                // 30fps cap: accumulate frame time and advance the bars at
+                // most every 33ms. Halves repaint cost; motion stays smooth.
+                // (Flat audio already stops via bars.settled in advance().)
+                property real frameAccum: 0
+
                 ServiceRef {
                     service: Audio.cava
                 }
@@ -77,7 +82,13 @@ Item {
 
                 FrameAnimation {
                     running: root.opacity > 0 && !bars.settled
-                    onTriggered: bars.advance(frameTime)
+                    onTriggered: {
+                        frameAccum += frameTime;
+                        if (frameAccum >= 33) {
+                            bars.advance(frameAccum);
+                            frameAccum = 0;
+                        }
+                    }
                 }
             }
         }

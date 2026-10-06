@@ -11,6 +11,7 @@
 #include <qpainter.h>
 #include <qsavefile.h>
 #include <qthreadpool.h>
+#include <algorithm>
 
 Q_LOGGING_CATEGORY(lcCacher, "caelestia.images.cacher", QtInfoMsg)
 
@@ -62,6 +63,14 @@ QString fillSuffix(ImageCacher::FillMode fillMode) {
 
 } // namespace
 
+namespace {
+
+// Newest entries are kept; the rest go once either cap is exceeded.
+constexpr int kMaxFiles = 200;
+constexpr qint64 kMaxBytes = 256LL * 1024 * 1024;
+
+} // namespace
+
 const QString& ImageCacher::cacheDir() {
     static const QString s_dir = [] {
         QString cache = qEnvironmentVariable("XDG_CACHE_HOME");
@@ -90,7 +99,37 @@ ImageCacher* ImageCacher::instance() {
 }
 
 ImageCacher::ImageCacher(QObject* parent)
-    : QObject(parent) {}
+    : QObject(parent) {
+    prune();
+}
+
+void ImageCacher::prune() {
+    QDir dir(cacheDir());
+    if (!dir.exists())
+        return;
+
+    QFileInfoList files = dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot, QDir::NoSort);
+    std::sort(files.begin(), files.end(), [](const QFileInfo& a, const QFileInfo& b) {
+        return a.lastModified() > b.lastModified(); // newest first
+    });
+
+    qint64 totalBytes = 0;
+    for (const QFileInfo& fi : std::as_const(files))
+        totalBytes += fi.size();
+
+    int removed = 0;
+    for (int i = 0; i < files.size(); ++i) {
+        if (i < kMaxFiles && totalBytes <= kMaxBytes)
+            continue;
+        if (QFile::remove(files[i].absoluteFilePath())) {
+            totalBytes -= files[i].size();
+            ++removed;
+        }
+    }
+
+    if (removed > 0)
+        qCInfo(lcCacher).noquote() << "prune: removed" << removed << "stale entries";
+}
 
 void ImageCacher::schedule(const QString& sourcePath, const QSize& size, FillMode fillMode) {
     schedule(sourcePath, cachePathFor(sourcePath, size, fillMode), size, fillMode);
