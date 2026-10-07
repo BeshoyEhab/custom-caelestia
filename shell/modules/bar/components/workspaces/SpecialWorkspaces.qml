@@ -22,6 +22,10 @@ Item {
     readonly property int activeIdx: wsIds.indexOf(activeSpecialId)
     readonly property real maxViewY: Math.max(0, view.contentHeight - height)
 
+    // Overlay box = the delegate circle; fallback pitch matches a compact
+    // (strip-less) delegate for when live delegates are absent mid-transition.
+    readonly property real circleSize: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall * 2
+
     readonly property Workspace activeWs: {
         // count/itemsDirty: itemAtIndex is a plain function call, so without
         // these the binding never re-evaluates when delegates appear.
@@ -169,6 +173,26 @@ Item {
         }
     }
 
+    // Active pill lives BELOW the delegates (z:0, file order): the
+    // focused circle is transparent so the pill shows through it, and
+    // strip icons paint over the pill. Circle-wide so empty rows read
+    // as exact circles.
+    Loader {
+        asynchronous: true
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: root.circleSize
+        // Gate on a real target: without it the pill renders at a stale
+        // position when no special workspace is open.
+        active: Config.bar.workspaces.activeIndicator && root.activeIdx >= 0
+        z: 0
+
+        sourceComponent: ActiveIndicator {
+            activeWs: root.activeWs
+            mask: view
+            color: Colours.palette.m3primary
+        }
+    }
+
     LazyListView {
         id: view
 
@@ -176,8 +200,10 @@ Item {
         anchors.right: parent.right
         implicitHeight: contentHeight
 
-        // Same pitch as the normal list (Workspaces.wsSpacing).
-        spacing: Tokens.spacing.extraSmall / 2
+        // Same rhythm as the normal list, including room for the active
+        // trail's tail (see wsSpacing there) so the pill never touches
+        // the next workspace.
+        spacing: Tokens.spacing.extraSmall / 2 + 7
         removeDuration: Tokens.anim.durations.expressiveDefaultEffects
 
         onContentHeightChanged: root.ensureVisible()
@@ -191,9 +217,9 @@ Item {
             ws: modelData
             monitor: root.monitor
             offMonitorColour: Colours.palette.m3outline
-            displayType: Config.bar.workspaces.specialDisplayType ?? BarWorkspaceDisplay.Icons
             showWindows: Config.bar.workspaces.showWindowsOnSpecialWorkspaces
-            iconRules: GlobalConfig.bar.workspaces.specialWorkspaceIcons ?? []
+            displayType: Config.bar.workspaces.specialDisplayType ?? BarWorkspaceDisplay.Icons
+            showAppIcon: Config.bar.workspaces.showAppIconOnSpecialWorkspaces ?? true
         }
 
         Behavior on y {
@@ -206,23 +232,6 @@ Item {
 
                 type: Anim.FastEffects
             }
-        }
-    }
-
-        Loader {
-            asynchronous: true
-            anchors.left: view.left
-            anchors.right: view.right
-            // Gate on a real target: without it the pill renders at a stale
-            // position when no special workspace is open.
-            active: Config.bar.workspaces.activeIndicator && root.activeIdx >= 0
-            z: 1
-
-        sourceComponent: ActiveIndicator {
-            activeWs: root.activeWs
-            mask: view
-            color: Colours.palette.m3tertiary
-            contentColour: Colours.palette.m3onTertiary
         }
     }
 
@@ -248,41 +257,25 @@ Item {
                     return ((w?.lastIpcObject?.windows ?? 0) > 0) || root.activeSpecialId === ws;
                 }
                 readonly property bool focused: root.activeSpecialId === ws
-                readonly property string appIcon: {
-                    Hypr.appIconsVersion;
-                    if (!(Config.bar.workspaces.showAppIcon ?? true) || !occupied)
-                        return "";
-                    return Hypr.appIconsPerWorkspace[ws] ?? "";
-                }
 
                     x: view.x
                     width: view.width
-                    y: view.y + (delegate ? delegate.y + view.contentY : index * (Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall + Tokens.spacing.extraSmall / 2))
-                    height: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall
+                    y: view.y + (delegate ? delegate.y + view.contentY : index * (root.circleSize + view.spacing))
+                    height: root.circleSize
 
-                StyledText {
-                    anchors.centerIn: parent
-                    visible: parent.appIcon === ""
-                    animate: true
-                    text: {
-                        const w = Hypr.workspaces.values.find(w => w.id === parent.ws);
-                        const wsName = !w || w.name == parent.ws ? parent.ws : w.name.replace(/^special:/, "")[0];
-                        return wsName;
+                    // Shared look with the normal list; special settings.
+                    WorkspaceContent {
+                        anchors.fill: parent
+                        ws: parent.ws
+                        occupied: parent.occupied
+                        focused: parent.focused
+                        displayType: Config.bar.workspaces.specialDisplayType ?? BarWorkspaceDisplay.Icons
+                        showAppIcon: Config.bar.workspaces.showAppIconOnSpecialWorkspaces ?? true
+                        activeLabel: Config.bar.workspaces.activeLabel
+                        occupiedLabel: Config.bar.workspaces.occupiedLabel
+                        label: Config.bar.workspaces.label
+                        capitalisation: Config.bar.workspaces.capitalisation
                     }
-                    color: parent.focused ? Colours.palette.m3onPrimary : (parent.occupied ? Colours.palette.m3onSurface : Colours.palette.m3onSurfaceVariant)
-                    verticalAlignment: Qt.AlignVCenter
-                    font.family: Tokens.font.workspaces
-                }
-
-                IconImage {
-                    anchors.centerIn: parent
-                    visible: parent.appIcon !== ""
-                    implicitSize: Tokens.sizes.bar.innerWidth * 0.55
-                    source: {
-                        Hypr.appIconsVersion;
-                        return parent.appIcon ? Quickshell.iconPath(parent.appIcon, "image-missing") : "";
-                    }
-                }
             }
         }
     }

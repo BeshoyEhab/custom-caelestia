@@ -33,7 +33,7 @@ PageBase {
             command: ["sh", "-c", "test -x ~/.config/quickshell/caelestia/scripts/update.sh"]
             onRunningChanged: {
                 if (!running)
-                    root.scriptAvailable = exitCode === 0;
+                    root.scriptAvailable = scriptCheckProc.exitCode === 0;
             }
         }
 
@@ -45,7 +45,7 @@ PageBase {
                     root.checking = false;
                     root.busyAction = "";
                     root.lastCheck = new Date().toLocaleDateString();
-                    if (exitCode === 0) {
+                    if (updateCheckProc.exitCode === 0) {
                         root.statusText = qsTr("Up to date");
                     } else {
                         const lines = text.trim().split("\n");
@@ -68,7 +68,7 @@ PageBase {
                     root.checking = false;
                     root.busyAction = "";
                     root.lastCheck = new Date().toLocaleDateString();
-                    root.statusText = exitCode === 0 ? qsTr("Update complete") : qsTr("Update failed");
+                    root.statusText = updateRunProc.exitCode === 0 ? qsTr("Update complete") : qsTr("Update failed");
                 }
             }
         }
@@ -80,7 +80,7 @@ PageBase {
                 if (!running) {
                     root.checking = false;
                     root.busyAction = "";
-                    root.statusText = exitCode === 0 ? qsTr("Deployment complete") : qsTr("Deployment failed");
+                    root.statusText = deployRunProc.exitCode === 0 ? qsTr("Deployment complete") : qsTr("Deployment failed");
                 }
             }
         }

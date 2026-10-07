@@ -34,6 +34,7 @@ PageBase {
 
         ToggleRow {
             first: true
+            last: Config.bar.persistent
             text: qsTr("Persistent")
             subtext: qsTr("Keep the bar visible at all times")
             checked: Config.bar.persistent
@@ -41,6 +42,7 @@ PageBase {
         }
 
         ToggleRow {
+            visible: !Config.bar.persistent
             text: qsTr("Show on hover")
             subtext: qsTr("Reveal the bar when the cursor reaches the screen edge")
             checked: Config.bar.showOnHover
@@ -48,6 +50,7 @@ PageBase {
         }
 
         StepperRow {
+            visible: !Config.bar.persistent
             last: true
             label: qsTr("Drag threshold")
             subtext: qsTr("Pixels dragged before the bar reveals")

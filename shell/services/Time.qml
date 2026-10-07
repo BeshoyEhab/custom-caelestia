@@ -16,7 +16,20 @@ Singleton {
     // must not re-evaluate (and invalidate every consumer) every second.
     readonly property int seconds: secClock.seconds
 
-    readonly property string timeStr: format(GlobalConfig.services.useTwelveHourClock ? "hh:mm:A" : "hh:mm")
+    // SystemClock(Minutes) reports the upcoming minute during wall-second
+    // :59 (verified: minute text flips a full second before :00). Invisible
+    // without a seconds reference — but when the seconds clock runs, derive
+    // from exact now (floored) so minute and seconds always agree. Costs
+    // nothing extra: per-second invalidation already happens then.
+    readonly property string timeStr: {
+        if (root.secondsNeeded) {
+            secClock.seconds; // subscribe per tick
+            const d = new Date();
+            d.setMilliseconds(0);
+            return Qt.formatDateTime(d, GlobalConfig.services.useTwelveHourClock ? "hh:mm:A" : "hh:mm");
+        }
+        return format(GlobalConfig.services.useTwelveHourClock ? "hh:mm:A" : "hh:mm");
+    }
     readonly property list<string> timeComponents: timeStr.split(":")
     readonly property string hourStr: timeComponents[0] ?? ""
     readonly property string minuteStr: timeComponents[1] ?? ""

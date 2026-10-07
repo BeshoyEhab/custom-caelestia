@@ -19,12 +19,11 @@ Item {
     required property int ws
     required property HyprlandMonitor monitor
 
-    required property int displayType
     required property bool showWindows
-    required property var iconRules
-    property string activeLabel
-    property string occupiedLabel
-    property string label
+    // Mirror of the overlay inputs (see WorkspaceContent): needed so the
+    // strip can hide whatever icon the circle already shows.
+    property int displayType: BarWorkspaceDisplay.Text
+    property bool showAppIcon: true
 
     // Chain from the bar (popout wiring lives in Workspaces/Bar); kept for
     // hook parity with the previous delegate.
@@ -36,16 +35,62 @@ Item {
     // Local Hypr service has no toplevelsForWs/isToplevelIgnored helpers, so
     // resolve occupancy here with the same semantics (unmapped or
     // tag-ignored toplevels do not count). Falls back to any mapped
-    // toplevel when the filter helper is absent.
+    // toplevel when the filter helper is absent. Special-workspace windows
+    // are excluded by name: the backend sometimes reports them under a
+    // normal workspace id, which leaked their icons onto normal circles.
     readonly property list<HyprlandToplevel> toplevels: {
         const ignored = GlobalConfig.bar.workspaces.ignoredTags ?? [];
         if (typeof Hypr.toplevelsForWs === "function")
             return Hypr.toplevelsForWs(ws, ignored);
         const filter = typeof Hypr.isToplevelIgnored === "function" ? t => Hypr.isToplevelIgnored(t, ignored) : t => !(t?.lastIpcObject?.mapped ?? false);
-        return Hypr.toplevels.values.filter(t => t.workspace && t.workspace.id === ws && !filter(t));
+        return Hypr.toplevels.values.filter(t => t.workspace && Hypr.wsKeyForToplevel(t) === ws && !filter(t));
     }
     readonly property bool isOccupied: toplevels.length > 0
-    readonly property bool hasWindows: isOccupied && showWindows && Config.bar.workspaces.maxWindowIcons > 0
+    // Window strip takes space only when there are windows to show, so
+    // empty workspaces stay compact. The content overlay tracks live
+    // delegate positions (like the active disc), so mixed row heights
+    // stay aligned.
+    readonly property bool stripActive: showWindows && Config.bar.workspaces.maxWindowIcons > 0
+    readonly property bool stripVisible: root.stripActive && root.displayedWindows.length > 0
+    // Address of the exact window the circle represents (same two-tier
+    // source as the icon map: last-focused window, else first window).
+    // That window is hidden from the strip so each window shows once,
+    // while same-class siblings still appear.
+    readonly property string circleAddr: {
+        if (!Hypr.circleShowsIcon(root.displayType, root.showAppIcon, root.focused))
+            return "";
+        const la = Hypr.lastActivePerWorkspace[ws];
+        if (la && Hypr.wsKeyForToplevel(la) === ws)
+            return la.lastIpcObject?.address ?? "";
+        const all = Hypr.toplevels.values ?? [];
+        for (let i = 0; i < all.length; i++) {
+            if (Hypr.wsKeyForToplevel(all[i]) === ws)
+                return all[i].lastIpcObject?.address ?? "";
+        }
+        return "";
+    }
+    // Window strip: one full workspace-sized circle per window in a
+    // single centered column with airy gaps — a beaded capsule under the
+    // workspace circle. Rows grow with the window count (capped by Max
+    // window icons); empty ones stay compact since the strip takes no
+    // space then.
+    // +8px tuck: the wash slides under the circle pill to hide the seam,
+    // reading as one connected unit; icons start below the tuck.
+    readonly property real windowIconSize: 14
+    readonly property int windowStripCols: 2
+    readonly property int windowStripRows: Math.max(1, Math.ceil(root.displayedWindows.length / windowStripCols))
+    readonly property real windowStripHeight: root.stripVisible ? (windowStripRows * (windowIconSize + 1)) : 0
+    readonly property var displayedWindows: {
+        const maxIcons = Config.bar.workspaces.maxWindowIcons;
+        if (!(maxIcons > 0))
+            return [];
+        let wins = toplevels.slice();
+        if (root.circleAddr !== "") {
+            const addr = root.circleAddr;
+            wins = wins.filter(w => w.lastIpcObject?.address !== addr);
+        }
+        return wins.slice(0, maxIcons);
+    }
     readonly property bool focused: activeWsId === ws
 
     property color offMonitorColour: Colours.palette.m3outlineVariant
@@ -66,13 +111,11 @@ Item {
     }
 
     // Classic indicator: tinted circle. Number/icon content lives in the
-    // overlay layer (Workspaces.qml) above the active disc.
-    // (Ported from the pre-rework design; the displayType/shape branch
-    // experiment is dropped.)
+    // shared WorkspaceContent overlay above the active disc.
     readonly property real circleSize: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall * 2
 
     anchors.horizontalCenter: parent?.horizontalCenter
-    LazyListView.preferredHeight: LazyListView.removing ? 0 : layout.implicitHeight + (hasWindows ? Tokens.padding.extraSmall : 0)
+    LazyListView.preferredHeight: LazyListView.removing ? 0 : layout.implicitHeight
     LazyListView.visibleHeight: LazyListView.preferredHeight
 
     opacity: LazyListView.removing || LazyListView.adding ? 0 : 1
@@ -118,7 +161,10 @@ Item {
                 (Colours.palette.m3primary.b + Colours.tPalette.m3surfaceContainer.b) / 2,
                 1
             ) : Colours.palette.m3surfaceContainerHighest
-            opacity: root.isOccupied || root.focused ? 1.0 : 0.5
+            // Transparent when focused: the active pill lives behind the
+            // delegates and shows through here, so one highlight contains
+            // the circle and its window apps while icons stay visible.
+            opacity: root.focused ? 0 : (root.isOccupied ? 1.0 : 0.5)
 
             Behavior on opacity {
                 enabled: root.animationsReady
@@ -128,72 +174,77 @@ Item {
             }
         }
 
-        Loader {
-            id: windows
-
-            asynchronous: true
-
+        // Bare icons in a centered two-column flow with no background of
+        // their own: they sit directly on the pill. Grows with the window
+        // count; empty workspaces take no space.
+        Item {
             Layout.fillWidth: true
-            Layout.topMargin: -Tokens.spacing.extraSmall / 2
-            Layout.preferredHeight: root.hasWindows && item ? (item as LazyListView).layoutHeight : 0
+            Layout.topMargin: Tokens.spacing.extraSmall / 2
+            Layout.preferredHeight: root.stripVisible ? root.windowStripHeight : 0
+            visible: root.stripVisible
+            clip: true
 
-            visible: active
-            active: root.showWindows && Config.bar.workspaces.maxWindowIcons > 0
+            Flow {
+                // Fixed two-column width: deterministic wrap. Deriving the
+                // width from childrenRect feeds back into the wrap and
+                // collapses to zero (all icons stacked) under async
+                // incubation, which is exactly how the special strip loads.
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: root.windowIconSize * root.windowStripCols + (root.windowStripCols - 1)
+                spacing: 1
 
-            sourceComponent: LazyListView {
-                spacing: 0
-                implicitHeight: contentHeight
-                removeDuration: Tokens.anim.durations.expressiveDefaultEffects
+                Repeater {
+                    model: root.displayedWindows
 
-                model: ScriptModel {
-                    values: {
-                        const windows = root.toplevels;
-                        const maxIcons = Config.bar.workspaces.maxWindowIcons;
-                        return maxIcons > 0 ? windows.slice(0, maxIcons) : windows;
-                    }
-                }
+                    Item {
+                        id: win
 
-                delegate: Item {
-                    id: win
+                        required property var modelData
+                        required property int index // Needed, Repeater will fail to set it if it doesn't exist
 
-                    required property var modelData
-                    required property int index // Needed, LazyListView will fail to set it if it doesn't exist
-
-                    // Real app icon when resolvable, monochrome category glyph
-                    // otherwise (same DesktopEntries lookup as Icons service).
-                    readonly property var appEntry: DesktopEntries.heuristicLookup(modelData.lastIpcObject.class)
-                    readonly property url appIconSource: appEntry?.icon ? Quickshell.iconPath(appEntry.icon) : ""
-
-                    implicitWidth: fallback.implicitWidth
-                    implicitHeight: fallback.implicitHeight
-
-                    CachingIconImage {
-                        anchors.fill: parent
-                        source: win.appIconSource
-                        visible: win.appIconSource != ""
-                    }
-
-                    MaterialIcon {
-                        id: fallback
-
-                        anchors.centerIn: parent
-                        grade: 0
-                        horizontalAlignment: Text.AlignHCenter
-                        text: Icons.getAppCategoryIcon(modelData.lastIpcObject.class, "terminal")
-                        color: root.onOtherMonitor ? root.offMonitorColour : Colours.palette.m3onSurfaceVariant
-                        visible: win.appIconSource == ""
-                    }
-
-                    opacity: LazyListView.adding || LazyListView.removing ? 0 : 1
-
-                    Behavior on opacity {
-                        Anim {
-                            type: Anim.DefaultEffects
+                        // Real app icon when resolvable, monochrome category glyph
+                        // otherwise (same DesktopEntries lookup as Icons service).
+                        // Re-resolves on every icon refresh: a one-shot lookup can
+                        // stick on empty when evaluated before the entry DB loads.
+                        readonly property var appEntry: {
+                            Hypr.appIconsVersion;
+                            return DesktopEntries.heuristicLookup(modelData.lastIpcObject.class);
                         }
-                    }
+                        readonly property url appIconSource: appEntry?.icon ? Quickshell.iconPath(appEntry.icon) : ""
 
-                    Behavior on y {
-                        Anim {}
+                        width: root.windowIconSize
+                        height: root.windowIconSize
+
+                        // Plain IconImage (same as the overlay): identical
+                        // rendering with no async-loader incubation races.
+                        // Synchronous: a failed async load would stick on
+                        // the fallback with nothing to retry it.
+                        IconImage {
+                            id: winImage
+
+                            anchors.fill: parent
+                            source: win.appIconSource
+                            visible: win.appIconSource != "" && winImage.status !== Image.Error
+                        }
+
+                        MaterialIcon {
+                            anchors.centerIn: parent
+                            grade: 0
+                            horizontalAlignment: Text.AlignHCenter
+                            text: Icons.getAppCategoryIcon(modelData.lastIpcObject.class, "terminal")
+                            color: root.onOtherMonitor ? root.offMonitorColour : Colours.palette.m3onSurfaceVariant
+                            visible: win.appIconSource == "" || winImage.status === Image.Error
+                            font.pixelSize: root.windowIconSize
+                        }
+
+                        opacity: root.animationsReady ? 1 : 0
+
+                        Behavior on opacity {
+                            Anim {
+                                type: Anim.DefaultEffects
+                            }
+                        }
                     }
                 }
             }

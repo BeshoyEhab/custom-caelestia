@@ -48,7 +48,7 @@ Singleton {
         let biggest = null;
         let biggestArea = 0;
         for (const t of toplevels) {
-            if (t.workspace?.id !== wsId)
+            if (wsKeyForToplevel(t) !== wsId)
                 continue;
             const ipc = t.lastIpcObject;
             const area = (ipc?.size?.[0] ?? 0) * (ipc?.size?.[1] ?? 0);
@@ -72,12 +72,47 @@ Singleton {
         return "";
     }
 
+    // Workspace key for a toplevel, robust against special-workspace
+    // misattribution: the backend sometimes reports a special window under
+    // a normal workspace id AND name, which leaked special app icons (and
+    // occupancy) onto normal circles. Neither back-reference field can be
+    // trusted for these windows, so membership is proven by address against
+    // the authoritative workspace -> windows direction. Unresolvable entries
+    // are skipped (never attributed to a normal workspace).
+    // Single source for the circle-icon visibility rule (overlay content
+    // and window-strip exclusion both follow it): icons mode, icons
+    // enabled, and — on the focused workspace — the explicit opt-in to
+    // show the icon there instead of the label.
+    function circleShowsIcon(displayType: int, showAppIcon: bool, focused: bool): bool {
+        return displayType === BarWorkspaceDisplay.Icons && showAppIcon && (!focused || (Config.bar.workspaces.showAppIconOnActive ?? false));
+    }
+
+    function wsKeyForToplevel(t: var): var {
+        const addr = t?.lastIpcObject?.address;
+        if (addr) {
+            for (const w of (Hyprland.workspaces.values ?? [])) {
+                if (typeof w.name !== "string" || !w.name.startsWith("special:"))
+                    continue;
+                for (const st of (w.toplevels?.values ?? [])) {
+                    if (st?.lastIpcObject?.address === addr)
+                        return w.id;
+                }
+            }
+        }
+        const nm = t?.workspace?.name;
+        if (typeof nm === "string" && nm.startsWith("special:")) {
+            const match = (Hyprland.workspaces.values ?? []).find(w => w.name === nm);
+            return match ? match.id : undefined;
+        }
+        return t?.workspace?.id;
+    }
+
     function updateAppIcons() {
         const newIcons = {};
         const toplevels = Hyprland.toplevels?.values ?? [];
         const seenWs = new Set();
         for (const t of toplevels) {
-            const wsId = t.workspace?.id;
+            const wsId = wsKeyForToplevel(t);
             if (wsId == null || seenWs.has(wsId))
                 continue;
             seenWs.add(wsId);
@@ -95,13 +130,13 @@ Singleton {
         for (const wsIdStr of Object.keys(lastActive)) {
             const wsId = Number(wsIdStr);
             const lastToplevel = lastActive[wsId];
-            if (lastToplevel && lastToplevel.workspace?.id === wsId) {
+            if (lastToplevel && wsKeyForToplevel(lastToplevel) === wsId) {
                 const cls = lastToplevel.lastIpcObject?.class ?? "";
                 newIcons[wsId] = lookupAppIcon(cls);
             }
         }
         for (const t of toplevels) {
-            const wsId = t.workspace?.id;
+            const wsId = wsKeyForToplevel(t);
             if (wsId == null || newIcons[wsId])
                 continue;
             const cls = t.lastIpcObject?.class ?? "";
@@ -118,6 +153,13 @@ Singleton {
         onTriggered: root.updateLastActiveIcons()
     }
 
+    // Seed the icon map on load: change-driven updates alone can leave it
+    // empty (e.g. QML hot-reload with an already-populated, unchanged
+    // model fires no change signal to rebuild from).
+    function seedAppIcons(): void {
+        focusTracker.start();
+    }
+
     Connections {
         target: Hyprland.toplevels
         function onValuesChanged() {
@@ -130,7 +172,7 @@ Singleton {
         function onActiveToplevelChanged() {
             const t = Hyprland.activeToplevel;
             if (!t) return;
-            const wsId = t.workspace?.id;
+            const wsId = root.wsKeyForToplevel(t);
             if (wsId == null) return;
             const newLastActive = Object.assign({}, root.lastActivePerWorkspace);
             newLastActive[wsId] = t;
@@ -199,7 +241,10 @@ Singleton {
     }
 
     onUsingLuaChanged: reloadDynamicConfs()
-    Component.onCompleted: reloadDynamicConfs()
+    Component.onCompleted: {
+        reloadDynamicConfs();
+        seedAppIcons();
+    }
 
     onCapsLockChanged: {
         if (!GlobalConfig.utilities.toasts.capsLockChanged)

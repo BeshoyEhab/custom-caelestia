@@ -20,18 +20,27 @@ StyledClippingRect {
     readonly property bool onSpecial: monitor?.lastIpcObject.specialWorkspace?.name !== ""
     readonly property int activeWsId: monitor.activeWorkspace?.id ?? 1
     readonly property int activeWsIdx: workspaceIndex(activeWsId)
+    // Active-pill target: starts on the active workspace immediately, no
+    // intro glide. itemsDirty+count: itemAtIndex alone never notifies, so
+    // the pill would stick when delegates appear after it.
+    readonly property int activeTargetIdx: activeWsIdx
+    readonly property var activeTargetDelegate: {
+        workspaces.itemsDirty;
+        workspaces.count;
+        return activeTargetIdx >= 0 ? workspaces.itemAtIndex(activeTargetIdx) as Workspace : null;
+    }
     readonly property int shown: Math.max(1, Config.bar.workspaces.shown)
     readonly property real circleSize: Tokens.sizes.bar.innerWidth - Tokens.padding.extraSmall * 2
-    readonly property real itemStep: circleSize + 2
 
     // Task 1 keys are source-built, not installed: fall back to true so the
     // bar keeps the fixed-group behaviour until the plugin is reinstalled.
     readonly property bool showUnoccupied: Config.bar.workspaces.showUnoccupied ?? true
 
-    // Single source for the workspace row pitch: matches the pre-rework
-    // rhythm (circle + 2px). The LazyListView spacing below uses it, so the
-    // classic indicator math stays aligned with the delegates.
-    readonly property real wsSpacing: root.itemStep - root.circleSize
+    // Row pitch and gaps. The list gap leaves room for the active
+    // trail's tail (half a window icon, 7px — keep in sync with
+    // ActiveIndicator) so the pill never touches the next workspace.
+    readonly property real wsSpacing: 2 + 7
+    readonly property real itemStep: circleSize + wsSpacing
 
     readonly property var wsIds: {
         if (root.showUnoccupied)
@@ -51,7 +60,9 @@ StyledClippingRect {
                 return false;
             if (w.id === activeWsId)
                 return true;
-            const tops = w.toplevels?.values ?? [];
+            // Attributed by key (not raw membership): special windows must
+            // not mark normal workspaces occupied.
+            const tops = (w.toplevels?.values ?? []).filter(t => Hypr.wsKeyForToplevel(t) === w.id);
             if (hasFilter)
                 return tops.some(t => !Hypr.isToplevelIgnored(t, ignoredTags));
             return tops.length > 0 || (w.lastIpcObject?.windows ?? 0) > 0;
@@ -164,6 +175,27 @@ StyledClippingRect {
             }
         }
 
+        // Active pill lives BELOW the delegates (z:0, file order): the
+        // focused circle is transparent so the pill shows through it, and
+        // strip icons paint over the pill. Circle-wide (not list-wide) so
+        // empty rows read as exact circles; strips still fit inside it.
+        Loader {
+            asynchronous: true
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: root.circleSize
+            // Gate on a real delegate (not just a valid index): without it
+            // the pill errors on its required activeWs mid-transition and
+            // renders at a stale position when delegates are absent.
+            active: Config.bar.workspaces.activeIndicator && root.activeTargetDelegate
+            z: 0
+
+            sourceComponent: ActiveIndicator {
+                activeWs: root.activeTargetDelegate
+                mask: workspaces
+                color: Colours.palette.m3primary
+            }
+        }
+
         LazyListView {
             id: workspaces
 
@@ -186,17 +218,14 @@ StyledClippingRect {
                 monitor: root.monitor
                 bar: root.bar
 
+                showWindows: Config.bar.workspaces.showWindows
                 // Backend default is Icons (2); ?? must match it, because
                 // per-screen Config reads of never-set keys yield undefined.
                 // Prefer the global value: per-screen Config reads of keys
                 // absent from shell.json yield undefined here even when the
                 // backend default exists. Fallback matches backend default.
                 displayType: GlobalConfig.bar.workspaces.displayType ?? Config.bar.workspaces.displayType ?? BarWorkspaceDisplay.Text
-                showWindows: Config.bar.workspaces.showWindows
-                iconRules: GlobalConfig.bar.workspaces.workspaceIcons ?? []
-                activeLabel: Config.bar.workspaces.activeLabel
-                occupiedLabel: Config.bar.workspaces.occupiedLabel
-                label: Config.bar.workspaces.label
+                showAppIcon: Config.bar.workspaces.showAppIcon ?? true
             }
         }
 
@@ -221,67 +250,21 @@ StyledClippingRect {
             }
         }
 
-        // Active disc: solid primary, slides with Emphasized easing. It sits
-        // below the delegate list (z:2 above), so numbers/icons stay visible;
-        // the focused circle goes transparent to reveal it. Position tracks
-        // the live delegate (not pitch math) so variable-height rows with
-        // window icons stay aligned.
-        Rectangle {
-            // Starts on the first workspace every load, then glides to the
-            // active one once animations arm.
-            property int targetIdx: root.animationsReady ? root.activeWsIdx : 0
-
-            // itemsDirty+count: itemAtIndex alone never notifies, so the disc
-            // would stick off-screen when delegates appear after it.
-            readonly property var targetDelegate: {
-                workspaces.itemsDirty;
-                workspaces.count;
-                return targetIdx >= 0 ? workspaces.itemAtIndex(targetIdx) : null;
-            }
-
-            x: (root.width - root.circleSize) / 2
-            y: targetDelegate ? targetDelegate.y + workspaces.contentY + workspaces.y : -root.circleSize
-            width: root.circleSize
-            height: root.circleSize
-            radius: width / 2
-            color: Colours.palette.m3primary
-            opacity: (targetIdx >= 0 && targetIdx < root.wsIds.length) && Config.bar.workspaces.activeIndicator ? 1 : 0
-            z: 1
-
-            Behavior on y {
-                enabled: root.animationsReady
-                Anim {
-                    type: Anim.Emphasized
-                }
-            }
-            Behavior on opacity {
-                enabled: root.animationsReady
-                Anim {
-                    type: Anim.DefaultEffects
-                }
-            }
-        }
-
-        // Content overlay: numbers + app icons above the active disc (old
-        // numbers-layer architecture: circles z:0, disc z:1, content z:2).
+        // Content overlay: numbers + app icons above the active pill (old
+        // numbers-layer architecture: circles z:0, pill z:0 below them,
+        // content z:2).
         Item {
             id: contentOverlay
 
             anchors.fill: parent
             z: 2
 
-            function trimWsName(name: string): string {
-                if (typeof Hypr.trimWsName === "function")
-                    return Hypr.trimWsName(name);
-                return name.startsWith("special:") ? name.slice("special:".length) : name;
-            }
-
             Repeater {
                 model: root.wsIds.length
 
-                // Fixed-pitch positioning like the classic numbers layer (no
-                // delegate lookup: itemAtIndex is null-prone during list
-                // transitions and silently blanks the overlay).
+                // Live delegate position when available (exact with mixed
+                // row heights from window strips), compact-pitch fallback
+                // for list transitions when delegates are briefly absent.
                 Item {
                     required property int index
 
@@ -291,67 +274,37 @@ StyledClippingRect {
                         return ((w?.lastIpcObject?.windows ?? 0) > 0) || root.activeWsId === ws;
                     }
                     readonly property bool focused: root.activeWsId === ws
-                    readonly property string appIcon: {
-                        Hypr.appIconsVersion;
-                        if (!(Config.bar.workspaces.showAppIcon ?? true) || !occupied)
-                            return "";
-                        return Hypr.appIconsPerWorkspace[ws] ?? "";
+                    readonly property var delegate: {
+                        workspaces.itemsDirty;
+                        workspaces.count;
+                        return workspaces.itemAtIndex(index);
                     }
 
                     x: workspaces.x
                     width: workspaces.width
-                    // Same box as the delegate circle: list offset + pitch.
-                    // (No extra padding: workspaces.y already holds the top
-                    // margin; adding it again drifts every row downward.)
-                    y: workspaces.y + index * root.itemStep
+                    // Same box as the delegate circle (no extra padding:
+                    // workspaces.y already holds the top margin; adding it
+                    // again drifts every row downward).
+                    y: workspaces.y + (delegate ? delegate.y + workspaces.contentY : index * root.itemStep)
                     height: root.circleSize
 
-                    StyledText {
-                        anchors.centerIn: parent
-                        visible: parent.appIcon === ""
-                        animate: true
-                        text: {
-                            // Backend label defaults are blank padding ("  "),
-                            // so only non-blank labels override the number.
-                            if (parent.focused) {
-                                const label = Config.bar.workspaces.activeLabel;
-                                if (label && label.trim())
-                                    return label;
-                            }
-
-                            if (parent.focused || parent.occupied) {
-                                const label = Config.bar.workspaces.occupiedLabel;
-                                if (label && label.trim())
-                                    return label;
-                            }
-
-                            const label = Config.bar.workspaces.label;
-                            if (label && label.trim())
-                                return label;
-
-                            const w = Hypr.workspaces.values.find(w => w.id === parent.ws);
-                            const wsName = !w || w.name == parent.ws ? parent.ws : contentOverlay.trimWsName(w.name)[0];
-
-                            const capitalisation = Config.bar.workspaces.capitalisation;
-                            if (capitalisation === BarWorkspaceCapitalisation.Upper || String(capitalisation).toLowerCase() === "upper")
-                                return String(wsName).toUpperCase();
-                            else if (capitalisation === BarWorkspaceCapitalisation.Lower || String(capitalisation).toLowerCase() === "lower")
-                                return String(wsName).toLowerCase();
-                            return wsName;
-                        }
-                        color: parent.focused ? Colours.palette.m3onPrimary : (parent.occupied ? Colours.palette.m3onSurface : Colours.palette.m3onSurfaceVariant)
-                        verticalAlignment: Qt.AlignVCenter
-                        font.family: Tokens.font.workspaces
-                    }
-
-                    IconImage {
-                        anchors.centerIn: parent
-                        visible: parent.appIcon !== ""
-                        implicitSize: Tokens.sizes.bar.innerWidth * 0.55
-                        source: {
-                            Hypr.appIconsVersion;
-                            return parent.appIcon ? Quickshell.iconPath(parent.appIcon, "image-missing") : "";
-                        }
+                    // Shared look with the special strip; normal settings.
+                    // Backend default is Icons (2); ?? must match it, because
+                    // per-screen Config reads of never-set keys yield undefined.
+                    // Prefer the global value: per-screen Config reads of keys
+                    // absent from shell.json yield undefined here even when the
+                    // backend default exists. Fallback matches backend default.
+                    WorkspaceContent {
+                        anchors.fill: parent
+                        ws: parent.ws
+                        occupied: parent.occupied
+                        focused: parent.focused
+                        displayType: GlobalConfig.bar.workspaces.displayType ?? Config.bar.workspaces.displayType ?? BarWorkspaceDisplay.Text
+                        showAppIcon: Config.bar.workspaces.showAppIcon ?? true
+                        activeLabel: Config.bar.workspaces.activeLabel
+                        occupiedLabel: Config.bar.workspaces.occupiedLabel
+                        label: Config.bar.workspaces.label
+                        capitalisation: Config.bar.workspaces.capitalisation
                     }
                 }
             }
@@ -368,6 +321,8 @@ StyledClippingRect {
                     return;
 
                 if (event.button === Qt.RightButton) {
+                    if (!Config.bar.workspaces.workspacePreviewEnabled)
+                        return;
                     if (root.bar?.popouts) {
                         root.bar.popouts.workspacePreviewId = ws;
                         const wsObj = Hypr.workspaces.values.find(w => w.id === ws);

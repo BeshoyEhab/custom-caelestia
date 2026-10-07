@@ -2,7 +2,6 @@ import QtQuick
 import Caelestia.Components
 import Caelestia.Config
 import qs.components
-import qs.components.effects
 import qs.services
 
 StyledRect {
@@ -10,7 +9,6 @@ StyledRect {
 
     required property Workspace activeWs
     required property Item mask
-    property alias contentColour: colouriser.colorizationColor
 
     property real start
     property real end
@@ -41,8 +39,10 @@ StyledRect {
             return;
         }
 
+        // Fast glide (not the slow default spatial): snappy workspace
+        // switching. The trail asymmetry stays via activeTrail.
         const goingUp = newStart < start;
-        const leadingDuration = Tokens.anim.durations.expressiveDefaultSpatial;
+        const leadingDuration = Tokens.anim.durations.expressiveFastSpatial;
         const trailingDuration = leadingDuration * (Config.bar.workspaces.activeTrail ? 1.5 : 1);
 
         startAnim.stop();
@@ -60,16 +60,25 @@ StyledRect {
 
     clip: true
     y: start + mask.y
-    implicitHeight: end - start
+    // Full delegate height plus one half-icon of tail below, so the
+    // trail reads longer without moving any icons or spacing. Row gaps
+    // leave room for the tail (see wsSpacing), so it never touches the
+    // next workspace. Null-safe: evaluated during teardown after activeWs
+    // is gone.
+    implicitHeight: end - start + (activeWs?.windowIconSize ?? 0) / 2
     radius: Tokens.rounding.full
     color: Colours.palette.m3primary
 
     Anim on start {
         id: startAnim
+
+        type: Anim.FastSpatial
     }
 
     Anim on end {
         id: endAnim
+
+        type: Anim.FastSpatial
     }
 
     Connections {
@@ -82,20 +91,5 @@ StyledRect {
         }
 
         target: root.activeWs?.LazyListView ?? null
-    }
-
-    Colouriser {
-        id: colouriser
-
-        source: root.mask
-        sourceColor: Colours.palette.m3onSurface
-        colorizationColor: Colours.palette.m3onPrimary
-
-        x: 0
-        y: -parent.start
-        implicitWidth: root.mask.width
-        implicitHeight: root.mask.height
-
-        anchors.horizontalCenter: parent.horizontalCenter
     }
 }

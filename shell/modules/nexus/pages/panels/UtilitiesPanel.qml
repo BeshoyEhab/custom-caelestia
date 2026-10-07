@@ -8,23 +8,32 @@ PageBase {
     id: root
 
     function isToggleOn(id: string): bool {
-        const item = Config.utilities.quickToggles.values.find(t => t.id === id);
+        // Config.* lists are plain JS arrays (cf. Toggles.qml which calls
+        // .filter directly). GlobalConfig.* lists are model wrappers with
+        // .values/.at()/.insert() — do not use .values here.
+        const list = Config.utilities.quickToggles;
+        if (!Array.isArray(list))
+            return false;
+        const item = list.find(t => t.id === id);
         return item?.enabled ?? false;
     }
 
     function setToggleOn(id: string, on: bool): void {
+        // GlobalConfig lists are plain JS arrays (no .at()/.insert() model
+        // API — calling those throws). Mutate and write the whole list back
+        // so the change notifies and persists.
         const list = GlobalConfig.utilities.quickToggles;
-        for (let i = 0; i < list.count; i++) {
-            const item = list.at(i);
-            if (item.id === id) {
-                item.enabled = on;
-                return;
-            }
-        }
-        list.insert({
-            id,
-            enabled: on
-        });
+        if (!Array.isArray(list))
+            return;
+        const item = list.find(t => t.id === id);
+        if (item)
+            item.enabled = on;
+        else
+            list.push({
+                id: id,
+                enabled: on
+            });
+        GlobalConfig.utilities.quickToggles = list;
     }
 
     title: qsTr("Utilities")

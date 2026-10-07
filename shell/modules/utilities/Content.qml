@@ -13,7 +13,8 @@ Item {
     required property BarPopouts.Wrapper popouts
     required property matrix4x4 deformMatrix
 
-    readonly property real nonAnimHeight: idleInhibit.nonAnimHeight + record.nonAnimHeight + toggles.implicitHeight + layout.spacing * 2
+    readonly property int enabledCards: (idleInhibit.active ? 1 : 0) + (record.active ? 1 : 0) + (toggles.active ? 1 : 0)
+    readonly property real nonAnimHeight: ((idleInhibit.item as IdleInhibit)?.nonAnimHeight ?? 0) + ((record.item as Record)?.nonAnimHeight ?? 0) + ((toggles.item as Toggles)?.implicitHeight ?? 0) + layout.spacing * Math.max(0, enabledCards - 1)
 
     implicitWidth: layout.implicitWidth
     implicitHeight: layout.implicitHeight
@@ -24,23 +25,41 @@ Item {
         anchors.fill: parent
         spacing: Tokens.spacing.medium
 
-        IdleInhibit {
+        Loader {
             id: idleInhibit
+
+            Layout.fillWidth: true
+            active: Config.utilities.cards.keepAwake ?? true
+            visible: active
+
+            sourceComponent: IdleInhibit {}
         }
 
-        Record {
+        Loader {
             id: record
 
-            props: root.props
-            visibilities: root.visibilities
+            Layout.fillWidth: true
+            active: Config.utilities.cards.recorder ?? true
+            visible: active
             z: 1
+
+            sourceComponent: Record {
+                props: root.props
+                visibilities: root.visibilities
+            }
         }
 
-        Toggles {
+        Loader {
             id: toggles
 
-            visibilities: root.visibilities
-            popouts: root.popouts
+            Layout.fillWidth: true
+            active: Config.utilities.cards.quickToggles ?? true
+            visible: active
+
+            sourceComponent: Toggles {
+                visibilities: root.visibilities
+                popouts: root.popouts
+            }
         }
     }
 

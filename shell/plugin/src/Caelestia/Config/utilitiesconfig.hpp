@@ -44,6 +44,19 @@ public:
         : ConfigObject(parent) {}
 };
 
+class UtilitiesCards : public ConfigObject {
+    Q_OBJECT
+    QML_ANONYMOUS
+
+    CONFIG_PROPERTY(bool, keepAwake, true)
+    CONFIG_PROPERTY(bool, recorder, true)
+    CONFIG_PROPERTY(bool, quickToggles, true)
+
+public:
+    explicit UtilitiesCards(QObject* parent = nullptr)
+        : ConfigObject(parent) {}
+};
+
 class UtilitiesConfig : public ConfigObject {
     Q_OBJECT
     QML_ANONYMOUS
@@ -52,6 +65,7 @@ class UtilitiesConfig : public ConfigObject {
     CONFIG_PROPERTY(int, maxToasts, 4)
     CONFIG_SUBOBJECT(UtilitiesToasts, toasts)
     CONFIG_SUBOBJECT(UtilitiesVpn, vpn)
+    CONFIG_SUBOBJECT(UtilitiesCards, cards)
     CONFIG_PROPERTY(QVariantList, quickToggles,
         {
             vmap({ { u"id"_s, u"wifi"_s }, { u"enabled"_s, true } }),
@@ -68,7 +82,8 @@ public:
     explicit UtilitiesConfig(QObject* parent = nullptr)
         : ConfigObject(parent)
         , m_toasts(new UtilitiesToasts(this))
-        , m_vpn(new UtilitiesVpn(this)) {}
+        , m_vpn(new UtilitiesVpn(this))
+        , m_cards(new UtilitiesCards(this)) {}
 };
 
 } // namespace caelestia::config

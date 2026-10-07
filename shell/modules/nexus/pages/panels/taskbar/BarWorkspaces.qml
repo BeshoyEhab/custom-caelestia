@@ -60,6 +60,20 @@ PageBase {
             onToggled: GlobalConfig.bar.workspaces.showAppIcon = checked
         }
 
+        ToggleRow {
+            text: qsTr("Show app icon on special")
+            subtext: qsTr("Show app icons in the special workspaces strip")
+            checked: Config.bar.workspaces.showAppIconOnSpecialWorkspaces ?? true
+            onToggled: GlobalConfig.bar.workspaces.showAppIconOnSpecialWorkspaces = checked
+        }
+
+        ToggleRow {
+            text: qsTr("App icon on active")
+            subtext: qsTr("Show the app icon on the focused workspace (otherwise its label)")
+            checked: Config.bar.workspaces.showAppIconOnActive ?? false
+            onToggled: GlobalConfig.bar.workspaces.showAppIconOnActive = checked
+        }
+
         SelectRow {
             label: qsTr("Workspace display")
             subtext: qsTr("Shapes, text or app icons in the bar")
@@ -78,6 +92,27 @@ PageBase {
             onSelected: {
                 const map = [0, 1, 2];
                 GlobalConfig.bar.workspaces.displayType = map[menuItems.indexOf(item)] ?? 1;
+            }
+        }
+
+        SelectRow {
+            label: qsTr("Special workspace display")
+            subtext: qsTr("Shapes, text or app icons for the special strip")
+            menuItems: [
+                MenuItem {
+                    text: qsTr("Shapes")
+                },
+                MenuItem {
+                    text: qsTr("Text")
+                },
+                MenuItem {
+                    text: qsTr("Icons")
+                }
+            ]
+            active: menuItems[Config.bar.workspaces.specialDisplayType ?? 2] ?? menuItems[2]
+            onSelected: {
+                const map = [0, 1, 2];
+                GlobalConfig.bar.workspaces.specialDisplayType = map[menuItems.indexOf(item)] ?? 2;
             }
         }
 
@@ -102,6 +137,73 @@ PageBase {
             to: 20
             stepSize: 1
             onMoved: v => GlobalConfig.bar.workspaces.maxWindowIcons = v
+        }
+
+        ToggleRow {
+            text: qsTr("Workspace preview")
+            subtext: qsTr("Show the window list when right-clicking a workspace")
+            checked: Config.bar.workspaces.workspacePreviewEnabled ?? true
+            onToggled: GlobalConfig.bar.workspaces.workspacePreviewEnabled = checked
+        }
+
+        SectionHeader {
+            text: qsTr("Labels")
+        }
+
+        TextFieldRow {
+            first: true
+            label: qsTr("Default label")
+            subtext: qsTr("Text for empty workspaces (empty = number)")
+            value: (Config.bar.workspaces.label ?? "").trim()
+            placeholderText: "1"
+            maximumLength: 3
+            smallField: true
+            onEditingFinished: value => GlobalConfig.bar.workspaces.label = value.trim() || "  "
+        }
+
+        TextFieldRow {
+            label: qsTr("Occupied label")
+            subtext: qsTr("Text for workspaces with windows (empty = number)")
+            value: (Config.bar.workspaces.occupiedLabel ?? "").trim()
+            placeholderText: "󰮯"
+            maximumLength: 3
+            smallField: true
+            onEditingFinished: value => GlobalConfig.bar.workspaces.occupiedLabel = value.trim() || "  "
+        }
+
+        TextFieldRow {
+            label: qsTr("Active label")
+            subtext: qsTr("Text for the focused workspace (empty = number)")
+            value: (Config.bar.workspaces.activeLabel ?? "").trim()
+            placeholderText: "󰮯"
+            maximumLength: 3
+            smallField: true
+            onEditingFinished: value => GlobalConfig.bar.workspaces.activeLabel = value.trim() || "  "
+        }
+
+        SelectRow {
+            last: true
+            label: qsTr("Capitalisation")
+            subtext: qsTr("Case for workspace names")
+            menuItems: [
+                MenuItem {
+                    text: qsTr("Preserve")
+                },
+                MenuItem {
+                    text: qsTr("Uppercase")
+                },
+                MenuItem {
+                    text: qsTr("Lowercase")
+                }
+            ]
+            active: {
+                const cap = String(Config.bar.workspaces.capitalisation ?? "preserve").toLowerCase();
+                return menuItems[cap === "upper" ? 1 : cap === "lower" ? 2 : 0];
+            }
+            onSelected: {
+                const map = ["preserve", "upper", "lower"];
+                GlobalConfig.bar.workspaces.capitalisation = map[menuItems.indexOf(item)] ?? "preserve";
+            }
         }
 
         SectionHeader {
