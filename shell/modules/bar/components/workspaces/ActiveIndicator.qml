@@ -60,12 +60,14 @@ StyledRect {
 
     clip: true
     y: start + mask.y
-    // Full delegate height plus one half-icon of tail below, so the
-    // trail reads longer without moving any icons or spacing. Row gaps
+    // Full delegate height plus a half-icon tail below, so the trail
+    // reads longer without moving any icons or spacing. The tail only
+    // applies when the active workspace actually shows a strip — with no
+    // (or no visible) windows the pill stays an exact circle. Row gaps
     // leave room for the tail (see wsSpacing), so it never touches the
     // next workspace. Null-safe: evaluated during teardown after activeWs
     // is gone.
-    implicitHeight: end - start + (activeWs?.windowIconSize ?? 0) / 2
+    implicitHeight: end - start + ((activeWs?.stripVisible ?? false) ? (activeWs?.windowIconSize ?? 0) / 2 : 0)
     radius: Tokens.rounding.full
     color: Colours.palette.m3primary
 

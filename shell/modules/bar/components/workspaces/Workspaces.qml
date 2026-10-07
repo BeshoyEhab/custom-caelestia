@@ -165,6 +165,7 @@ StyledClippingRect {
             sourceComponent: OccupiedBg {
                 workspaces: root.workspaceItems
                 wsSpacing: root.wsSpacing
+                circleSize: root.circleSize
             }
 
             Behavior on opacity {

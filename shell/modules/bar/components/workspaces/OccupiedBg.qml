@@ -10,6 +10,9 @@ Item {
 
     required property var workspaces
     required property int wsSpacing
+    // Same width treatment as the active trail (circle-wide, centered)
+    // so the two highlights match instead of stacking mismatched pills.
+    required property real circleSize
 
     // Connected primary-tinted pill (classic look): no separations, true color.
     readonly property color colour: Qt.rgba(
@@ -80,12 +83,11 @@ Item {
                     readonly property var first: root.workspaces[group.from]
                     readonly property var last: root.workspaces[group.to]
 
-                    anchors.left: parent?.left
-                    anchors.right: parent?.right
-                    anchors.margins: -1
+                    anchors.horizontalCenter: parent?.horizontalCenter
+                    width: root.circleSize
 
-                    y: first ? first.y + anchors.margins : 0
-                    implicitHeight: first && last ? (last.y + last.LazyListView.visibleHeight) - first.y - anchors.margins * 2 : 0
+                    y: first ? first.y : 0
+                    implicitHeight: first && last ? (last.y + last.LazyListView.visibleHeight) - first.y : 0
 
                     color: Qt.alpha(root.colour, 1)
                     radius: Tokens.rounding.full
