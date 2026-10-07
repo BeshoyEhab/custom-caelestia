@@ -42,7 +42,7 @@ Item {
 
         anchors.fill: parent
 
-        layer.enabled: Config.background.desktopClock.shadow.enabled
+        layer.enabled: Config.background.desktopClock.shadow.enabled && !root.isAnalog
         layer.effect: MultiEffect {
             shadowEnabled: true
             shadowColor: Colours.palette.m3shadow
@@ -53,7 +53,7 @@ Item {
         Loader {
             asynchronous: true
             anchors.fill: parent
-            active: root.blurEnabled
+            active: root.blurEnabled && !root.isAnalog
 
             sourceComponent: MultiEffect {
                 source: ShaderEffectSource {
@@ -72,7 +72,7 @@ Item {
         StyledRect {
             id: backgroundPlate
 
-            visible: root.bgEnabled
+            visible: root.bgEnabled && !root.isAnalog
             anchors.fill: parent
             radius: Tokens.rounding.extraLarge * root.clockScale
             opacity: Config.background.desktopClock.background.opacity
