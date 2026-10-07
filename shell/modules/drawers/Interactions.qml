@@ -173,9 +173,16 @@ CustomMouseArea {
             return;
         }
 
-        // Show bar in non-exclusive mode on hover
+        // Show bar in non-exclusive mode on hover, and hide it again once the
+        // cursor leaves the bar strip. Without the hide branch isHovered
+        // latches: on empty desktops dragMaskPadding stretches the input
+        // mask to ~2x the bar width, so the bar stuck around until the
+        // cursor travelled far past its edge. Kept while a popout is open
+        // so using it doesn't yank the bar away.
         if (!PresentationMode.enabled && !visibilities.bar && Config.bar.showOnHover && inBarClampedArea(x, y))
             bar.isHovered = true;
+        else if (Config.bar.showOnHover && bar.isHovered && !inBarClampedArea(x, y) && !popouts.hasCurrent)
+            bar.isHovered = false;
 
         // Show/hide bar on drag
         if (pressed && inBarClampedArea(dragStart.x, dragStart.y)) {
