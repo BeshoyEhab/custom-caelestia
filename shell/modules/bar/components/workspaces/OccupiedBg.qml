@@ -92,13 +92,13 @@ Item {
                     color: Qt.alpha(root.colour, 1)
                     radius: Tokens.rounding.full
 
-                    scale: 0
-                    Component.onCompleted: scale = 1
+                    // Fade only: no size animation, so width stays fixed
+                    // and motion stays on the vertical axis.
+                    opacity: AnimatedRepeater.adding || AnimatedRepeater.removing ? 0 : 1
 
-                    Behavior on scale {
-                        enabled: root.animationsReady
+                    Behavior on opacity {
                         Anim {
-                            easing: Tokens.anim.standardDecel
+                            type: Anim.DefaultEffects
                         }
                     }
 
