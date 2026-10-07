@@ -45,7 +45,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: width / 2
+        radius: width
         color: root.faceColor
         border.color: root.tickColor
         border.width: Math.max(1, 1.5 * root.clockScale)
@@ -79,6 +79,8 @@ Item {
     // Hands: full-face items rotated about the center, rects in top half.
     // Even widths so odd-free edges land on integer pixels (no half-pixel
     // blur that reads as a 1px pivot offset).
+    // Tail length == center-dot radius (6 * scale) so both tails stay
+    // hidden under the cap for a single unified center.
     Item {
         anchors.fill: parent
         rotation: root.hourAngle
@@ -86,7 +88,7 @@ Item {
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.verticalCenter
-            anchors.bottomMargin: -8 * root.clockScale
+            anchors.bottomMargin: -6 * root.clockScale
             width: 8 * root.clockScale
             height: parent.height * 0.26
             radius: width / 2
@@ -101,7 +103,7 @@ Item {
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.verticalCenter
-            anchors.bottomMargin: -8 * root.clockScale
+            anchors.bottomMargin: -6 * root.clockScale
             width: 6 * root.clockScale
             height: parent.height * 0.38
             radius: width / 2
