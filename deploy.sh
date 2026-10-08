@@ -57,7 +57,7 @@ if $BUILD; then
 fi
 
 echo "Restarting shell..."
-killall qs 2>/dev/null
+killall qs 2>/dev/null || true
 sleep 0.5
 # setsid detaches so the shell survives the parent terminal/session ending.
 # Startup output goes to a log (never /dev/null) so failed launches stay visible.

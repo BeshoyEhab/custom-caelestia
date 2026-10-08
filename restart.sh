@@ -12,7 +12,7 @@ if [[ "${1:-}" == "--build" ]]; then
 fi
 
 echo "Stopping shell..."
-killall qs 2>/dev/null
+killall qs 2>/dev/null || true
 sleep 0.5
 
 if $BUILD; then
