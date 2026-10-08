@@ -137,22 +137,34 @@ Singleton {
         reloadableId: "powerSaver"
     }
 
+    function enable(): void {
+        props.enabled = true;
+    }
+
+    function disable(): void {
+        props.enabled = false;
+        root.autoLatched = false;
+    }
+
+    function toggle(): void {
+        props.enabled = !props.enabled;
+    }
+
     IpcHandler {
         function isEnabled(): bool {
             return root.ecoActive;
         }
 
         function toggle(): void {
-            props.enabled = !props.enabled;
+            root.toggle();
         }
 
         function enable(): void {
-            props.enabled = true;
+            root.enable();
         }
 
         function disable(): void {
-            props.enabled = false;
-            root.autoLatched = false;
+            root.disable();
         }
 
         function debug(): string {
