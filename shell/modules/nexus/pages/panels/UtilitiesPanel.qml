@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 
+import QtQuick
 import QtQuick.Layouts
 import Caelestia.Config
 import qs.modules.nexus.common
@@ -7,33 +8,59 @@ import qs.modules.nexus.common
 PageBase {
     id: root
 
+    // Canonical toggle set. Keep in sync with the backend defaults in
+    // utilitiesconfig.hpp: reads and writes both go through
+    // currentToggles(), so a missing id means the same thing everywhere
+    // and partial lists heal instead of flipping other rows.
+    readonly property var toggleDefaults: [
+        { id: "wifi", enabled: true },
+        { id: "bluetooth", enabled: true },
+        { id: "mic", enabled: true },
+        { id: "settings", enabled: true },
+        { id: "gameMode", enabled: true },
+        { id: "eco", enabled: true },
+        { id: "dnd", enabled: true },
+        { id: "vpn", enabled: false }
+    ]
+
+    readonly property var toggleRows: [
+        { id: "wifi", text: qsTr("Wi-Fi"), sub: qsTr("Toggle wireless networking") },
+        { id: "bluetooth", text: qsTr("Bluetooth"), sub: qsTr("Toggle the Bluetooth adapter") },
+        { id: "mic", text: qsTr("Microphone"), sub: qsTr("Mute or unmute the default source") },
+        { id: "settings", text: qsTr("Settings"), sub: qsTr("Open the settings window") },
+        { id: "gameMode", text: qsTr("Game mode"), sub: qsTr("Toggle game mode") },
+        { id: "eco", text: qsTr("Eco mode"), sub: qsTr("Shell power saver (visuals, video, polling)") },
+        { id: "dnd", text: qsTr("Do not disturb"), sub: qsTr("Silence notifications") },
+        { id: "vpn", text: qsTr("VPN"), sub: qsTr("Connect or disconnect the VPN") }
+    ]
+
+    // Single source of truth: always a complete, plain-JS list. Read
+    // GlobalConfig, NOT Config: once this key exists in shell.json the
+    // per-screen overlay shadows it and stops syncing global writes, so
+    // Config reads go stale. Array.from also tolerates non-array
+    // list wrappers where Array.isArray would read everything as off.
+    function currentToggles(): var {
+        const raw = GlobalConfig.utilities.quickToggles;
+        const src = raw ? Array.from(raw) : [];
+        const byId = {};
+        for (const t of src)
+            if (t && t.id !== undefined)
+                byId[t.id] = t.enabled ?? true;
+        return root.toggleDefaults.map(d => ({
+            id: d.id,
+            enabled: byId[d.id] ?? d.enabled
+        }));
+    }
+
     function isToggleOn(id: string): bool {
-        // Config.* lists are plain JS arrays (cf. Toggles.qml which calls
-        // .filter directly). GlobalConfig.* lists are model wrappers with
-        // .values/.at()/.insert() — do not use .values here.
-        const list = Config.utilities.quickToggles;
-        if (!Array.isArray(list))
-            return false;
-        const item = list.find(t => t.id === id);
-        return item?.enabled ?? false;
+        return currentToggles().find(t => t.id === id)?.enabled ?? false;
     }
 
     function setToggleOn(id: string, on: bool): void {
-        // GlobalConfig lists are plain JS arrays (no .at()/.insert() model
-        // API — calling those throws). Mutate and write the whole list back
-        // so the change notifies and persists.
-        const list = GlobalConfig.utilities.quickToggles;
-        if (!Array.isArray(list))
-            return;
-        const item = list.find(t => t.id === id);
-        if (item)
-            item.enabled = on;
-        else
-            list.push({
-                id: id,
-                enabled: on
-            });
-        GlobalConfig.utilities.quickToggles = list;
+        GlobalConfig.utilities.quickToggles = currentToggles().map(t => ({
+            id: t.id,
+            enabled: t.id === id ? on : t.enabled
+        }));
     }
 
     title: qsTr("Utilities")
@@ -93,70 +120,30 @@ PageBase {
             text: qsTr("Quick toggles")
         }
 
-        ToggleRow {
-            first: true
-            text: qsTr("Wi-Fi")
-            subtext: qsTr("Toggle wireless networking")
-            disabled: !Config.utilities.cards.quickToggles
-            checked: root.isToggleOn("wifi")
-            onToggled: root.setToggleOn("wifi", checked)
-        }
+        Repeater {
+            model: root.toggleRows
 
-        ToggleRow {
-            text: qsTr("Bluetooth")
-            subtext: qsTr("Toggle the Bluetooth adapter")
-            disabled: !Config.utilities.cards.quickToggles
-            checked: root.isToggleOn("bluetooth")
-            onToggled: root.setToggleOn("bluetooth", checked)
-        }
+            delegate: ToggleRow {
+                id: row
 
-        ToggleRow {
-            text: qsTr("Microphone")
-            subtext: qsTr("Mute or unmute the default source")
-            disabled: !Config.utilities.cards.quickToggles
-            checked: root.isToggleOn("mic")
-            onToggled: root.setToggleOn("mic", checked)
-        }
+                required property var modelData
+                required property int index
 
-        ToggleRow {
-            text: qsTr("Settings")
-            subtext: qsTr("Open the settings window")
-            disabled: !Config.utilities.cards.quickToggles
-            checked: root.isToggleOn("settings")
-            onToggled: root.setToggleOn("settings", checked)
-        }
+                first: index === 0
+                last: index === root.toggleRows.length - 1
+                text: modelData.text
+                subtext: modelData.sub
+                disabled: !Config.utilities.cards.quickToggles
+                checked: root.isToggleOn(modelData.id)
 
-        ToggleRow {
-            text: qsTr("Game mode")
-            subtext: qsTr("Toggle game mode")
-            disabled: !Config.utilities.cards.quickToggles
-            checked: root.isToggleOn("gameMode")
-            onToggled: root.setToggleOn("gameMode", checked)
-        }
-
-        ToggleRow {
-            text: qsTr("Eco mode")
-            subtext: qsTr("Shell power saver (visuals, video, polling)")
-            disabled: !Config.utilities.cards.quickToggles
-            checked: root.isToggleOn("eco")
-            onToggled: root.setToggleOn("eco", checked)
-        }
-
-        ToggleRow {
-            text: qsTr("Do not disturb")
-            subtext: qsTr("Silence notifications")
-            disabled: !Config.utilities.cards.quickToggles
-            checked: root.isToggleOn("dnd")
-            onToggled: root.setToggleOn("dnd", checked)
-        }
-
-        ToggleRow {
-            last: true
-            text: qsTr("VPN")
-            subtext: qsTr("Connect or disconnect the VPN")
-            disabled: !Config.utilities.cards.quickToggles
-            checked: root.isToggleOn("vpn")
-            onToggled: root.setToggleOn("vpn", checked)
+                onToggled: {
+                    root.setToggleOn(modelData.id, checked);
+                    // A Switch flips its own checked on click, which breaks
+                    // the binding above; re-bind so the row keeps following
+                    // the config afterwards.
+                    checked = Qt.binding(() => root.isToggleOn(row.modelData.id));
+                }
+            }
         }
     }
 }

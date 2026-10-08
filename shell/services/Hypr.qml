@@ -275,10 +275,14 @@ Singleton {
 
     Connections {
         function onRawEvent(event: HyprlandEvent): void {
-            const n = event.name;
-            if (n.endsWith("v2"))
-                return;
-
+            // Normalize v2 suffixed events (openwindowv2, movewindowv2,
+            // activespecialv2, ...) to their v1 base and handle both: on
+            // newer Hyprland only v2 fires, and dropping them starves
+            // refreshes (stale workspaces/icons until a focus change heals
+            // them via onActiveToplevelChanged). Double handling when both
+            // fire is harmless (focusTracker coalesces; refreshes are cheap
+            // user-paced IPC reads).
+            const n = event.name.endsWith("v2") ? event.name.slice(0, -2) : event.name;
             if (n === "configreloaded") {
                 root.configReloaded();
                 root.reloadDynamicConfs();

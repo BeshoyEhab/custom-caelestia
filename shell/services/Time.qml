@@ -21,9 +21,21 @@ Singleton {
     // without a seconds reference — but when the seconds clock runs, derive
     // from exact now (floored) so minute and seconds always agree. Costs
     // nothing extra: per-second invalidation already happens then.
+    // Wall poll below keeps this within half a second of truth regardless
+    // of tick phase (a tick-phase offset otherwise shows stale seconds for
+    // up to a second, visibly behind clocks that read wall time directly
+    // like the analog face).
+    Timer {
+        interval: 500
+        running: root.secondsNeeded
+        repeat: true
+        onTriggered: root.wallTick++
+    }
+    property int wallTick: 0
+
     readonly property string timeStr: {
         if (root.secondsNeeded) {
-            secClock.seconds; // subscribe per tick
+            root.wallTick; // subscribe to the wall poll
             const d = new Date();
             d.setMilliseconds(0);
             return Qt.formatDateTime(d, GlobalConfig.services.useTwelveHourClock ? "hh:mm:A" : "hh:mm");
@@ -34,10 +46,11 @@ Singleton {
     readonly property string hourStr: timeComponents[0] ?? ""
     readonly property string minuteStr: timeComponents[1] ?? ""
     readonly property string amPmStr: timeComponents[2] ?? ""
-    // Wall-clock seconds for ticking displays: format() reads the
-    // minute-precision clock (always :00), so this re-evaluates per tick.
+    // Wall-clock seconds for ticking displays: driven by the wall poll
+    // (same phase as timeStr above) instead of the seconds clock, so the
+    // two can never disagree by a tick.
     readonly property string secondsStr: {
-        secClock.seconds;
+        root.wallTick;
         return String(new Date().getSeconds()).padStart(2, "0");
     }
 

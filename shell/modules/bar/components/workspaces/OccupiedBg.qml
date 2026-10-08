@@ -28,7 +28,7 @@ Item {
     property bool animationsReady: false
 
     Timer {
-        interval: 350
+        interval: 150
         running: true
         repeat: false
         onTriggered: root.animationsReady = true
@@ -87,7 +87,10 @@ Item {
                     width: root.circleSize
 
                     y: first ? first.y : 0
-                    implicitHeight: first && last ? (last.y + last.LazyListView.visibleHeight) - first.y : 0
+                    // Same tail as the active trail (see ActiveIndicator):
+                    // extends past the last strip row when it shows one, so
+                    // both highlights end at the same line.
+                    implicitHeight: first && last ? (last.y + last.LazyListView.visibleHeight) - first.y + ((last.stripVisible ?? false) ? (last.windowIconSize ?? 0) / 2 : 0) : 0
 
                     color: Qt.alpha(root.colour, 1)
                     radius: Tokens.rounding.full

@@ -17,10 +17,17 @@ StyledRect {
     required property DrawerVisibilities visibilities
     required property BarPopouts.Wrapper popouts
 
+    // Read GlobalConfig, NOT Config: once this key exists in shell.json
+    // the per-screen overlay shadows it and stops syncing global writes,
+    // so the drawer would never add/remove buttons after a Nexus change.
+    // Array.from tolerates non-array list wrappers where Array.isArray
+    // would read everything as off.
     readonly property var quickToggles: {
         const seenIds = new Set();
+        const all = GlobalConfig.utilities.quickToggles;
+        const list = all ? Array.from(all) : [];
 
-        return Config.utilities.quickToggles.filter(item => {
+        return list.filter(item => {
             if (!(item.enabled ?? true))
                 return false;
 
