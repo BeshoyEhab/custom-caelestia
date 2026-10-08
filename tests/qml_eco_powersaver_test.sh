@@ -52,6 +52,20 @@ check "Media wave eco gate" "$S/modules/dashboard/dash/Media.qml" "wavePaused:.*
 check "Details wave eco gate" "$S/modules/dashboard/media/Details.qml" "animateWave:.*PowerSaver.ecoActive"
 check "Bongocat eco gate" "$S/modules/dashboard/dash/Media.qml" "playing:.*PowerSaver.ecoActive"
 
+# Eco toggle handlers must be QML-callable on the singleton itself. They
+# lived only inside IpcHandler, so Toggles.qml:146 raised
+# "TypeError: Property 'enable' of object PowerSaver_... is not a function".
+ipc_line=$(grep -n "IpcHandler {" "$S/services/PowerSaver.qml" | head -1 | cut -d: -f1)
+for fn in enable disable; do
+    fn_line=$(grep -n "function $fn()" "$S/services/PowerSaver.qml" | head -1 | cut -d: -f1)
+    if [[ -n "$fn_line" && -n "$ipc_line" && "$fn_line" -lt "$ipc_line" ]]; then
+        echo "  PASS root-level PowerSaver.$fn (line $fn_line < IpcHandler $ipc_line)"
+    else
+        echo "  FAIL root-level PowerSaver.$fn (defined at '${fn_line:-missing}', IpcHandler at '$ipc_line')"
+        FAIL=1
+    fi
+done
+
 if [[ $FAIL -ne 0 ]]; then
     echo "RESULT: FAIL (red - eco not implemented)"
     exit 1

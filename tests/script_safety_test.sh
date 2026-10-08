@@ -55,6 +55,16 @@ for s in deploy.sh restart.sh tests/run.sh tests/script_safety_test.sh; do
     fi
 done
 
+echo "-- killall must not abort the script under set -e --"
+for s in deploy.sh restart.sh; do
+    if grep -qE '^killall qs.*\|\|[[:space:]]*true' "$REPO_DIR/$s"; then
+        echo "  PASS $s killall guarded"
+    else
+        echo "  FAIL $s killall unguarded (set -e aborts before launch)"
+        FAIL=1
+    fi
+done
+
 if [[ $FAIL -ne 0 ]]; then
     echo "RESULT: FAIL (red - script safety bugs present)"
     exit 1
