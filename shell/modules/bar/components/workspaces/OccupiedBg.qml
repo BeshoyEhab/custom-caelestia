@@ -90,7 +90,7 @@ Item {
                     // Same tail as the active trail (see ActiveIndicator):
                     // extends past the last strip row when it shows one, so
                     // both highlights end at the same line.
-                    implicitHeight: first && last ? (last.y + last.LazyListView.visibleHeight) - first.y + ((last.stripVisible ?? false) ? (last.windowIconSize ?? 0) / 2 : 0) : 0
+                    implicitHeight: first && last ? (last.y + last.LazyListView.visibleHeight) - first.y + ((last.stripVisible ?? false) ? 5 : 0) : 0
 
                     color: Qt.alpha(root.colour, 1)
                     radius: Tokens.rounding.full

@@ -179,7 +179,7 @@ Item {
         // count; empty workspaces take no space.
         Item {
             Layout.fillWidth: true
-            Layout.topMargin: Tokens.spacing.extraSmall / 2
+            Layout.topMargin: Tokens.spacing.extraSmall / 4
             Layout.preferredHeight: root.stripVisible ? root.windowStripHeight : 0
             visible: root.stripVisible
             clip: true

@@ -36,10 +36,11 @@ StyledClippingRect {
     // bar keeps the fixed-group behaviour until the plugin is reinstalled.
     readonly property bool showUnoccupied: Config.bar.workspaces.showUnoccupied ?? true
 
-    // Row pitch and gaps. The list gap leaves room for the active
-    // trail's tail (half a window icon, 7px — keep in sync with
-    // ActiveIndicator) so the pill never touches the next workspace.
-    readonly property real wsSpacing: 2 + 7
+    // Row pitch and gaps. The list gap is the visible gap under a
+    // strip-ended pill plus room for the trail's tail (5px — keep in
+    // sync with ActiveIndicator and OccupiedBg) so the pill never
+    // touches the next workspace.
+    readonly property real wsSpacing: 3 + 5
     readonly property real itemStep: circleSize + wsSpacing
 
     readonly property var wsIds: {
