@@ -56,7 +56,7 @@ check "Bongocat eco gate" "$S/modules/dashboard/dash/Media.qml" "playing:.*Power
 # lived only inside IpcHandler, so Toggles.qml:146 raised
 # "TypeError: Property 'enable' of object PowerSaver_... is not a function".
 ipc_line=$(grep -n "IpcHandler {" "$S/services/PowerSaver.qml" | head -1 | cut -d: -f1)
-for fn in enable disable; do
+for fn in enable disable toggle; do
     fn_line=$(grep -n "function $fn()" "$S/services/PowerSaver.qml" | head -1 | cut -d: -f1)
     if [[ -n "$fn_line" && -n "$ipc_line" && "$fn_line" -lt "$ipc_line" ]]; then
         echo "  PASS root-level PowerSaver.$fn (line $fn_line < IpcHandler $ipc_line)"

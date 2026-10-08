@@ -168,7 +168,7 @@ Apply the identical change to `restart.sh` line 15.
 - [ ] **Step 2: Run the test**
 
 Run: `bash tests/script_safety_test.sh`
-Expected: PASS, including the three new `killall guarded` lines.
+Expected: PASS, including the two new `killall guarded` lines.
 
 - [ ] **Step 3: Commit**
 
