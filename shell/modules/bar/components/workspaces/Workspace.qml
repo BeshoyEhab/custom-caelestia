@@ -237,14 +237,6 @@ Item {
                             visible: win.appIconSource == "" || winImage.status === Image.Error
                             font.pixelSize: root.windowIconSize
                         }
-
-                        opacity: root.animationsReady ? 1 : 0
-
-                        Behavior on opacity {
-                            Anim {
-                                type: Anim.DefaultEffects
-                            }
-                        }
                     }
                 }
             }
