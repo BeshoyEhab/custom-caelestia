@@ -5,23 +5,87 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# ── Flags ─────────────────────────────────────────────────────────────────────
-# -v / --verbose : show real command output (pacman/yay/etc.) instead of hiding it
-# --rebuild-quickshell : force a Quickshell source rebuild (screencopy enabled)
-# --non-interactive : skip all prompts, deploy everything (for GUI integration)
-# --no-install : skip package installation and plugin build (config files only)
-VERBOSE=false
-REBUILD_QS=false
+# ── Options ───────────────────────────────────────────────────────────────────
+MODE=""                # install | update | check | build | menu ("" → resolve later)
+ON_CONFLICT="ask"
+BACKUP=false
+DRY_RUN=false
+FORCE=false
 NON_INTERACTIVE=false
 NO_INSTALL=false
-for _arg in "$@"; do
-    case "$_arg" in
-        -v|--verbose) VERBOSE=true ;;
-        --rebuild-quickshell) REBUILD_QS=true ;;
-        --non-interactive) NON_INTERACTIVE=true ;;
-        --no-install) NO_INSTALL=true ;;
+VERBOSE=false
+REBUILD_QS=false
+NO_PRUNE=false
+FORCE_REBUILD=false
+BUILD_CMD=false        # true when --build given as a command
+
+show_usage() {
+    cat <<EOF
+${BOLD}Usage:${NC} $(basename "$0") [COMMAND] [OPTIONS]
+
+Commands (default with no command + no flags: interactive menu):
+  ${CYAN}--install${NC}   Full install: packages + configs + plugin
+  ${CYAN}--update${NC}    Update deployed configs (auto-detects installed sections)
+  ${CYAN}--check${NC}     Read-only status (prints REPO_DIR/BRANCH/AHEAD/BEHIND/DIRTY/PLUGINS_STALE;
+                 exit 0 = up to date, 1 = updates, 2 = error)
+  ${CYAN}--build${NC}     Rebuild + install the C++ plugin only
+
+Options:
+  ${CYAN}--on-conflict${NC} <m>  ask (default) | replace | keep | backup | new
+  ${CYAN}--backup${NC}           Timestamped backup of targets before deploy
+  ${CYAN}--dry-run${NC}          Print actions; change nothing (not even manifests)
+  ${CYAN}--force${NC}            Skip mtime check; replace differing files
+  ${CYAN}--force-rebuild${NC}    Clean-build the plugin (wipes build dir)
+  ${CYAN}--no-prune${NC}         Never delete stale deployed files
+  ${CYAN}--no-install${NC}       Skip packages + plugin build (configs only)
+  ${CYAN}--non-interactive${NC}  No prompts; implies --on-conflict replace
+  ${CYAN}--rebuild-quickshell${NC} Force Quickshell source rebuild (screencopy)
+  ${CYAN}-v, --verbose${NC}      Show real command output
+  ${CYAN}-h, --help${NC}         Show this help
+
+Bare flags with no command (e.g. --non-interactive alone) default to --update.
+EOF
+    exit 0
+}
+
+parse_args() {
+    local cmd_seen=false flag_seen=false
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --install)           MODE="install"; cmd_seen=true; shift ;;
+            --update)            MODE="update"; cmd_seen=true; shift ;;
+            --check)             MODE="check"; cmd_seen=true; shift ;;
+            --build)             MODE="build"; BUILD_CMD=true; cmd_seen=true; shift ;;
+            --on-conflict)       ON_CONFLICT="${2:-ask}"; flag_seen=true; shift 2 ;;
+            --on-conflict=*)     ON_CONFLICT="${1#*=}"; flag_seen=true; shift ;;
+            --backup)            BACKUP=true; flag_seen=true; shift ;;
+            --dry-run)           DRY_RUN=true; flag_seen=true; shift ;;
+            --force)             FORCE=true; flag_seen=true; shift ;;
+            --force-rebuild)     FORCE_REBUILD=true; flag_seen=true; shift ;;
+            --no-prune)          NO_PRUNE=true; flag_seen=true; shift ;;
+            --no-install)        NO_INSTALL=true; flag_seen=true; shift ;;
+            --non-interactive)   NON_INTERACTIVE=true; ON_CONFLICT="replace"; flag_seen=true; shift ;;
+            --rebuild-quickshell) REBUILD_QS=true; flag_seen=true; shift ;;
+            -v|--verbose)        VERBOSE=true; flag_seen=true; shift ;;
+            -h|--help)           show_usage ;;
+            *)                   warn "Unknown option: $1"; flag_seen=true; shift ;;
+        esac
+    done
+    # Bare flags (old update.sh dialect) default to update mode.
+    if [[ -z "$MODE" ]]; then
+        if [[ "$cmd_seen" == true ]]; then
+            MODE="menu"   # unreachable; cmd_seen implies MODE set
+        elif [[ "$flag_seen" == true ]]; then
+            MODE="update"
+        else
+            MODE="menu"
+        fi
+    fi
+    case "$ON_CONFLICT" in
+        ask|replace|keep|backup|new) ;;
+        *) err "Invalid --on-conflict: $ON_CONFLICT" ;;
     esac
-done
+}
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 if [[ -t 1 ]] && command -v tput &>/dev/null && [[ "$(tput colors 2>/dev/null)" -ge 8 ]]; then
@@ -535,7 +599,7 @@ deploy_quickshell() {
     fi
 
     safe_deploy "$src" "$dst" \
-        -not -path "*/build/*" -not -path "*/upstream/*"
+        -not -path "*/build/*" -not -path "*/upstream/*" -not -path "*/plugin/*"
 
     # Symlink install/update scripts for settings app
     mkdir -p "$dst/scripts"
@@ -653,43 +717,116 @@ build_plugin() {
     log "Plugin installed."
 }
 
-# ── Main ──────────────────────────────────────────────────────────────────────
-# If CI_TEST=true, only define functions, don't run the installer
-if [[ "${CI_TEST:-false}" != "true" ]]; then
-load_ignore_patterns
+# ── Read-only status check for GUI integration ───────────────────────────────
+# Machine-readable output, no side effects (no fetch, no file changes).
+# Exit: 0 = up to date, 1 = updates available, 2 = error.
+cmd_check() {
+    [[ -d "$REPO_DIR/.git" ]] || {
+        echo "REPO_DIR=$REPO_DIR"
+        echo "ERROR=not a git repository"
+        return 2
+    }
+
+    local branch remote_sha ahead behind dirty stale
+    branch=$(git -C "$REPO_DIR" branch --show-current 2>/dev/null || echo "unknown")
+
+    # Remote tip without fetching (read-only). Fall back to the last-fetched
+    # remote-tracking ref when offline or when the branch has no upstream.
+    remote_sha=$(git -C "$REPO_DIR" ls-remote origin "$branch" 2>/dev/null | awk '{print $1}')
+    if [[ -n "$remote_sha" ]]; then
+        ahead=$(git -C "$REPO_DIR" rev-list --count "$remote_sha"..HEAD 2>/dev/null || echo 0)
+        behind=$(git -C "$REPO_DIR" rev-list --count HEAD.."$remote_sha" 2>/dev/null || echo 0)
+    else
+        ahead=$(git -C "$REPO_DIR" rev-list --count '@{u}'..HEAD 2>/dev/null || echo 0)
+        behind=$(git -C "$REPO_DIR" rev-list --count HEAD..'@{u}' 2>/dev/null || echo 0)
+    fi
+
+    if [[ -n "$(git -C "$REPO_DIR" status --porcelain 2>/dev/null)" ]]; then
+        dirty=true
+    else
+        dirty=false
+    fi
+
+    local stamp_file="$REPO_DIR/build/.plugin_build_stamp"
+    if [[ ! -f "$stamp_file" ]]; then
+        stale=true
+    elif find "$REPO_DIR/shell/plugin/src" -type f \( -name "*.hpp" -o -name "*.cpp" \) -newer "$stamp_file" 2>/dev/null | grep -q .; then
+        stale=true
+    else
+        stale=false
+    fi
+
+    echo "REPO_DIR=$REPO_DIR"
+    echo "BRANCH=$branch"
+    echo "AHEAD=$ahead"
+    echo "BEHIND=$behind"
+    echo "DIRTY=$dirty"
+    echo "PLUGINS_STALE=$stale"
+
+    if [[ "$behind" != "0" || "$stale" == "true" ]]; then
+        return 1
+    fi
+    return 0
+}
 
 # ── Headless mode (GUI integration: Nexus "Deploy configurations") ───────────
 # --non-interactive deploys everything with no prompts. --no-install additionally
 # skips package installation, the plugin build, and the sudo check, so the run
 # needs no tty and always works headless from the settings app.
-if [[ "$NON_INTERACTIVE" == true ]]; then
-    if [[ "$NO_INSTALL" != true ]]; then
-        if [[ $EUID -eq 0 ]]; then
-            warn "Running as root. Run ./install.sh as a normal user instead —"
-            warn "the script will ask for sudo when needed."
-            exit 1
+# (Moved verbatim from the old main body; Task 4 wires it into the dispatch.)
+cmd_install_headless() {
+    if [[ "$NON_INTERACTIVE" == true ]]; then
+        if [[ "$NO_INSTALL" != true ]]; then
+            if [[ $EUID -eq 0 ]]; then
+                warn "Running as root. Run ./install.sh as a normal user instead —"
+                warn "the script will ask for sudo when needed."
+                exit 1
+            fi
+            log "Checking sudo access... (you may be prompted)"
+            sudo -v || err "sudo required."
+            deploy_core
         fi
-        log "Checking sudo access... (you may be prompted)"
-        sudo -v || err "sudo required."
-        deploy_core
-    fi
-    deploy_hyprland
-    deploy_shell_extras
-    deploy_quickshell
-    if [[ "$NO_INSTALL" != true ]]; then
-        build_plugin
-        if [[ "$REBUILD_QS" == true ]]; then
-            rebuild_quickshell
-        elif ! qs_screencopy_present; then
-            warn "Quickshell screencopy module not found (overview/picker will be broken)."
-            warn "Re-run with --rebuild-quickshell to rebuild it from source."
+        deploy_hyprland
+        deploy_shell_extras
+        deploy_quickshell
+        if [[ "$NO_INSTALL" != true ]]; then
+            build_plugin
+            if [[ "$REBUILD_QS" == true ]]; then
+                rebuild_quickshell
+            elif ! qs_screencopy_present; then
+                warn "Quickshell screencopy module not found (overview/picker will be broken)."
+                warn "Re-run with --rebuild-quickshell to rebuild it from source."
+            fi
         fi
+        echo ""
+        c_green "Deployment complete!"
+        exit 0
     fi
-    echo ""
-    c_green "Deployment complete!"
-    exit 0
-fi
+}
 
+# ── Main ──────────────────────────────────────────────────────────────────────
+# If CI_TEST=true, only define functions, don't run the installer
+if [[ "${CI_TEST:-false}" != "true" ]]; then
+parse_args "$@"
+load_ignore_patterns
+
+case "$MODE" in
+    check)
+        # (if-condition is exempt from set -e, so the 1/2 codes survive.)
+        if cmd_check; then exit 0; else exit $?; fi
+        ;;
+    install|update|build|menu)
+        # Filled in by later tasks; until then keep old behavior for install
+        # and fail loudly for the rest.
+        if [[ "$MODE" == "install" || "$MODE" == "menu" ]]; then
+            : # old interactive flow continues below (Task 4 rewires it)
+        else
+            err "mode '$MODE' not implemented yet (Task 4/5/6)"
+        fi
+        ;;
+esac
+
+# ── legacy interactive install body (unchanged this task) ─────────────────────
 # ── Sudo check ─────────────────────────────────────────────────────────
 if [[ $EUID -eq 0 ]]; then
     warn "Running as root. Run ./install.sh as a normal user instead —"
