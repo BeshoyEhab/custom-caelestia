@@ -426,7 +426,7 @@ update_quickshell() {
     fi
 
     deploy_dir "$MERGED_DIR/shell" "$dst" \
-        -not -path "*/build/*" -not -path "*/upstream/*"
+        -not -path "*/build/*" -not -path "*/upstream/*" -not -path "*/plugin/*"
 
     # Symlink scripts
     if [[ "$DRY_RUN" != "true" ]]; then
@@ -552,7 +552,7 @@ cmd_check() {
     local stamp_file="$MERGED_DIR/build/.plugin_build_stamp"
     if [[ ! -f "$stamp_file" ]]; then
         stale=true
-    elif find "$MERGED_DIR/shell/plugin/src" -type f \( -name "*.hpp" -o -name "*.cpp" \) -newer "$stamp_file" 2>/dev/null | grep -q .; then
+    elif [[ -n "$(find "$MERGED_DIR/shell/plugin/src" -type f \( -name "*.hpp" -o -name "*.cpp" \) -newer "$stamp_file" 2>/dev/null)" ]]; then
         stale=true
     else
         stale=false
