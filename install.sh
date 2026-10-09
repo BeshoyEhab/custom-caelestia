@@ -750,7 +750,7 @@ cmd_check() {
     local stamp_file="$REPO_DIR/build/.plugin_build_stamp"
     if [[ ! -f "$stamp_file" ]]; then
         stale=true
-    elif find "$REPO_DIR/shell/plugin/src" -type f \( -name "*.hpp" -o -name "*.cpp" \) -newer "$stamp_file" 2>/dev/null | grep -q .; then
+    elif [[ -n "$(find "$REPO_DIR/shell/plugin/src" -type f \( -name "*.hpp" -o -name "*.cpp" \) -newer "$stamp_file" 2>/dev/null)" ]]; then
         stale=true
     else
         stale=false
