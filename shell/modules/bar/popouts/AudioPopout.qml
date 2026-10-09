@@ -82,7 +82,7 @@ Item {
 
         CustomMouseArea {
             Layout.fillWidth: true
-            implicitHeight: Tokens.padding.medium * 3
+            implicitHeight: Tokens.padding.medium * 2
 
             onWheel: event => {
                 if (event.angleDelta.y > 0)
