@@ -851,6 +851,8 @@ deploy_shell_extras() {
                 DEPLOYED_WRITTEN+=("starship.toml")
                 log "  Starship config deployed."
             fi
+        elif should_ignore "starship.toml" "$starship_target"; then
+            :
         elif ! cmp -s "$starship_src" "$starship_target" 2>/dev/null; then
             if [[ "$FORCE" == true ]] || \
                [[ "$(stat -c %Y "$starship_target" 2>/dev/null || echo 0)" -le "$(stat -c %Y "$starship_src" 2>/dev/null || echo 0)" ]]; then
@@ -903,6 +905,8 @@ deploy_shell_extras() {
                 chmod +x "$fish_guide_target"
                 log "  fish-guide installed."
             fi
+        elif should_ignore "fish-guide" "$fish_guide_target"; then
+            :
         elif ! cmp -s "$fish_guide_src" "$fish_guide_target" 2>/dev/null; then
             if [[ "$FORCE" == true ]] || \
                [[ "$(stat -c %Y "$fish_guide_target" 2>/dev/null || echo 0)" -le "$(stat -c %Y "$fish_guide_src" 2>/dev/null || echo 0)" ]]; then

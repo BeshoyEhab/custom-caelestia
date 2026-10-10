@@ -488,6 +488,32 @@ t_prune_never_blesses_unwritten() {
     rm -rf "$tmp"
 }
 
+# Follow-up gap: the starship/fish-guide update branches must honour
+# .updateignore like deploy_tree — an ignored target is never overwritten,
+# even when it is older than the repo source (mtime heuristic).
+t_update_honours_updateignore_single_files() {
+    local tmp repo out rc; tmp=$(mktemp -d); repo="$tmp/repo"
+    _mk_fake_repo "$repo"; _seed_sections "$tmp/home"
+    _git_stub "$tmp/bin" "$tmp/git-was-called"
+    mkdir -p "$tmp/home/.config" "$tmp/home/.local/share/bin"
+    echo "user-star"  > "$tmp/home/.config/starship.toml"
+    echo "user-guide" > "$tmp/home/.local/share/bin/fish-guide"
+    touch -d "2020-01-01" "$tmp/home/.config/starship.toml" \
+        "$tmp/home/.local/share/bin/fish-guide"
+    printf 'starship.toml\nfish-guide\n' > "$tmp/home/.updateignore"
+    out=$(HOME="$tmp/home" PATH="$tmp/bin:$PATH" \
+        "$repo/install.sh" --update --non-interactive --no-install 2>&1); rc=$?
+    [[ "$rc" -eq 0 ]] && ok "update with .updateignore exits 0" \
+        || bad "update with .updateignore exits 0 (rc=$rc, got: $(tail -5 <<<"$out"))"
+    [[ "$(cat "$tmp/home/.config/starship.toml")" == "user-star" ]] \
+        && ok "ignored starship.toml not overwritten" \
+        || bad "ignored starship.toml not overwritten (got: $(cat "$tmp/home/.config/starship.toml"))"
+    [[ "$(cat "$tmp/home/.local/share/bin/fish-guide")" == "user-guide" ]] \
+        && ok "ignored fish-guide not overwritten" \
+        || bad "ignored fish-guide not overwritten (got: $(cat "$tmp/home/.local/share/bin/fish-guide"))"
+    rm -rf "$tmp"
+}
+
 main() {
     t_syntax; t_help; t_check_shape; t_check_exit; t_stub_parity; t_bare_defaults_update
     t_deploy_new_and_update; t_conflict_keep_and_replace; t_dry_run_touches_nothing; t_excludes_respected
@@ -499,6 +525,7 @@ main() {
     t_stamp_check_multi_file; t_stamp_check_unchanged; t_stamp_check_cmake_lists
     t_bare_no_install_routes_install; t_update_build_keeps_update_mode
     t_update_updates_handrolled_files; t_prune_never_blesses_unwritten
+    t_update_honours_updateignore_single_files
     echo ""; echo "RESULT: $PASS passed, $FAIL failed"
     [[ "$FAIL" -eq 0 ]]
 }
