@@ -289,19 +289,25 @@ match_gitignore() {
 }
 
 # ── Conflict handling ────────────────────────────────────────────────────────
+# Sets CONFLICT_WROTE=true only on paths that actually overwrite the target
+# (replace/backup); keep/new/skip leave it false so the manifest keeps the
+# prior mtime and a user-edited file is never re-blessed as ours.
+CONFLICT_WROTE=false
 handle_conflict() {
     local repo_file="$1" home_file="$2"
     local action="${3:-$ON_CONFLICT}"
+    CONFLICT_WROTE=false
 
     if [[ "$action" != "ask" ]]; then
         case "$action" in
-            replace) cp -p "$repo_file" "$home_file"; log "Replaced: $home_file" ;;
+            replace) cp -p "$repo_file" "$home_file"; CONFLICT_WROTE=true; log "Replaced: $home_file" ;;
             keep)    echo -e "  ${BLUE}Kept:${NC} $home_file" ;;
             backup)
                 local dir base
                 dir=$(dirname "$home_file"); base=$(basename "$home_file")
                 mv "$home_file" "${dir}/${base}.old"
                 cp -p "$repo_file" "$home_file"
+                CONFLICT_WROTE=true
                 log "Backed up → ${base}.old, replaced" ;;
             new)
                 local dir base
@@ -351,12 +357,14 @@ handle_conflict() {
 # FORCE skips the mtime heuristic. Records managed rel-paths in DEPLOYED_RELS.
 # NOTE: uses process substitution (not a pipe) so DEPLOYED_RELS survives.
 DEPLOYED_RELS=()       # rel-paths written/confirmed by the last deploy_tree call
+DEPLOYED_WRITTEN=()    # subset of those we actually (over)wrote THIS run
 DEPLOY_EXCLUDES=(-not -path "*/build/*" -not -path "*/upstream/*" -not -path "*/plugin/*")
 deploy_tree() {
     local src="$1" dst="$2"
     shift 2
     local find_excludes=("$@")
     DEPLOYED_RELS=()
+    DEPLOYED_WRITTEN=()
     [[ "$DRY_RUN" != true ]] && mkdir -p "$dst"
 
     local repo_file rel target repo_mtime target_mtime
@@ -374,6 +382,7 @@ deploy_tree() {
                 continue
             fi
             cp -p "$repo_file" "$target"
+            DEPLOYED_WRITTEN+=("$rel")
             continue
         fi
 
@@ -385,6 +394,7 @@ deploy_tree() {
                 continue
             fi
             cp -p "$repo_file" "$target"
+            DEPLOYED_WRITTEN+=("$rel")
             continue
         fi
 
@@ -396,12 +406,16 @@ deploy_tree() {
                 continue
             fi
             cp -p "$repo_file" "$target"
+            DEPLOYED_WRITTEN+=("$rel")
         else
             if [[ "$DRY_RUN" == true ]]; then
                 echo -e "  ${YELLOW}[dry-run]${NC} Would conflict: $target"
                 continue
             fi
             handle_conflict "$repo_file" "$target"
+            if [[ "$CONFLICT_WROTE" == true ]]; then
+                DEPLOYED_WRITTEN+=("$rel")
+            fi
         fi
     done < <(find "$src" -type f "${find_excludes[@]}" 2>/dev/null)
 }
@@ -435,12 +449,36 @@ manifest_finish() {
     [[ -d "$dst" ]] || return 0
     local tmp_manifest="$dst/.deploy-manifest.new"
     : > "$tmp_manifest"
-    local rel target
+
+    # Prior manifest indexed by rel. mtime source per rel: fresh stat only for
+    # files we actually wrote THIS run; kept/identical files carry the prior
+    # record forward (first sighting gets a baseline stat). Otherwise a
+    # user-edited file's NEW mtime would be re-blessed as ours here, and a
+    # later prune would delete it silently when the source disappears.
+    local -A prior_map=()
+    if [[ -n "$MANIFEST_PRIOR" && -f "$MANIFEST_PRIOR" ]]; then
+        local pr_rel pr_mtime
+        while IFS=$'\t' read -r pr_rel pr_mtime; do
+            [[ -z "$pr_rel" ]] && continue
+            prior_map["$pr_rel"]="$pr_mtime"
+        done < "$MANIFEST_PRIOR"
+    fi
+
+    local rel target w written mtime
     for rel in ${DEPLOYED_RELS[@]+"${DEPLOYED_RELS[@]}"}; do
         target="$dst/$rel"
         [[ -f "$target" ]] || continue
         should_ignore "$rel" "$target" && continue
-        printf '%s\t%s\n' "$rel" "$(stat -c %y "$target" 2>/dev/null || echo 0)" >> "$tmp_manifest"
+        written=false
+        for w in ${DEPLOYED_WRITTEN[@]+"${DEPLOYED_WRITTEN[@]}"}; do
+            [[ "$w" == "$rel" ]] && { written=true; break; }
+        done
+        if [[ "$written" == true || -z "${prior_map[$rel]+x}" ]]; then
+            mtime=$(stat -c %y "$target" 2>/dev/null || echo 0)
+        else
+            mtime="${prior_map[$rel]}"
+        fi
+        printf '%s\t%s\n' "$rel" "$mtime" >> "$tmp_manifest"
     done
     if [[ -n "$MANIFEST_PRIOR" && -f "$MANIFEST_PRIOR" ]]; then
         prune_stale "$dst" "$MANIFEST_PRIOR" "$tmp_manifest"
@@ -697,6 +735,7 @@ deploy_hyprland() {
         [[ "$DRY_RUN" != true ]] && mkdir -p "$cdst"
         manifest_begin "$cdst"
         DEPLOYED_RELS=()
+        DEPLOYED_WRITTEN=()
         local f rel target
         while IFS= read -r f; do
             rel="${f#"$csrc"/}"
@@ -710,6 +749,7 @@ deploy_hyprland() {
                 else
                     mkdir -p "$(dirname "$target")"
                     cp -p "$f" "$target"
+                    DEPLOYED_WRITTEN+=("$rel")
                 fi
             fi
             DEPLOYED_RELS+=("$rel")
@@ -765,6 +805,7 @@ deploy_shell_extras() {
     # only starship.toml, so pruning can never touch anything else there.
     manifest_begin "$HOME/.config"
     DEPLOYED_RELS=()
+    DEPLOYED_WRITTEN=()
     if [[ -f "$REPO_DIR/configs/.config/starship.toml" ]]; then
         local starship_target="$HOME/.config/starship.toml"
         if [[ ! -f "$starship_target" ]]; then
@@ -773,6 +814,7 @@ deploy_shell_extras() {
             else
                 mkdir -p "$HOME/.config"
                 cp -p "$REPO_DIR/configs/.config/starship.toml" "$starship_target"
+                DEPLOYED_WRITTEN+=("starship.toml")
                 log "  Starship config deployed."
             fi
         fi
@@ -793,6 +835,7 @@ deploy_shell_extras() {
     # Fish-guide binary — single-file dst: manifest records only fish-guide.
     manifest_begin "$HOME/.local/share/bin"
     DEPLOYED_RELS=()
+    DEPLOYED_WRITTEN=()
     if [[ -f "$REPO_DIR/configs/.local/share/bin/fish-guide" ]]; then
         local fish_guide_target="$HOME/.local/share/bin/fish-guide"
         if [[ ! -f "$fish_guide_target" ]]; then
@@ -801,6 +844,7 @@ deploy_shell_extras() {
             else
                 mkdir -p "$HOME/.local/share/bin"
                 cp -p "$REPO_DIR/configs/.local/share/bin/fish-guide" "$fish_guide_target"
+                DEPLOYED_WRITTEN+=("fish-guide")
                 chmod +x "$fish_guide_target"
                 log "  fish-guide installed."
             fi

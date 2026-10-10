@@ -208,10 +208,40 @@ t_unlisted_never_pruned() {
     rm -rf "$tmp"
 }
 
+t_prune_keeps_file_edited_before_redeploy() {
+    local tmp src dst out; tmp=$(mktemp -d); src=$tmp/repo; dst=$tmp/home
+    mk_repo "$src"
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false NO_PRUNE=false
+        manifest_begin "$dst"; deploy_tree "$src/mods" "$dst"; manifest_finish "$dst"
+    )
+    echo "hacked" > "$dst/a/f.txt"
+    touch -d "2030-01-01" "$dst/a/f.txt"  # newer than repo → conflict-kept, not rewritten
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false NO_PRUNE=false
+        manifest_begin "$dst"; deploy_tree "$src/mods" "$dst"; manifest_finish "$dst"
+    )
+    rm "$src/mods/a/f.txt"          # source deleted from repo
+    out=$(
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false NO_PRUNE=false
+        manifest_begin "$dst"; deploy_tree "$src/mods" "$dst"; manifest_finish "$dst"
+    )
+    grep -q "Keeping user-modified stale file" <<<"$out" \
+        && ok "prune warns on conflict-kept edited file" \
+        || bad "prune warns on conflict-kept edited file"
+    [[ -f "$dst/a/f.txt" ]] && ok "prune keeps file edited before re-deploy" \
+        || bad "prune keeps file edited before re-deploy"
+    rm -rf "$tmp"
+}
+
 main() {
     t_syntax; t_help; t_check_shape; t_check_exit; t_stub_parity; t_bare_defaults_update
     t_deploy_new_and_update; t_conflict_keep_and_replace; t_dry_run_touches_nothing; t_excludes_respected
     t_prune_removes_deleted_source; t_prune_keeps_user_modified; t_no_prune_flag; t_unlisted_never_pruned
+    t_prune_keeps_file_edited_before_redeploy
     echo ""; echo "RESULT: $PASS passed, $FAIL failed"
     [[ "$FAIL" -eq 0 ]]
 }
