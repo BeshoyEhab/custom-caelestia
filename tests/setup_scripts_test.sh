@@ -358,6 +358,136 @@ t_stamp_check_cmake_lists() {
     rm -rf "$tmp"
 }
 
+# ── Final-review fixes: C1 / I1 / I3 / I4 ────────────────────────────────────
+# Minimal fake repo (with a real .git DIR + git stub marker) so tests can tell
+# whether git was invoked, without touching the real worktree.
+_mk_fake_repo() { # $1 = repo dir
+    local repo="$1"
+    mkdir -p "$repo/.git" \
+        "$repo/hyprland/.config/hypr/hyprland" \
+        "$repo/hyprland/.config/caelestia" \
+        "$repo/configs/.config/fish" \
+        "$repo/configs/.local/share/bin" \
+        "$repo/shell/modules"
+    cp "$SCRIPTS_DIR/install.sh" "$repo/install.sh"
+    cp "$SCRIPTS_DIR/update.sh" "$repo/update.sh"
+    echo "hypr-v2"     > "$repo/hyprland/.config/hypr/hyprland/hyprland.conf"
+    echo "cs-v2"       > "$repo/hyprland/.config/caelestia/settings.conf"
+    echo "fish-v2"     > "$repo/configs/.config/fish/config.fish"
+    echo "starship-v2" > "$repo/configs/.config/starship.toml"
+    echo "guide-v2"    > "$repo/configs/.local/share/bin/fish-guide"
+    echo "qs-v2"       > "$repo/shell/modules/dummy.qml"
+}
+_seed_sections() { # $1 = HOME dir (creates all three section dirs)
+    mkdir -p "$1/.config/hypr/hyprland" "$1/.config/quickshell/caelestia" "$1/.config/fish"
+}
+_git_stub() { # $1 = bin dir; fake git that records every invocation in $2
+    mkdir -p "$1"
+    printf '#!/usr/bin/env bash\ntouch "%s"\nexit 0\n' "$2" > "$1/git"
+    chmod +x "$1/git"
+}
+
+# C1: spec §4 — bare `--non-interactive --no-install` = headless install,
+# configs-only: manifests written, NO git pull, NO plugin build.
+t_bare_no_install_routes_install() {
+    local tmp repo out rc; tmp=$(mktemp -d); repo="$tmp/repo"
+    _mk_fake_repo "$repo"
+    _git_stub "$tmp/bin" "$tmp/git-was-called"
+    out=$(HOME="$tmp/home" PATH="$tmp/bin:$PATH" \
+        "$repo/install.sh" --non-interactive --no-install 2>&1); rc=$?
+    [[ "$rc" -eq 0 ]] && ok "bare --no-install exits 0" \
+        || bad "bare --no-install exits 0 (rc=$rc, got: $(head -5 <<<"$out"))"
+    [[ -f "$tmp/home/.config/hypr/.deploy-manifest" \
+        && -f "$tmp/home/.config/quickshell/caelestia/.deploy-manifest" ]] \
+        && ok "bare --no-install deploys configs (manifests written)" \
+        || bad "bare --no-install deploys configs (manifests written)"
+    [[ ! -e "$tmp/git-was-called" ]] \
+        && ok "bare --no-install never runs git" \
+        || bad "bare --no-install never runs git"
+    ! grep -qE "Building C\+\+ plugin|Would rebuild|Plugin source unchanged" <<<"$out" \
+        && ok "bare --no-install never attempts plugin build" \
+        || bad "bare --no-install never attempts plugin build (got: $(grep -E "plugin|rebuild" <<<"$out" | head -3))"
+    rm -rf "$tmp"
+}
+
+# I1: `--update --build` must update configs AND rebuild (order-independent).
+t_update_build_keeps_update_mode() {
+    local tmp repo out; tmp=$(mktemp -d); repo="$tmp/repo"
+    _mk_fake_repo "$repo"; _seed_sections "$tmp/home"
+    _git_stub "$tmp/bin" "$tmp/git-was-called"
+    out=$(HOME="$tmp/home" PATH="$tmp/bin:$PATH" \
+        "$repo/install.sh" --update --build --non-interactive --dry-run 2>&1) || true
+    grep -q "Updating custom-caelestia" <<<"$out" \
+        && ok "--update --build keeps update mode" \
+        || bad "--update --build keeps update mode (got: $(head -3 <<<"$out"))"
+    grep -q "Would create" <<<"$out" \
+        && ok "--update --build still deploys configs" \
+        || bad "--update --build still deploys configs (got: $out)"
+    rm -rf "$tmp"
+}
+
+# I3: the three hand-rolled loops must UPDATE existing differing targets
+# (old update.sh behavior), and still honour --on-conflict keep.
+t_update_updates_handrolled_files() {
+    local tmp repo out rc; tmp=$(mktemp -d); repo="$tmp/repo"
+    _mk_fake_repo "$repo"; _seed_sections "$tmp/home"
+    _git_stub "$tmp/bin" "$tmp/git-was-called"
+    mkdir -p "$tmp/home/.config/caelestia" "$tmp/home/.local/share/bin"
+    echo "old-cs"   > "$tmp/home/.config/caelestia/settings.conf"
+    echo "old-star" > "$tmp/home/.config/starship.toml"
+    echo "old-guide" > "$tmp/home/.local/share/bin/fish-guide"
+    touch -d "2020-01-01" "$tmp/home/.config/caelestia/settings.conf" \
+        "$tmp/home/.config/starship.toml" "$tmp/home/.local/share/bin/fish-guide"
+    out=$(HOME="$tmp/home" PATH="$tmp/bin:$PATH" \
+        "$repo/install.sh" --update --non-interactive --no-install 2>&1); rc=$?
+    [[ "$rc" -eq 0 ]] && ok "update with --no-install exits 0" \
+        || bad "update with --no-install exits 0 (rc=$rc, got: $(tail -5 <<<"$out"))"
+    [[ "$(cat "$tmp/home/.config/starship.toml")" == "starship-v2" ]] \
+        && ok "update refreshes existing starship.toml" \
+        || bad "update refreshes existing starship.toml (got: $(cat "$tmp/home/.config/starship.toml"))"
+    [[ "$(cat "$tmp/home/.local/share/bin/fish-guide")" == "guide-v2" ]] \
+        && ok "update refreshes existing fish-guide" \
+        || bad "update refreshes existing fish-guide (got: $(cat "$tmp/home/.local/share/bin/fish-guide"))"
+    [[ "$(cat "$tmp/home/.config/caelestia/settings.conf")" == "cs-v2" ]] \
+        && ok "update refreshes existing caelestia config" \
+        || bad "update refreshes existing caelestia config (got: $(cat "$tmp/home/.config/caelestia/settings.conf"))"
+    # keep-conflict: user-newer target must survive
+    echo "user-edit" > "$tmp/home/.config/starship.toml"
+    touch -d "2030-01-01" "$tmp/home/.config/starship.toml"
+    HOME="$tmp/home" PATH="$tmp/bin:$PATH" \
+        "$repo/install.sh" --update --non-interactive --on-conflict keep >/dev/null 2>&1
+    [[ "$(cat "$tmp/home/.config/starship.toml")" == "user-edit" ]] \
+        && ok "keep-conflict preserves user-edited starship.toml" \
+        || bad "keep-conflict preserves user-edited starship.toml (got: $(cat "$tmp/home/.config/starship.toml"))"
+    rm -rf "$tmp"
+}
+
+# I4: a pre-existing file we never wrote and that has no prior manifest entry
+# must NOT be recorded → never pruned when its source later disappears.
+t_prune_never_blesses_unwritten() {
+    local tmp src dst; tmp=$(mktemp -d); src=$tmp/repo; dst=$tmp/home
+    mk_repo "$src"
+    mkdir -p "$dst/a"; echo "pre-existing user file" > "$dst/a/f.txt"
+    touch -d "2030-06-01" "$dst/a/f.txt"   # future mtime, NO manifest
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false NO_PRUNE=false
+        manifest_begin "$dst"; deploy_tree "$src/mods" "$dst"; manifest_finish "$dst"
+    )
+    ! grep -q "^a/f.txt" "$dst/.deploy-manifest" 2>/dev/null \
+        && ok "never-written file not recorded in manifest" \
+        || bad "never-written file not recorded in manifest"
+    rm "$src/mods/a/f.txt"                  # source disappears
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false NO_PRUNE=false
+        manifest_begin "$dst"; deploy_tree "$src/mods" "$dst"; manifest_finish "$dst"
+    )
+    [[ -f "$dst/a/f.txt" ]] && ok "pre-existing unwritten file never pruned" \
+        || bad "pre-existing unwritten file never pruned"
+    rm -rf "$tmp"
+}
+
 main() {
     t_syntax; t_help; t_check_shape; t_check_exit; t_stub_parity; t_bare_defaults_update
     t_deploy_new_and_update; t_conflict_keep_and_replace; t_dry_run_touches_nothing; t_excludes_respected
@@ -367,6 +497,8 @@ main() {
     t_update_dry_run_skips_git_pull
     t_build_dry_run
     t_stamp_check_multi_file; t_stamp_check_unchanged; t_stamp_check_cmake_lists
+    t_bare_no_install_routes_install; t_update_build_keeps_update_mode
+    t_update_updates_handrolled_files; t_prune_never_blesses_unwritten
     echo ""; echo "RESULT: $PASS passed, $FAIL failed"
     [[ "$FAIL" -eq 0 ]]
 }

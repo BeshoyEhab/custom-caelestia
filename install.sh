@@ -13,6 +13,7 @@ DRY_RUN=false
 FORCE=false
 NON_INTERACTIVE=false
 NO_INSTALL=false
+NO_INSTALL_USER=false   # true only when the USER passed --no-install (spec §4)
 VERBOSE=false
 REBUILD_QS=false
 NO_PRUNE=false
@@ -44,7 +45,8 @@ Options:
   ${CYAN}-v, --verbose${NC}      Show real command output
   ${CYAN}-h, --help${NC}         Show this help
 
-Bare flags with no command (e.g. --non-interactive alone) default to --update.
+Bare flags with no command default to --update
+(--no-install alone → --install; no flags → interactive menu).
 EOF
     exit 0
 }
@@ -56,7 +58,7 @@ parse_args() {
             --install)           MODE="install"; cmd_seen=true; shift ;;
             --update)            MODE="update"; cmd_seen=true; shift ;;
             --check)             MODE="check"; cmd_seen=true; shift ;;
-            --build)             MODE="build"; BUILD_CMD=true; cmd_seen=true; shift ;;
+            --build)             BUILD_CMD=true; if [[ "$cmd_seen" == false ]]; then MODE="build"; fi; cmd_seen=true; shift ;;
             --on-conflict)       ON_CONFLICT="${2:-ask}"; flag_seen=true; shift 2 ;;
             --on-conflict=*)     ON_CONFLICT="${1#*=}"; flag_seen=true; shift ;;
             --backup)            BACKUP=true; flag_seen=true; shift ;;
@@ -64,7 +66,7 @@ parse_args() {
             --force)             FORCE=true; flag_seen=true; shift ;;
             --force-rebuild)     FORCE_REBUILD=true; flag_seen=true; shift ;;
             --no-prune)          NO_PRUNE=true; flag_seen=true; shift ;;
-            --no-install)        NO_INSTALL=true; flag_seen=true; shift ;;
+            --no-install)        NO_INSTALL=true; NO_INSTALL_USER=true; flag_seen=true; shift ;;
             --non-interactive)   NON_INTERACTIVE=true; ON_CONFLICT="replace"; flag_seen=true; shift ;;
             --rebuild-quickshell) REBUILD_QS=true; flag_seen=true; shift ;;
             -v|--verbose)        VERBOSE=true; flag_seen=true; shift ;;
@@ -72,10 +74,13 @@ parse_args() {
             *)                   warn "Unknown option: $1"; flag_seen=true; shift ;;
         esac
     done
-    # Bare flags (old update.sh dialect) default to update mode.
+    # Bare flags (old update.sh dialect) default to update mode — except
+    # --no-install, which spec §4 pins to headless configs-only install.
     if [[ -z "$MODE" ]]; then
         if [[ "$cmd_seen" == true ]]; then
             MODE="menu"   # unreachable; cmd_seen implies MODE set
+        elif [[ "$NO_INSTALL_USER" == true ]]; then
+            MODE="install"
         elif [[ "$flag_seen" == true ]]; then
             MODE="update"
         else
@@ -362,7 +367,7 @@ handle_conflict() {
 # NOTE: uses process substitution (not a pipe) so DEPLOYED_RELS survives.
 DEPLOYED_RELS=()       # rel-paths written/confirmed by the last deploy_tree call
 DEPLOYED_WRITTEN=()    # subset of those we actually (over)wrote THIS run
-DEPLOY_EXCLUDES=(-not -path "*/build/*" -not -path "*/upstream/*" -not -path "*/plugin/*")
+DEPLOY_EXCLUDES=(-not -path "*/build/*" -not -path "*/upstream/*" -not -path "*/plugin/*" -not -path "*/.git*")
 deploy_tree() {
     local src="$1" dst="$2"
     shift 2
@@ -454,11 +459,10 @@ manifest_finish() {
     local tmp_manifest="$dst/.deploy-manifest.new"
     : > "$tmp_manifest"
 
-    # Prior manifest indexed by rel. mtime source per rel: fresh stat only for
-    # files we actually wrote THIS run; kept/identical files carry the prior
-    # record forward (first sighting gets a baseline stat). Otherwise a
-    # user-edited file's NEW mtime would be re-blessed as ours here, and a
-    # later prune would delete it silently when the source disappears.
+    # Record a rel only when we wrote it THIS run (fresh stat) or it carries a
+    # prior manifest entry forward. A pre-existing file we never wrote and have
+    # no record of is NOT ours → leave it out entirely so pruning can never
+    # touch it (first-sighting baselines used to bless user edits as ours).
     local -A prior_map=()
     if [[ -n "$MANIFEST_PRIOR" && -f "$MANIFEST_PRIOR" ]]; then
         local pr_rel pr_mtime
@@ -477,10 +481,12 @@ manifest_finish() {
         for w in ${DEPLOYED_WRITTEN[@]+"${DEPLOYED_WRITTEN[@]}"}; do
             [[ "$w" == "$rel" ]] && { written=true; break; }
         done
-        if [[ "$written" == true || -z "${prior_map[$rel]+x}" ]]; then
+        if [[ "$written" == true ]]; then
             mtime=$(stat -c %y "$target" 2>/dev/null || echo 0)
-        else
+        elif [[ -n "${prior_map[$rel]+x}" ]]; then
             mtime="${prior_map[$rel]}"
+        else
+            continue
         fi
         printf '%s\t%s\n' "$rel" "$mtime" >> "$tmp_manifest"
     done
@@ -755,6 +761,27 @@ deploy_hyprland() {
                     cp -p "$f" "$target"
                     DEPLOYED_WRITTEN+=("$rel")
                 fi
+            elif ! cmp -s "$f" "$target" 2>/dev/null; then
+                # Existing + differs: copy when safe, else conflict modes
+                # (same decision as deploy_tree — old update.sh did this too).
+                if [[ "$FORCE" == true ]] || \
+                   [[ "$(stat -c %Y "$target" 2>/dev/null || echo 0)" -le "$(stat -c %Y "$f" 2>/dev/null || echo 0)" ]]; then
+                    if [[ "$DRY_RUN" == true ]]; then
+                        echo -e "  ${BLUE}[dry-run]${NC} Would update: $target"
+                    else
+                        cp -p "$f" "$target"
+                        DEPLOYED_WRITTEN+=("$rel")
+                    fi
+                else
+                    if [[ "$DRY_RUN" == true ]]; then
+                        echo -e "  ${YELLOW}[dry-run]${NC} Would conflict: $target"
+                    else
+                        handle_conflict "$f" "$target"
+                        if [[ "$CONFLICT_WROTE" == true ]]; then
+                            DEPLOYED_WRITTEN+=("$rel")
+                        fi
+                    fi
+                fi
             fi
             DEPLOYED_RELS+=("$rel")
         done < <(find "$csrc" -type f 2>/dev/null)
@@ -766,7 +793,9 @@ deploy_hyprland() {
         manifest_begin "$HOME/.config/systemd/user"
         deploy_tree "$REPO_DIR/hyprland/.config/systemd/user" "$HOME/.config/systemd/user"
         manifest_finish "$HOME/.config/systemd/user"
-        systemctl --user daemon-reload 2>/dev/null || true
+        if [[ "$DRY_RUN" != true ]]; then
+            systemctl --user daemon-reload 2>/dev/null || true
+        fi
     fi
 
     # XDG Desktop Portal
@@ -811,15 +840,36 @@ deploy_shell_extras() {
     DEPLOYED_RELS=()
     DEPLOYED_WRITTEN=()
     if [[ -f "$REPO_DIR/configs/.config/starship.toml" ]]; then
+        local starship_src="$REPO_DIR/configs/.config/starship.toml"
         local starship_target="$HOME/.config/starship.toml"
         if [[ ! -f "$starship_target" ]]; then
             if [[ "$DRY_RUN" == true ]]; then
                 echo -e "  ${BLUE}[dry-run]${NC} Would create: $starship_target"
             else
                 mkdir -p "$HOME/.config"
-                cp -p "$REPO_DIR/configs/.config/starship.toml" "$starship_target"
+                cp -p "$starship_src" "$starship_target"
                 DEPLOYED_WRITTEN+=("starship.toml")
                 log "  Starship config deployed."
+            fi
+        elif ! cmp -s "$starship_src" "$starship_target" 2>/dev/null; then
+            if [[ "$FORCE" == true ]] || \
+               [[ "$(stat -c %Y "$starship_target" 2>/dev/null || echo 0)" -le "$(stat -c %Y "$starship_src" 2>/dev/null || echo 0)" ]]; then
+                if [[ "$DRY_RUN" == true ]]; then
+                    echo -e "  ${BLUE}[dry-run]${NC} Would update: $starship_target"
+                else
+                    cp -p "$starship_src" "$starship_target"
+                    DEPLOYED_WRITTEN+=("starship.toml")
+                    log "  Starship config updated."
+                fi
+            else
+                if [[ "$DRY_RUN" == true ]]; then
+                    echo -e "  ${YELLOW}[dry-run]${NC} Would conflict: $starship_target"
+                else
+                    handle_conflict "$starship_src" "$starship_target"
+                    if [[ "$CONFLICT_WROTE" == true ]]; then
+                        DEPLOYED_WRITTEN+=("starship.toml")
+                    fi
+                fi
             fi
         fi
         DEPLOYED_RELS=("starship.toml")
@@ -841,16 +891,38 @@ deploy_shell_extras() {
     DEPLOYED_RELS=()
     DEPLOYED_WRITTEN=()
     if [[ -f "$REPO_DIR/configs/.local/share/bin/fish-guide" ]]; then
+        local fish_guide_src="$REPO_DIR/configs/.local/share/bin/fish-guide"
         local fish_guide_target="$HOME/.local/share/bin/fish-guide"
         if [[ ! -f "$fish_guide_target" ]]; then
             if [[ "$DRY_RUN" == true ]]; then
                 echo -e "  ${BLUE}[dry-run]${NC} Would create: $fish_guide_target"
             else
                 mkdir -p "$HOME/.local/share/bin"
-                cp -p "$REPO_DIR/configs/.local/share/bin/fish-guide" "$fish_guide_target"
+                cp -p "$fish_guide_src" "$fish_guide_target"
                 DEPLOYED_WRITTEN+=("fish-guide")
                 chmod +x "$fish_guide_target"
                 log "  fish-guide installed."
+            fi
+        elif ! cmp -s "$fish_guide_src" "$fish_guide_target" 2>/dev/null; then
+            if [[ "$FORCE" == true ]] || \
+               [[ "$(stat -c %Y "$fish_guide_target" 2>/dev/null || echo 0)" -le "$(stat -c %Y "$fish_guide_src" 2>/dev/null || echo 0)" ]]; then
+                if [[ "$DRY_RUN" == true ]]; then
+                    echo -e "  ${BLUE}[dry-run]${NC} Would update: $fish_guide_target"
+                else
+                    cp -p "$fish_guide_src" "$fish_guide_target"
+                    chmod +x "$fish_guide_target"
+                    DEPLOYED_WRITTEN+=("fish-guide")
+                    log "  fish-guide updated."
+                fi
+            else
+                if [[ "$DRY_RUN" == true ]]; then
+                    echo -e "  ${YELLOW}[dry-run]${NC} Would conflict: $fish_guide_target"
+                else
+                    handle_conflict "$fish_guide_src" "$fish_guide_target"
+                    if [[ "$CONFLICT_WROTE" == true ]]; then
+                        DEPLOYED_WRITTEN+=("fish-guide")
+                    fi
+                fi
             fi
         fi
         DEPLOYED_RELS=("fish-guide")
@@ -1070,7 +1142,7 @@ cmd_check() {
     local stamp_file="$REPO_DIR/build/.plugin_build_stamp"
     if [[ ! -f "$stamp_file" ]]; then
         stale=true
-    elif [[ -n "$(find "$REPO_DIR/shell/plugin/src" -type f \( -name "*.hpp" -o -name "*.cpp" \) -newer "$stamp_file" 2>/dev/null)" ]]; then
+    elif [[ -n "$(find "$REPO_DIR/shell/plugin/src" -type f \( -name "*.hpp" -o -name "*.cpp" -o -name "CMakeLists.txt" \) -newer "$stamp_file" 2>/dev/null)" ]]; then
         stale=true
     else
         stale=false
@@ -1197,10 +1269,9 @@ cmd_update() {
     [[ "$DRY_RUN" != true && -d "$REPO_DIR/.git" ]] && git_pull_latest
     [[ "$BACKUP" == true ]] && backup_targets
 
-    # Update never installs packages: force NO_INSTALL for the deployers only
-    # (plugin-if-changed and the reload below run regardless). UPDATE_QUIET
-    # silences install_pkg's skip-log wording, which would blame a flag the
-    # user never passed.
+    # Update never installs packages: force NO_INSTALL for the deployers only.
+    # UPDATE_QUIET silences install_pkg's skip-log wording, which would blame a
+    # flag the user never passed.
     local saved_no_install=$NO_INSTALL
     local saved_update_quiet=$UPDATE_QUIET
     NO_INSTALL=true
@@ -1211,7 +1282,11 @@ cmd_update() {
     NO_INSTALL=$saved_no_install
     UPDATE_QUIET=$saved_update_quiet
 
-    [[ "$SECTION_QUICKSHELL" == true ]] && build_plugin_if_changed
+    # User-passed --no-install also skips the plugin build (show_usage's
+    # "skip packages + plugin build" contract); otherwise rebuild-if-changed.
+    if [[ "$SECTION_QUICKSHELL" == true && "$NO_INSTALL_USER" != true ]]; then
+        build_plugin_if_changed
+    fi
 
     if [[ "$DRY_RUN" != true ]] && command -v hyprctl &>/dev/null && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
         log "Reloading Hyprland..."
