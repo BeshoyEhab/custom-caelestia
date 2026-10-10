@@ -7,7 +7,6 @@ qml_module(caelestia-components
         buttonrow.cpp
         circularindicatormanager.cpp
         linearindicatormanager.cpp
-        visualiserbars.cpp
     LIBRARIES
         Qt::Quick
 )
