@@ -867,7 +867,11 @@ deploy_quickshell() {
 
     # Remove symlinks (pointing to old locations)
     if [[ -L "$dst" ]]; then
-        rm -f "$dst"
+        if [[ "$DRY_RUN" == true ]]; then
+            echo -e "  ${BLUE}[dry-run]${NC} Would remove old symlink: $dst"
+        else
+            rm -f "$dst"
+        fi
     fi
 
     manifest_begin "$dst"
@@ -875,12 +879,16 @@ deploy_quickshell() {
     manifest_finish "$dst"
 
     # Symlink install/update scripts for settings app
-    mkdir -p "$dst/scripts"
-    ln -sf "$REPO_DIR/update.sh" "$dst/scripts/update.sh"
-    ln -sf "$REPO_DIR/install.sh" "$dst/scripts/install.sh"
+    if [[ "$DRY_RUN" == true ]]; then
+        echo -e "  ${BLUE}[dry-run]${NC} Would symlink install.sh/update.sh into $dst/scripts"
+    else
+        mkdir -p "$dst/scripts"
+        ln -sf "$REPO_DIR/update.sh" "$dst/scripts/update.sh"
+        ln -sf "$REPO_DIR/install.sh" "$dst/scripts/install.sh"
 
-    # Set permissions on scripts
-    chmod +x "$dst/scripts/"* &>/dev/null || true
+        # Set permissions on scripts
+        chmod +x "$dst/scripts/"* &>/dev/null || true
+    fi
 
     log "Quickshell config deployed."
 }
