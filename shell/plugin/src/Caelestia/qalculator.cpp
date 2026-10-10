@@ -56,6 +56,7 @@ QString Qalculator::eval(const QString& expr, bool printExpr) const {
 
     EvaluationOptions eo;
     PrintOptions po;
+    po.interval_display = INTERVAL_DISPLAY_SIGNIFICANT_DIGITS;
     // Force comma to be the function-argument separator (dot decimal).
     // Fresh EvaluationOptions leaves these flags uninitialized (observed
     // comma_as_separator=127), which makes unlocalizeExpression strip the
@@ -120,6 +121,7 @@ void Qalculator::evalAsync(const QString& expr) {
 
         EvaluationOptions eo;
         PrintOptions po;
+        po.interval_display = INTERVAL_DISPLAY_SIGNIFICANT_DIGITS;
         // Same fix as eval(): fresh EvaluationOptions leaves the separator
         // flags uninitialized, stripping commas (`comb(4, 2)` -> `comb(42)`).
         eo.parse_options.comma_as_separator = false;
