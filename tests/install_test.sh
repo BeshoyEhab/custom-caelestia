@@ -40,7 +40,7 @@ test_ignore "custom/bar/file" "custom/deep/nested/file" 0
 test_ignore "regular file" "hyprland.conf" 1
 test_ignore "qml file" "Bar.qml" 1
 
-# ── 4. safe_deploy dry run ────────────────────────────────────────────────────
+# ── 4. deploy_tree (was safe_deploy) ─────────────────────────────────────────
 TMPDIR=$(mktemp -d)
 cleanup() { rm -rf "$TMPDIR"; }
 trap cleanup EXIT
@@ -49,55 +49,58 @@ SRC="$TMPDIR/src"
 DST="$TMPDIR/dst"
 mkdir -p "$SRC/sub" "$DST"
 
+# deploy_tree honors ON_CONFLICT on user-modified targets; keep = preserve local.
+ON_CONFLICT=keep
+
 echo "hello" > "$SRC/file1.txt"
 # Ensure src mtime is in the past before we modify dst later
 sleep 1.1
 echo "world" > "$SRC/sub/file2.txt"
 
-safe_deploy "$SRC" "$DST"
+deploy_tree "$SRC" "$DST"
 
 if [[ -f "$DST/file1.txt" ]]; then
-    pass "safe_deploy: file1.txt copied"
+    pass "deploy_tree: file1.txt copied"
 else
-    fail "safe_deploy: file1.txt missing"
+    fail "deploy_tree: file1.txt missing"
 fi
 
 if [[ -f "$DST/sub/file2.txt" ]]; then
-    pass "safe_deploy: sub/file2.txt copied"
+    pass "deploy_tree: sub/file2.txt copied"
 else
-    fail "safe_deploy: sub/file2.txt missing"
+    fail "deploy_tree: sub/file2.txt missing"
 fi
 
-# Test that existing files are NOT overwritten in pass 2 (user-modified = newer)
+# Test that existing files are NOT overwritten (user-modified = newer)
 sleep 1.1
 echo "modified" > "$DST/file1.txt"
-safe_deploy "$SRC" "$DST"
+deploy_tree "$SRC" "$DST"
 content=$(cat "$DST/file1.txt")
 if [[ "$content" == "modified" ]]; then
-    pass "safe_deploy: existing file preserved (user-modified)"
+    pass "deploy_tree: existing file preserved (user-modified)"
 else
-    fail "safe_deploy: existing file was overwritten (got: $content)"
+    fail "deploy_tree: existing file was overwritten (got: $content)"
 fi
 
-# ── 5. .updateignore in safe_deploy ────────────────────────────────────────────
+# ── 5. .updateignore in deploy_tree ───────────────────────────────────────────
 IGNORE_PATTERNS=("ignored.txt")
 mkdir -p "$SRC/ignore_test"
 echo "should not appear" > "$SRC/ignore_test/ignored.txt"
 echo "should appear" > "$SRC/ignore_test/ok.txt"
 DST2="$TMPDIR/dst2"
 mkdir -p "$DST2"
-safe_deploy "$SRC/ignore_test" "$DST2"
+deploy_tree "$SRC/ignore_test" "$DST2"
 
 if [[ ! -f "$DST2/ignored.txt" ]]; then
-    pass "safe_deploy: ignored file skipped"
+    pass "deploy_tree: ignored file skipped"
 else
-    fail "safe_deploy: ignored file was copied"
+    fail "deploy_tree: ignored file was copied"
 fi
 
 if [[ -f "$DST2/ok.txt" ]]; then
-    pass "safe_deploy: non-ignored file copied"
+    pass "deploy_tree: non-ignored file copied"
 else
-    fail "safe_deploy: non-ignored file missing"
+    fail "deploy_tree: non-ignored file missing"
 fi
 
 # ── 6. deploy_quickshell removes existing symlinks ──────────────────────────
@@ -107,9 +110,9 @@ mkdir -p "$TMPDIR/syml_test"
 ln -sf /nonexistent "$SYML_TEST"
 if [[ -L "$SYML_TEST" ]]; then
     rm -f "$SYML_TEST"
-    safe_deploy "$SRC" "$SYML_TEST"
+    deploy_tree "$SRC" "$SYML_TEST"
     if [[ -d "$SYML_TEST" ]] && [[ ! -L "$SYML_TEST" ]]; then
-        pass "deploy_quickshell: symlink removed, then safe_deploy created directory"
+        pass "deploy_quickshell: symlink removed, then deploy_tree created directory"
     else
         fail "deploy_quickshell: target not a directory after symlink removal + deploy"
     fi

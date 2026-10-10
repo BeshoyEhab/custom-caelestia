@@ -195,71 +195,7 @@ install_pkg() {
     rm -f "$logfile"
 }
 
-# ── Safe deploy: merge repo into target without destroying user files ────────
-# Reads .updateignore to skip user-customized files.
-# Uses rsync --ignore-existing for first install, then --update for re-installs.
-# Files in .updateignore are never touched.
-safe_deploy() {
-    local src="$1" dst="$2"
-    shift 2
-    local find_excludes=("$@")
-
-    mkdir -p "$dst"
-
-    # Build rsync args: exclude git, upstream, build dirs
-    local rsync_args=(-a --exclude=".git*" --exclude="upstream/" --exclude="build/")
-
-    # First pass: copy only new files (don't overwrite existing)
-    find "$src" -type f "${find_excludes[@]}" 2>/dev/null | while IFS= read -r repo_file; do
-        local rel="${repo_file#"$src"/}"
-        local target="$dst/$rel"
-
-        # Skip if in .updateignore
-        if should_ignore "$rel" "$target"; then
-            continue
-        fi
-
-        # Only create if target doesn't exist
-        if [[ ! -f "$target" ]]; then
-            mkdir -p "$(dirname "$target")"
-            cp -p "$repo_file" "$target"
-        fi
-    done
-
-    # Second pass: update files that are older or identical (repo is source of truth for non-custom)
-    # But ONLY if the target file hasn't been modified by the user
-    find "$src" -type f "${find_excludes[@]}" 2>/dev/null | while IFS= read -r repo_file; do
-        local rel="${repo_file#"$src"/}"
-        local target="$dst/$rel"
-
-        if should_ignore "$rel" "$target"; then
-            continue
-        fi
-
-        if [[ -f "$target" ]]; then
-            # Only replace if files differ AND target matches repo version (not user-modified)
-            if ! cmp -s "$repo_file" "$target" 2>/dev/null; then
-                # Check if there's a backup of the repo version to compare
-                # If user modified it, leave it alone. If repo changed, update.
-                # Simple heuristic: if the file was touched after repo last changed, skip
-                local repo_mtime
-                repo_mtime=$(stat -c %Y "$repo_file" 2>/dev/null || echo 0)
-                local target_mtime
-                target_mtime=$(stat -c %Y "$target" 2>/dev/null || echo 0)
-
-                # If target is newer than repo, user modified it — skip
-                if [[ "$target_mtime" -gt "$repo_mtime" ]]; then
-                    continue
-                fi
-
-                # Target is same age or older — safe to update
-                cp -p "$repo_file" "$target"
-            fi
-        fi
-    done
-}
-
-# ── Load .updateignore patterns ──────────────────────────────────────────────
+# ── .updateignore ─────────────────────────────────────────────────────────────
 declare -a IGNORE_PATTERNS=()
 
 load_ignore_patterns() {
@@ -270,6 +206,7 @@ load_ignore_patterns() {
         "$HOME/.updateignore"
         "$HOME/.config/hypr/.updateignore"
         "$HOME/.config/quickshell/.updateignore"
+        "$HOME/.config/quickshell/caelestia/.updateignore"
     )
     for f in "${ignore_files[@]}"; do
         if [[ -f "$f" ]]; then
@@ -285,23 +222,188 @@ load_ignore_patterns() {
 should_ignore() {
     local rel_path="$1"
     local full_path="$2"
+    local matched=false
     for pattern in "${IGNORE_PATTERNS[@]}"; do
+        local negated=false
+        local pat="$pattern"
+        [[ "$pat" == "!"* ]] && { negated=true; pat="${pat#!}"; }
+
         # Absolute path patterns match against the full target path
-        if [[ "$pattern" == /* ]]; then
-            [[ "$full_path" == "$pattern" ]] && return 0
+        if [[ "$pat" == /* ]]; then
+            if [[ "$full_path" == "$pat" ]]; then
+                [[ "$negated" == "true" ]] && matched=false || matched=true
+            fi
             continue
         fi
-        # Exact match
-        [[ "$rel_path" == "$pattern" ]] && return 0
-        # Glob match
-        [[ "$rel_path" == $pattern ]] && return 0
-        # Directory pattern: "custom/" matches "custom/anything"
-        if [[ "$pattern" == */ ]]; then
-            local dir_pattern="${pattern%/}"
-            [[ "$rel_path" == "$dir_pattern"/* ]] && return 0
+
+        if match_gitignore "$rel_path" "$pat"; then
+            [[ "$negated" == "true" ]] && matched=false || matched=true
         fi
     done
+    [[ "$matched" == "true" ]] && return 0
     return 1
+}
+
+match_gitignore() {
+    local path="$1" pattern="$2"
+
+    if [[ "$pattern" == $'\*\*' ]]; then
+        return 0
+    fi
+
+    if [[ "$pattern" == $'\*\*'/* ]]; then
+        local rest="${pattern#'**/'}"
+        [[ "$path" == "$rest" || "$path" == */"$rest" || "$path" == */"$rest"/* ]] && return 0
+        return 1
+    fi
+
+    if [[ "$pattern" == */$'\*\*' ]]; then
+        local prefix="${pattern%'/**'}"
+        [[ "$path" == "$prefix"/* || "$path" == "$prefix" ]] && return 0
+        return 1
+    fi
+
+    if [[ "$pattern" == */$'\*\*'/* ]]; then
+        local prefix="${pattern%'/**/*'}"
+        local suffix="${pattern##*'/\*\*/'}"
+        [[ "$path" == "$prefix"/"$suffix" || "$path" == "$prefix"/*"$suffix" || "$path" == "$prefix"/*/*"$suffix" ]] && return 0
+        return 1
+    fi
+
+    [[ "$pattern" == */ ]] && {
+        local dir="${pattern%/}"
+        [[ "$path" == "$dir" || "$path" == "$dir"/* ]] && return 0
+        return 1
+    }
+
+    [[ "$path" == $pattern ]] && return 0
+    [[ "$path" == */"$pattern" ]] && return 0
+
+    local base
+    base=$(basename "$pattern")
+    [[ "$base" == $pattern ]] && {
+        [[ "$(basename "$path")" == $pattern ]] && return 0
+    }
+
+    return 1
+}
+
+# ── Conflict handling ────────────────────────────────────────────────────────
+handle_conflict() {
+    local repo_file="$1" home_file="$2"
+    local action="${3:-$ON_CONFLICT}"
+
+    if [[ "$action" != "ask" ]]; then
+        case "$action" in
+            replace) cp -p "$repo_file" "$home_file"; log "Replaced: $home_file" ;;
+            keep)    echo -e "  ${BLUE}Kept:${NC} $home_file" ;;
+            backup)
+                local dir base
+                dir=$(dirname "$home_file"); base=$(basename "$home_file")
+                mv "$home_file" "${dir}/${base}.old"
+                cp -p "$repo_file" "$home_file"
+                log "Backed up → ${base}.old, replaced" ;;
+            new)
+                local dir base
+                dir=$(dirname "$home_file"); base=$(basename "$home_file")
+                cp -p "$repo_file" "${dir}/${base}.new"
+                echo -e "  ${YELLOW}Saved:${NC} repo as ${base}.new, kept local" ;;
+        esac
+        return
+    fi
+
+    # Interactive prompt
+    echo ""
+    echo -e "${YELLOW}┌─ Conflict:${NC} ${BOLD}$home_file${NC}"
+    echo -e "${YELLOW}│${NC}  Repository version differs from your local file."
+    while true; do
+        echo -e "${YELLOW}└─${NC} Choose:"
+        echo "  ${GREEN}1${NC}) Replace with repo version"
+        echo "  ${GREEN}2${NC}) Keep local file"
+        echo "  ${GREEN}3${NC}) Backup → .old, then replace"
+        echo "  ${GREEN}4${NC}) Save repo as .new, keep local"
+        echo "  ${GREEN}5${NC}) Show diff"
+        echo "  ${GREEN}6${NC}) Skip"
+        echo "  ${GREEN}7${NC}) Add to .updateignore & skip"
+        local choice
+        read -r -p "  → " choice < /dev/tty
+        case "$choice" in
+            1) handle_conflict "$repo_file" "$home_file" "replace"; break ;;
+            2) handle_conflict "$repo_file" "$home_file" "keep"; break ;;
+            3) handle_conflict "$repo_file" "$home_file" "backup"; break ;;
+            4) handle_conflict "$repo_file" "$home_file" "new"; break ;;
+            5) echo ""; diff -u "$home_file" "$repo_file" || true; echo "" ;;
+            6) echo -e "  ${BLUE}Skipped:${NC} $home_file"; break ;;
+            7)
+                local ignore_file="$HOME/.updateignore"
+                echo "$home_file" >> "$ignore_file"
+                IGNORE_PATTERNS+=("$home_file")
+                echo -e "  ${GREEN}Ignored:${NC} added '$home_file' to ~/.updateignore"
+                break
+                ;;
+            *) echo -e "  ${RED}Invalid. Enter 1-7.${NC}" ;;
+        esac
+    done
+}
+
+# ── The one deploy path ──────────────────────────────────────────────────────
+# Merges repo → dst. Conflict modes via ON_CONFLICT; DRY_RUN prints only;
+# FORCE skips the mtime heuristic. Records managed rel-paths in DEPLOYED_RELS.
+# NOTE: uses process substitution (not a pipe) so DEPLOYED_RELS survives.
+DEPLOYED_RELS=()       # rel-paths written/confirmed by the last deploy_tree call
+DEPLOY_EXCLUDES=(-not -path "*/build/*" -not -path "*/upstream/*" -not -path "*/plugin/*")
+deploy_tree() {
+    local src="$1" dst="$2"
+    shift 2
+    local find_excludes=("$@")
+    DEPLOYED_RELS=()
+    mkdir -p "$dst"
+
+    local repo_file rel target repo_mtime target_mtime
+    while IFS= read -r repo_file; do
+        rel="${repo_file#"$src"/}"
+        target="$dst/$rel"
+        DEPLOYED_RELS+=("$rel")
+
+        should_ignore "$rel" "$target" && continue
+        mkdir -p "$(dirname "$target")"
+
+        if [[ ! -f "$target" ]]; then
+            if [[ "$DRY_RUN" == true ]]; then
+                echo -e "  ${BLUE}[dry-run]${NC} Would create: $target"
+                continue
+            fi
+            cp -p "$repo_file" "$target"
+            continue
+        fi
+
+        cmp -s "$repo_file" "$target" 2>/dev/null && continue
+
+        if [[ "$FORCE" == true ]]; then
+            if [[ "$DRY_RUN" == true ]]; then
+                echo -e "  ${BLUE}[dry-run]${NC} Would replace: $target"
+                continue
+            fi
+            cp -p "$repo_file" "$target"
+            continue
+        fi
+
+        repo_mtime=$(stat -c %Y "$repo_file" 2>/dev/null || echo 0)
+        target_mtime=$(stat -c %Y "$target" 2>/dev/null || echo 0)
+        if [[ "$target_mtime" -le "$repo_mtime" ]]; then
+            if [[ "$DRY_RUN" == true ]]; then
+                echo -e "  ${BLUE}[dry-run]${NC} Would update: $target"
+                continue
+            fi
+            cp -p "$repo_file" "$target"
+        else
+            if [[ "$DRY_RUN" == true ]]; then
+                echo -e "  ${YELLOW}[dry-run]${NC} Would conflict: $target"
+                continue
+            fi
+            handle_conflict "$repo_file" "$target"
+        fi
+    done < <(find "$src" -type f "${find_excludes[@]}" 2>/dev/null)
 }
 
 # ── Components ────────────────────────────────────────────────────────────────
@@ -501,7 +603,7 @@ deploy_hyprland() {
     local dst="$HOME/.config/hypr"
 
     if [[ -d "$src" ]]; then
-        safe_deploy "$src" "$dst"
+        deploy_tree "$src" "$dst"
     fi
 
     # Caelestia config (shell.json etc.) — always preserve shell.json
@@ -522,13 +624,13 @@ deploy_hyprland() {
 
     # Systemd services
     if [[ -d "$REPO_DIR/hyprland/.config/systemd" ]]; then
-        safe_deploy "$REPO_DIR/hyprland/.config/systemd/user" "$HOME/.config/systemd/user"
+        deploy_tree "$REPO_DIR/hyprland/.config/systemd/user" "$HOME/.config/systemd/user"
         systemctl --user daemon-reload 2>/dev/null || true
     fi
 
     # XDG Desktop Portal
     if [[ -d "$REPO_DIR/hyprland/.config/xdg-desktop-portal" ]]; then
-        safe_deploy "$REPO_DIR/hyprland/.config/xdg-desktop-portal" "$HOME/.config/xdg-desktop-portal"
+        deploy_tree "$REPO_DIR/hyprland/.config/xdg-desktop-portal" "$HOME/.config/xdg-desktop-portal"
     fi
 
     # Set permissions
@@ -555,7 +657,7 @@ deploy_shell_extras() {
     # Fish shell
     if [[ -d "$REPO_DIR/configs/.config/fish" ]]; then
         log "  Fish shell config..."
-        safe_deploy "$REPO_DIR/configs/.config/fish" "$HOME/.config/fish"
+        deploy_tree "$REPO_DIR/configs/.config/fish" "$HOME/.config/fish"
     fi
 
     # Starship prompt
@@ -571,7 +673,7 @@ deploy_shell_extras() {
     local app_configs=(btop cava kitty foot fuzzel wlogout fontconfig nvim)
     for app in "${app_configs[@]}"; do
         if [[ -d "$REPO_DIR/configs/.config/$app" ]]; then
-            safe_deploy "$REPO_DIR/configs/.config/$app" "$HOME/.config/$app"
+            deploy_tree "$REPO_DIR/configs/.config/$app" "$HOME/.config/$app"
         fi
     done
 
@@ -598,8 +700,7 @@ deploy_quickshell() {
         rm -f "$dst"
     fi
 
-    safe_deploy "$src" "$dst" \
-        -not -path "*/build/*" -not -path "*/upstream/*" -not -path "*/plugin/*"
+    deploy_tree "$src" "$dst" "${DEPLOY_EXCLUDES[@]}"
 
     # Symlink install/update scripts for settings app
     mkdir -p "$dst/scripts"

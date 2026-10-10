@@ -52,8 +52,89 @@ t_bare_defaults_update() {
     rm -rf "$tmp"
 }
 
+# Source install.sh functions without running main
+source_scripts() { CI_TEST=true source "$SCRIPTS_DIR/install.sh" 2>/dev/null; }
+
+mk_repo() { # $1 = dir; creates a tiny fake repo tree
+    mkdir -p "$1/mods/a" "$1/mods/b"
+    echo "v1" > "$1/mods/a/f.txt"
+    echo "keep" > "$1/mods/b/g.txt"
+}
+
+t_deploy_new_and_update() {
+    local tmp src dst; tmp=$(mktemp -d); src=$tmp/repo; dst=$tmp/home
+    mk_repo "$src"
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false
+        DEPLOYED_RELS=()
+        deploy_tree "$src/mods" "$dst"
+    )
+    [[ -f "$dst/a/f.txt" ]] && ok "deploy creates new files" || bad "deploy creates new files"
+    echo "v2" > "$src/mods/a/f.txt"
+    touch -d "2020-01-01" "$dst/a/f.txt"   # target older than repo (unmodified since deploy)
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false
+        deploy_tree "$src/mods" "$dst"
+    )
+    [[ "$(cat "$dst/a/f.txt")" == "v2" ]] && ok "unmodified target updated" \
+        || bad "unmodified target updated"
+    rm -rf "$tmp"
+}
+
+t_conflict_keep_and_replace() {
+    local tmp src dst; tmp=$(mktemp -d); src=$tmp/repo; dst=$tmp/home
+    mk_repo "$src"
+    mkdir -p "$dst/a"; echo "mine" > "$dst/a/f.txt"
+    touch -d "2030-01-01" "$dst/a/f.txt"   # strictly newer than repo → user-modified
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false
+        deploy_tree "$src/mods" "$dst"
+    )
+    [[ "$(cat "$dst/a/f.txt")" == "mine" ]] && ok "keep preserves local" \
+        || bad "keep preserves local"
+    (
+        source_scripts
+        ON_CONFLICT=replace DRY_RUN=false FORCE=false
+        deploy_tree "$src/mods" "$dst"
+    )
+    [[ "$(cat "$dst/a/f.txt")" == "v1" ]] && ok "replace overwrites local" \
+        || bad "replace overwrites local"
+    rm -rf "$tmp"
+}
+
+t_dry_run_touches_nothing() {
+    local tmp src dst; tmp=$(mktemp -d); src=$tmp/repo; dst=$tmp/home
+    mk_repo "$src"
+    (
+        source_scripts
+        ON_CONFLICT=replace DRY_RUN=true FORCE=false
+        deploy_tree "$src/mods" "$dst"
+    )
+    [[ ! -e "$dst/a/f.txt" ]] && ok "dry-run creates nothing" \
+        || bad "dry-run creates nothing"
+    rm -rf "$tmp"
+}
+
+t_excludes_respected() {
+    local tmp src dst; tmp=$(mktemp -d); src=$tmp/repo; dst=$tmp/home
+    mkdir -p "$src/mods/plugin" "$src/mods/ok"
+    echo x > "$src/mods/plugin/s.cpp"; echo y > "$src/mods/ok/f.txt"
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false
+        deploy_tree "$src/mods" "$dst" -not -path "*/plugin/*"
+    )
+    [[ ! -e "$dst/plugin/s.cpp" && -f "$dst/ok/f.txt" ]] \
+        && ok "find excludes honored" || bad "find excludes honored"
+    rm -rf "$tmp"
+}
+
 main() {
     t_syntax; t_help; t_check_shape; t_check_exit; t_stub_parity; t_bare_defaults_update
+    t_deploy_new_and_update; t_conflict_keep_and_replace; t_dry_run_touches_nothing; t_excludes_respected
     echo ""; echo "RESULT: $PASS passed, $FAIL failed"
     [[ "$FAIL" -eq 0 ]]
 }
