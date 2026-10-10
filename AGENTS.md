@@ -193,6 +193,14 @@ Auto-detects installed sections and only updates those. Options:
 File patterns to skip during updates. Read from repo root + user config dirs.
 Defaults: `custom/`, `monitors.lua`, `monitors.conf`, `shell.json`, `shell.json.bak`
 
+## Upstream Sync Cadence
+
+- **Plan an upstream sync at least once every 2 weeks.** Never let the gap between sync plans (`~/caelestia` → `shell/upstream` → `shell/`) exceed 14 days, even if only a few upstream commits landed.
+- Freshness check: `git -C ~/caelestia fetch origin && git -C ~/caelestia rev-list --count HEAD..origin/main`; last-plan date = newest `docs/superpowers/plans/*-upstream-sync.md`.
+- Every sync gets its own plan in `docs/superpowers/plans/YYYY-MM-DD-upstream-sync.md`, modeled on `2026-09-21-upstream-sync.md` / `2026-10-10-upstream-sync.md`: refresh vendored base → verbatim-copy untouched files → targeted 3-way hand-ports of functional commits only → build/boot/deploy verification.
+- Do not port cosmetic-only upstream commits (clang-tidy sweeps, formatting) into hand-merged custom files; they stay in `shell/upstream` only.
+- Never run `./merge-upstream.sh merge-all`.
+
 ## Key Files to Know
 
 | Path | Purpose |
