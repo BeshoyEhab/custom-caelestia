@@ -1011,10 +1011,13 @@ build_plugin() {
 
 build_plugin_if_changed() {
     if [[ "$BUILD_CMD" != true && "$FORCE" != true ]]; then
-        # update without --build: only rebuild when sources are newer than stamp
+        # update without --build: only rebuild when sources are newer than stamp.
+        # -print -quit: exit after the first newer file so grep -q can't close
+        # the pipe early and SIGPIPE find into a false "unchanged" under pipefail.
         local stamp="$REPO_DIR/build/.plugin_build_stamp"
         if [[ -f "$stamp" ]] && ! find "$REPO_DIR/shell/plugin/src" -type f \
-            \( -name "*.hpp" -o -name "*.cpp" \) -newer "$stamp" 2>/dev/null | grep -q .; then
+            \( -name "*.hpp" -o -name "*.cpp" -o -name "CMakeLists.txt" \) -newer "$stamp" \
+            -print -quit 2>/dev/null | grep -q .; then
             log "Plugin source unchanged — skipping rebuild (use --build to force)."
             return 0
         fi

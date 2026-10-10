@@ -294,6 +294,70 @@ t_build_dry_run() {
         || bad "--build --dry-run mentions rebuild (got: $out)"
 }
 
+# Hermetic stamp-check tests: temp repo copy + scratch HOME with the quickshell
+# section detected; --update --dry-run reaches build_plugin_if_changed but the
+# dry-run line inside build_plugin cuts the path before cmake/sudo.
+_mk_stamp_repo() { # $1=repo dir; seeds shell/plugin/src + fresh build/ stamp
+    local repo="$1" i
+    mkdir -p "$repo/build" "$repo/shell/plugin/src"
+    for i in $(seq 1 150); do
+        mkdir -p "$repo/shell/plugin/src/module$i"
+        echo "// c" > "$repo/shell/plugin/src/module$i/SomeLongClassName$i.hpp"
+    done
+    touch -d "2020-01-01" "$repo/build/.plugin_build_stamp"   # older than all sources
+}
+
+_run_stamp_check() { # $1=repo dir, $2=home dir → echoes update --dry-run output
+    local tmpbin="$1/bin"
+    mkdir -p "$tmpbin"
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$tmpbin/git"
+    chmod +x "$tmpbin/git"
+    HOME="$2" PATH="$tmpbin:$PATH" "$1/install.sh" --update --dry-run --non-interactive 2>&1
+}
+
+t_stamp_check_multi_file() {
+    # >62 newer sources used to SIGPIPE find through `grep -q` under pipefail
+    # and false-skip as "unchanged"; must take the rebuild path.
+    local tmp repo out; tmp=$(mktemp -d); repo="$tmp/repo"
+    mkdir -p "$repo" "$tmp/home/.config/quickshell/caelestia"
+    cp "$SCRIPTS_DIR/install.sh" "$repo/install.sh"
+    _mk_stamp_repo "$repo"
+    out=$(_run_stamp_check "$repo" "$tmp/home") || true
+    ! grep -q "Plugin source unchanged" <<<"$out" && grep -q "Would rebuild" <<<"$out" \
+        && ok "stamp check rebuilds on 150 newer sources" \
+        || bad "stamp check rebuilds on 150 newer sources (got: $out)"
+    rm -rf "$tmp"
+}
+
+t_stamp_check_unchanged() {
+    local tmp repo out; tmp=$(mktemp -d); repo="$tmp/repo"
+    mkdir -p "$repo" "$tmp/home/.config/quickshell/caelestia"
+    cp "$SCRIPTS_DIR/install.sh" "$repo/install.sh"
+    _mk_stamp_repo "$repo"
+    touch -d "2030-01-01" "$repo/build/.plugin_build_stamp"   # newer than every source → skip
+    out=$(_run_stamp_check "$repo" "$tmp/home") || true
+    grep -q "Plugin source unchanged" <<<"$out" && ! grep -q "Would rebuild" <<<"$out" \
+        && ok "stamp check skips when no source is newer" \
+        || bad "stamp check skips when no source is newer (got: $out)"
+    rm -rf "$tmp"
+}
+
+t_stamp_check_cmake_lists() {
+    # only CMakeLists.txt newer (sources stale) → must still rebuild
+    local tmp repo out; tmp=$(mktemp -d); repo="$tmp/repo"
+    mkdir -p "$repo" "$tmp/home/.config/quickshell/caelestia"
+    cp "$SCRIPTS_DIR/install.sh" "$repo/install.sh"
+    _mk_stamp_repo "$repo"
+    touch -d "2030-01-01" "$repo/build/.plugin_build_stamp"   # newer than every .hpp/.cpp
+    echo "# edited" >> "$repo/shell/plugin/src/module1/CMakeLists.txt"
+    touch -d "2030-01-02" "$repo/shell/plugin/src/module1/CMakeLists.txt"  # strictly newer than stamp
+    out=$(_run_stamp_check "$repo" "$tmp/home") || true
+    ! grep -q "Plugin source unchanged" <<<"$out" && grep -q "Would rebuild" <<<"$out" \
+        && ok "stamp check rebuilds on newer CMakeLists.txt" \
+        || bad "stamp check rebuilds on newer CMakeLists.txt (got: $out)"
+    rm -rf "$tmp"
+}
+
 main() {
     t_syntax; t_help; t_check_shape; t_check_exit; t_stub_parity; t_bare_defaults_update
     t_deploy_new_and_update; t_conflict_keep_and_replace; t_dry_run_touches_nothing; t_excludes_respected
@@ -302,6 +366,7 @@ main() {
     t_headless_install_configs_only; t_update_skips_uninstalled; t_update_after_install
     t_update_dry_run_skips_git_pull
     t_build_dry_run
+    t_stamp_check_multi_file; t_stamp_check_unchanged; t_stamp_check_cmake_lists
     echo ""; echo "RESULT: $PASS passed, $FAIL failed"
     [[ "$FAIL" -eq 0 ]]
 }
