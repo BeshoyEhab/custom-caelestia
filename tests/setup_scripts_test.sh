@@ -287,6 +287,13 @@ t_update_dry_run_skips_git_pull() {
     rm -rf "$tmp"
 }
 
+t_build_dry_run() {
+    local out
+    out=$("$SCRIPTS_DIR/install.sh" --build --dry-run --non-interactive 2>&1) || true
+    grep -qi "rebuild" <<<"$out" && ok "--build --dry-run mentions rebuild" \
+        || bad "--build --dry-run mentions rebuild (got: $out)"
+}
+
 main() {
     t_syntax; t_help; t_check_shape; t_check_exit; t_stub_parity; t_bare_defaults_update
     t_deploy_new_and_update; t_conflict_keep_and_replace; t_dry_run_touches_nothing; t_excludes_respected
@@ -294,6 +301,7 @@ main() {
     t_prune_keeps_file_edited_before_redeploy
     t_headless_install_configs_only; t_update_skips_uninstalled; t_update_after_install
     t_update_dry_run_skips_git_pull
+    t_build_dry_run
     echo ""; echo "RESULT: $PASS passed, $FAIL failed"
     [[ "$FAIL" -eq 0 ]]
 }

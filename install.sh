@@ -947,10 +947,24 @@ rebuild_quickshell() {
     fi
 }
 
+# ── C++ plugin build (one flow for install/update/build) ─────────────────────
+# Incremental by default; --force-rebuild wipes build/ first. No unconditional
+# sudo rm -rf. M3Shapes FetchContent install kept from the old dual paths.
 build_plugin() {
-    log "Building C++ plugin..."
     local build_dir="$REPO_DIR/build"
-    [[ -d "$build_dir" ]] && sudo rm -rf "$build_dir"
+    if [[ "$FORCE_REBUILD" == true && -d "$build_dir" ]]; then
+        if [[ "$DRY_RUN" == true ]]; then
+            echo -e "  ${BLUE}[dry-run]${NC} Would wipe build dir (clean rebuild): $build_dir"
+        else
+            log "Clean rebuild requested — wiping build dir..."
+            rm -rf "$build_dir"
+        fi
+    fi
+    if [[ "$DRY_RUN" == true ]]; then
+        echo -e "  ${BLUE}[dry-run]${NC} Would rebuild + install C++ plugin"
+        return 0
+    fi
+    log "Building C++ plugin..."
     mkdir -p "$build_dir"
     cmake -B "$build_dir" -S "$REPO_DIR" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
@@ -976,9 +990,6 @@ build_plugin() {
             return 1
         fi
     }
-
-    # cmake --install on the top-level build skips FetchContent deps (M3Shapes)
-    # Install M3Shapes from its own build subdirectory
     local m3shapes_build="$build_dir/_deps/m3shapes_external-build"
     if [[ -d "$m3shapes_build" ]]; then
         log "Installing M3Shapes module from FetchContent build dir..."
@@ -992,15 +1003,35 @@ build_plugin() {
                 warn "M3Shapes build output not found at $build_dir/qml/M3Shapes"
             fi
         }
-        # Ensure world-readable regardless of how it was installed
         sudo chmod -R a+rX "$install_dir/M3Shapes/" 2>/dev/null || true
     fi
+    touch "$build_dir/.plugin_build_stamp"
     log "Plugin installed."
 }
 
-# TODO(Task 5): replace with real incremental build logic
 build_plugin_if_changed() {
-    log "Plugin rebuild deferred (Task 5)."
+    if [[ "$BUILD_CMD" != true && "$FORCE" != true ]]; then
+        # update without --build: only rebuild when sources are newer than stamp
+        local stamp="$REPO_DIR/build/.plugin_build_stamp"
+        if [[ -f "$stamp" ]] && ! find "$REPO_DIR/shell/plugin/src" -type f \
+            \( -name "*.hpp" -o -name "*.cpp" \) -newer "$stamp" 2>/dev/null | grep -q .; then
+            log "Plugin source unchanged — skipping rebuild (use --build to force)."
+            return 0
+        fi
+    fi
+    build_plugin
+}
+
+cmd_build() {
+    if [[ $EUID -eq 0 ]]; then
+        warn "Running as root. Run as a normal user instead."
+        exit 1
+    fi
+    if [[ "$DRY_RUN" != true ]]; then
+        log "Checking sudo access... (you may be prompted)"
+        sudo -v || err "sudo required."
+    fi
+    build_plugin
 }
 
 # ── Read-only status check for GUI integration ───────────────────────────────
@@ -1309,7 +1340,7 @@ case "$MODE" in
         fi
         ;;
     update)  cmd_update ;;
-    build)   cmd_build ;;   # Task 5
+    build)   cmd_build ;;
 esac
 exit 0
 fi
