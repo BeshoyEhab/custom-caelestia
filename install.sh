@@ -357,16 +357,16 @@ deploy_tree() {
     shift 2
     local find_excludes=("$@")
     DEPLOYED_RELS=()
-    mkdir -p "$dst"
+    [[ "$DRY_RUN" != true ]] && mkdir -p "$dst"
 
     local repo_file rel target repo_mtime target_mtime
     while IFS= read -r repo_file; do
         rel="${repo_file#"$src"/}"
         target="$dst/$rel"
-        DEPLOYED_RELS+=("$rel")
 
         should_ignore "$rel" "$target" && continue
-        mkdir -p "$(dirname "$target")"
+        DEPLOYED_RELS+=("$rel")
+        [[ "$DRY_RUN" != true ]] && mkdir -p "$(dirname "$target")"
 
         if [[ ! -f "$target" ]]; then
             if [[ "$DRY_RUN" == true ]]; then

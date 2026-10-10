@@ -113,7 +113,7 @@ t_dry_run_touches_nothing() {
         ON_CONFLICT=replace DRY_RUN=true FORCE=false
         deploy_tree "$src/mods" "$dst"
     )
-    [[ ! -e "$dst/a/f.txt" ]] && ok "dry-run creates nothing" \
+    [[ ! -e "$dst" && ! -e "$dst/a/f.txt" ]] && ok "dry-run creates nothing" \
         || bad "dry-run creates nothing"
     rm -rf "$tmp"
 }
