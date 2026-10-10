@@ -18,6 +18,7 @@ REBUILD_QS=false
 NO_PRUNE=false
 FORCE_REBUILD=false
 BUILD_CMD=false        # true when --build given as a command
+UPDATE_QUIET=false     # true inside cmd_update's deploy bracket (no skip-log noise)
 
 show_usage() {
     cat <<EOF
@@ -153,6 +154,9 @@ sudo() {
 # Otherwise: background + spinner so nothing feels dead; failures dump the log.
 install_pkg() {
     local pkg="$1" is_aur="${2:-false}" logfile ok
+    if [[ "$NO_INSTALL" == true && "$UPDATE_QUIET" == true ]]; then
+        return 0
+    fi
     if [[ "$NO_INSTALL" == true ]]; then
         log "Skipped (no-install): $pkg"
         return 0
@@ -1147,17 +1151,23 @@ cmd_update() {
     [[ "$SECTION_SHELL_EXTRAS" == true ]] && log "Detected: Shell extras (fish)" || warn "Not found: Shell extras (~/.config/fish) — skipping"
     echo ""
 
-    [[ -d "$REPO_DIR/.git" ]] && git_pull_latest
+    # --dry-run promises "change nothing": never touch the host repo's git state.
+    [[ "$DRY_RUN" != true && -d "$REPO_DIR/.git" ]] && git_pull_latest
     [[ "$BACKUP" == true ]] && backup_targets
 
     # Update never installs packages: force NO_INSTALL for the deployers only
-    # (plugin-if-changed and the reload below run regardless).
+    # (plugin-if-changed and the reload below run regardless). UPDATE_QUIET
+    # silences install_pkg's skip-log wording, which would blame a flag the
+    # user never passed.
     local saved_no_install=$NO_INSTALL
+    local saved_update_quiet=$UPDATE_QUIET
     NO_INSTALL=true
+    UPDATE_QUIET=true
     [[ "$SECTION_HYPRLAND" == true ]] && deploy_hyprland
     [[ "$SECTION_SHELL_EXTRAS" == true ]] && deploy_shell_extras
     [[ "$SECTION_QUICKSHELL" == true ]] && deploy_quickshell
     NO_INSTALL=$saved_no_install
+    UPDATE_QUIET=$saved_update_quiet
 
     [[ "$SECTION_QUICKSHELL" == true ]] && build_plugin_if_changed
 

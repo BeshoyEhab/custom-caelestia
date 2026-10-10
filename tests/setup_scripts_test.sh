@@ -272,12 +272,28 @@ t_update_after_install() {
     rm -rf "$tmp"
 }
 
+t_update_dry_run_skips_git_pull() {
+    local tmp; tmp=$(mktemp -d)
+    mkdir -p "$tmp/repo/.git" "$tmp/bin" "$tmp/home"
+    cp "$SCRIPTS_DIR/install.sh" "$tmp/repo/install.sh"
+    printf '#!/usr/bin/env bash\ntouch "$GIT_STUB_MARKER"\nexit 0\n' > "$tmp/bin/git"
+    chmod +x "$tmp/bin/git"
+    HOME="$tmp/home" GIT_STUB_MARKER="$tmp/git-was-called" PATH="$tmp/bin:$PATH" \
+        "$tmp/repo/install.sh" --update --dry-run --non-interactive >/dev/null 2>&1
+    local rc=$?
+    [[ "$rc" -eq 0 && ! -e "$tmp/git-was-called" ]] \
+        && ok "dry-run update skips git pull" \
+        || bad "dry-run update skips git pull (rc=$rc, git stub invoked=$([[ -e "$tmp/git-was-called" ]] && echo yes || echo no))"
+    rm -rf "$tmp"
+}
+
 main() {
     t_syntax; t_help; t_check_shape; t_check_exit; t_stub_parity; t_bare_defaults_update
     t_deploy_new_and_update; t_conflict_keep_and_replace; t_dry_run_touches_nothing; t_excludes_respected
     t_prune_removes_deleted_source; t_prune_keeps_user_modified; t_no_prune_flag; t_unlisted_never_pruned
     t_prune_keeps_file_edited_before_redeploy
     t_headless_install_configs_only; t_update_skips_uninstalled; t_update_after_install
+    t_update_dry_run_skips_git_pull
     echo ""; echo "RESULT: $PASS passed, $FAIL failed"
     [[ "$FAIL" -eq 0 ]]
 }
