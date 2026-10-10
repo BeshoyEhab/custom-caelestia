@@ -986,6 +986,11 @@ build_plugin() {
     log "Plugin installed."
 }
 
+# TODO(Task 5): replace with real incremental build logic
+build_plugin_if_changed() {
+    log "Plugin rebuild deferred (Task 5)."
+}
+
 # ── Read-only status check for GUI integration ───────────────────────────────
 # Machine-readable output, no side effects (no fetch, no file changes).
 # Exit: 0 = up to date, 1 = updates available, 2 = error.
@@ -1038,39 +1043,228 @@ cmd_check() {
     return 0
 }
 
-# ── Headless mode (GUI integration: Nexus "Deploy configurations") ───────────
-# --non-interactive deploys everything with no prompts. --no-install additionally
-# skips package installation, the plugin build, and the sudo check, so the run
-# needs no tty and always works headless from the settings app.
-# (Moved verbatim from the old main body; Task 4 wires it into the dispatch.)
-cmd_install_headless() {
-    if [[ "$NON_INTERACTIVE" == true ]]; then
-        if [[ "$NO_INSTALL" != true ]]; then
-            if [[ $EUID -eq 0 ]]; then
-                warn "Running as root. Run ./install.sh as a normal user instead —"
-                warn "the script will ask for sudo when needed."
-                exit 1
-            fi
-            log "Checking sudo access... (you may be prompted)"
-            sudo -v || err "sudo required."
-            deploy_core
+# ── Section detection (ported from update.sh) ────────────────────────────────
+# Detect which sections are installed by checking if target dirs exist.
+detect_sections() {
+    SECTION_HYPRLAND=false
+    SECTION_SHELL_EXTRAS=false
+    SECTION_QUICKSHELL=false
+
+    [[ -d "$HOME/.config/hypr/hyprland" ]] && SECTION_HYPRLAND=true
+    [[ -d "$HOME/.config/quickshell/caelestia" && ! -L "$HOME/.config/quickshell/caelestia" ]] && SECTION_QUICKSHELL=true
+    [[ -d "$HOME/.config/fish" ]] && SECTION_SHELL_EXTRAS=true
+    # explicit 0: an empty HOME must not abort the caller under `set -e`
+    return 0
+}
+
+# ── Git pull (ported from update.sh) ─────────────────────────────────────────
+git_pull_latest() {
+    if [[ -d "$REPO_DIR/.git" ]]; then
+        cd "$REPO_DIR"
+        log "Fetching latest changes..."
+        git fetch origin 2>/dev/null || warn "Failed to fetch from origin."
+
+        local stash=false
+        if ! git diff --quiet || ! git diff --cached --quiet; then
+            log "Stashing local changes..."
+            git stash push -m "auto-stash before update" &>/dev/null
+            stash=true
         fi
-        deploy_hyprland
-        deploy_shell_extras
-        deploy_quickshell
-        if [[ "$NO_INSTALL" != true ]]; then
-            build_plugin
-            if [[ "$REBUILD_QS" == true ]]; then
-                rebuild_quickshell
-            elif ! qs_screencopy_present; then
-                warn "Quickshell screencopy module not found (overview/picker will be broken)."
-                warn "Re-run with --rebuild-quickshell to rebuild it from source."
-            fi
+
+        local current_branch
+        current_branch=$(git branch --show-current)
+        log "Pulling latest on '$current_branch'..."
+        git pull origin "$current_branch" --no-rebase 2>/dev/null || warn "Failed to pull automatically."
+
+        if [[ "$stash" == "true" ]]; then
+            log "Restoring stashed changes..."
+            git stash pop &>/dev/null || warn "Failed to pop stash"
         fi
         echo ""
-        c_green "Deployment complete!"
-        exit 0
     fi
+}
+
+# ── Safety backup (ported from update.sh) ────────────────────────────────────
+backup_targets() {
+    if [[ "$BACKUP" == "true" && "$DRY_RUN" != "true" ]]; then
+        local ts
+        ts=$(date +%Y%m%d%H%M%S)
+        local dirs=()
+        [[ "$SECTION_HYPRLAND" == "true" ]] && dirs+=("$HOME/.config/hypr")
+        [[ "$SECTION_QUICKSHELL" == "true" ]] && dirs+=("$HOME/.config/quickshell/caelestia")
+        [[ "$SECTION_SHELL_EXTRAS" == "true" ]] && dirs+=("$HOME/.config/fish" "$HOME/.config/btop" "$HOME/.config/cava" "$HOME/.config/kitty" "$HOME/.config/foot" "$HOME/.config/fuzzel" "$HOME/.config/wlogout" "$HOME/.config/nvim")
+        for d in "${dirs[@]}"; do
+            if [[ -d "$d" ]]; then
+                local backup_dir="${d}.bak.${ts}"
+                log "Backing up $(basename "$d") → $(basename "$backup_dir")"
+                cp -a "$d" "$backup_dir"
+            fi
+        done
+        echo ""
+    fi
+}
+
+# ── Commands ─────────────────────────────────────────────────────────────────
+# Headless install (Nexus "Deploy configurations"): --no-install additionally
+# skips packages, the plugin build, and the sudo check, so the run needs no
+# tty and always works headless from the settings app.
+cmd_install() {
+    if [[ "$NO_INSTALL" != true ]]; then
+        if [[ $EUID -eq 0 ]]; then
+            warn "Running as root. Run as a normal user — the script will ask for sudo when needed."
+            exit 1
+        fi
+        log "Checking sudo access... (you may be prompted)"
+        sudo -v || err "sudo required."
+        deploy_core
+    fi
+
+    deploy_hyprland
+    deploy_shell_extras
+    deploy_quickshell
+
+    if [[ "$NO_INSTALL" != true ]]; then
+        build_plugin
+        if [[ "$REBUILD_QS" == true ]]; then
+            rebuild_quickshell
+        elif ! qs_screencopy_present; then
+            warn "Quickshell screencopy module not found (overview/picker will be broken)."
+            warn "Re-run with --rebuild-quickshell to rebuild it from source."
+        fi
+    fi
+    log "Deployment complete!"
+}
+
+cmd_update() {
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "  Updating custom-caelestia"
+    echo "═══════════════════════════════════════════════════════════════"
+    echo ""
+
+    detect_sections
+    [[ "$SECTION_HYPRLAND" == true ]] && log "Detected: Hyprland config" || warn "Not found: Hyprland config (~/.config/hypr/hyprland) — skipping"
+    [[ "$SECTION_QUICKSHELL" == true ]] && log "Detected: Quickshell config" || warn "Not found: Quickshell config (~/.config/quickshell/caelestia) — skipping"
+    [[ "$SECTION_SHELL_EXTRAS" == true ]] && log "Detected: Shell extras (fish)" || warn "Not found: Shell extras (~/.config/fish) — skipping"
+    echo ""
+
+    [[ -d "$REPO_DIR/.git" ]] && git_pull_latest
+    [[ "$BACKUP" == true ]] && backup_targets
+
+    # Update never installs packages: force NO_INSTALL for the deployers only
+    # (plugin-if-changed and the reload below run regardless).
+    local saved_no_install=$NO_INSTALL
+    NO_INSTALL=true
+    [[ "$SECTION_HYPRLAND" == true ]] && deploy_hyprland
+    [[ "$SECTION_SHELL_EXTRAS" == true ]] && deploy_shell_extras
+    [[ "$SECTION_QUICKSHELL" == true ]] && deploy_quickshell
+    NO_INSTALL=$saved_no_install
+
+    [[ "$SECTION_QUICKSHELL" == true ]] && build_plugin_if_changed
+
+    if [[ "$DRY_RUN" != true ]] && command -v hyprctl &>/dev/null && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+        log "Reloading Hyprland..."
+        hyprctl reload &>/dev/null || true
+    fi
+    log "Update complete!"
+}
+
+cmd_install_interactive() {
+    while true; do
+        show_menu
+        read -r -p "Enter choice(s) (e.g. 2 3) or press Enter to install: " input
+
+        # Empty input defaults to install
+        if [[ -z "$input" ]]; then
+            input="i"
+        fi
+
+        IFS=', ' read -ra choices <<< "$input"
+        for choice in "${choices[@]}"; do
+            case "$choice" in
+                1) ;; # core — always on
+                2) SEL[hyprland]=$(( 1 - SEL[hyprland] )) ;;
+                3) SEL[shell_extras]=$(( 1 - SEL[shell_extras] )) ;;
+                4) SEL[quickshell]=$(( 1 - SEL[quickshell] )) ;;
+                [sS])
+                    show_summary
+                    read -r -p "Press Enter to continue..." _
+                    break
+                    ;;
+                [Ii])
+                    show_summary
+                    read -r -p "Proceed with installation? [Y/n]: " confirm
+                    [[ "${confirm,,}" == "n" ]] && break
+
+                    echo ""
+                    c_cyan "Starting installation..."
+                    echo ""
+
+                    deploy_core
+                    if [[ "$REBUILD_QS" == true ]]; then
+                        rebuild_quickshell
+                    elif ! qs_screencopy_present; then
+                        warn "Quickshell screencopy module not found (overview/picker will be broken)."
+                        read -r -p "Rebuild Quickshell from source now? [Y/n]: " _rb
+                        if [[ "${_rb,,}" != "n" ]]; then rebuild_quickshell; fi
+                    fi
+                    [[ "${SEL[hyprland]}" == "1" ]] && deploy_hyprland
+                    [[ "${SEL[shell_extras]}" == "1" ]] && deploy_shell_extras
+                    [[ "${SEL[quickshell]}" == "1" ]] && deploy_quickshell
+
+                    # Build C++ plugin (required for the Caelestia QML module)
+                    build_plugin
+
+                    echo ""
+                    c_green "═══════════════════════════════════════════════"
+                    c_green "Installation complete!"
+                    c_green "═══════════════════════════════════════════════"
+                    echo ""
+                    echo "  Keybinds:"
+                    echo "    Super            - Launcher"
+                    echo "    Super + I        - Settings (Nexus)"
+                    echo "    Super + D        - Dashboard"
+                    echo "    Super + A        - Sidebar"
+                    echo "    Ctrl + Alt + Del - Session menu"
+                    echo "    Super + V        - Clipboard"
+                    echo "    Super + Period   - Emoji picker"
+                    echo ""
+                    echo "  Start: Log out and back in, or run: hyprctl reload"
+                    echo ""
+                    exit 0
+                    ;;
+                [Qq])
+                    c_yellow "Installation cancelled."
+                    exit 0
+                    ;;
+            esac
+        done
+    done
+}
+
+show_top_menu() {
+    while true; do
+        clear 2>/dev/null || true
+        c_cyan "╔════════════════════════════════════════════════════════════════╗"
+        c_cyan "║                 custom-caelestia setup                          ║"
+        c_cyan "╚════════════════════════════════════════════════════════════════╝"
+        echo ""
+        c_yellow "  [1] Install  - packages + configs + plugin"
+        c_yellow "  [2] Update   - refresh deployed configs"
+        c_yellow "  [3] Check    - read-only repo status"
+        c_yellow "  [4] Build    - rebuild the C++ plugin"
+        c_yellow "  [5] Quit"
+        echo ""
+        local choice
+        read -r -p "  → " choice || exit 0
+        case "$choice" in
+            1|i|I) MODE="install"; return 0 ;;
+            2|u|U) MODE="update"; return 0 ;;
+            3|c|C) MODE="check"; return 0 ;;
+            4|b|B) MODE="build"; return 0 ;;
+            5|q|Q) c_yellow "Cancelled."; exit 0 ;;
+            *) warn "Invalid choice: $choice" ;;
+        esac
+    done
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -1079,100 +1273,25 @@ if [[ "${CI_TEST:-false}" != "true" ]]; then
 parse_args "$@"
 load_ignore_patterns
 
+if [[ "$MODE" == "menu" ]]; then
+    show_top_menu
+fi
+
 case "$MODE" in
     check)
         # (if-condition is exempt from set -e, so the 1/2 codes survive.)
         if cmd_check; then exit 0; else exit $?; fi
         ;;
-    install|update|build|menu)
-        # Filled in by later tasks; until then keep old behavior for install
-        # and fail loudly for the rest.
-        if [[ "$MODE" == "install" || "$MODE" == "menu" ]]; then
-            : # old interactive flow continues below (Task 4 rewires it)
-        else
-            err "mode '$MODE' not implemented yet (Task 4/5/6)"
+    install)
+        if [[ "$NON_INTERACTIVE" == true ]]; then cmd_install; else
+            # interactive: root/sudo check then section menu
+            [[ $EUID -eq 0 ]] && { warn "Run as a normal user."; exit 1; }
+            sudo -v || err "sudo required."
+            cmd_install_interactive
         fi
         ;;
+    update)  cmd_update ;;
+    build)   cmd_build ;;   # Task 5
 esac
-
-# ── legacy interactive install body (unchanged this task) ─────────────────────
-# ── Sudo check ─────────────────────────────────────────────────────────
-if [[ $EUID -eq 0 ]]; then
-    warn "Running as root. Run ./install.sh as a normal user instead —"
-    warn "the script will ask for sudo when needed."
-    exit 1
-fi
-log "Checking sudo access... (you may be prompted)"
-sudo -v || err "sudo required."
-
-while true; do
-    show_menu
-    read -r -p "Enter choice(s) (e.g. 2 3) or press Enter to install: " input
-
-    # Empty input defaults to install
-    if [[ -z "$input" ]]; then
-        input="i"
-    fi
-
-    IFS=', ' read -ra choices <<< "$input"
-    for choice in "${choices[@]}"; do
-        case "$choice" in
-            1) ;; # core — always on
-            2) SEL[hyprland]=$(( 1 - SEL[hyprland] )) ;;
-            3) SEL[shell_extras]=$(( 1 - SEL[shell_extras] )) ;;
-            4) SEL[quickshell]=$(( 1 - SEL[quickshell] )) ;;
-            [sS])
-                show_summary
-                read -r -p "Press Enter to continue..." _
-                break
-                ;;
-            [Ii])
-                show_summary
-                read -r -p "Proceed with installation? [Y/n]: " confirm
-                [[ "${confirm,,}" == "n" ]] && break
-
-                echo ""
-                c_cyan "Starting installation..."
-                echo ""
-
-                deploy_core
-                if [[ "$REBUILD_QS" == true ]]; then
-                    rebuild_quickshell
-                elif ! qs_screencopy_present; then
-                    warn "Quickshell screencopy module not found (overview/picker will be broken)."
-                    read -r -p "Rebuild Quickshell from source now? [Y/n]: " _rb
-                    if [[ "${_rb,,}" != "n" ]]; then rebuild_quickshell; fi
-                fi
-                [[ "${SEL[hyprland]}" == "1" ]] && deploy_hyprland
-                [[ "${SEL[shell_extras]}" == "1" ]] && deploy_shell_extras
-                [[ "${SEL[quickshell]}" == "1" ]] && deploy_quickshell
-
-                # Build C++ plugin (required for the Caelestia QML module)
-                build_plugin
-
-                echo ""
-                c_green "═══════════════════════════════════════════════"
-                c_green "Installation complete!"
-                c_green "═══════════════════════════════════════════════"
-                echo ""
-                echo "  Keybinds:"
-                echo "    Super            - Launcher"
-                echo "    Super + I        - Settings (Nexus)"
-                echo "    Super + D        - Dashboard"
-                echo "    Super + A        - Sidebar"
-                echo "    Ctrl + Alt + Del - Session menu"
-                echo "    Super + V        - Clipboard"
-                echo "    Super + Period   - Emoji picker"
-                echo ""
-                echo "  Start: Log out and back in, or run: hyprctl reload"
-                echo ""
-                exit 0
-                ;;
-            [Qq])
-                c_yellow "Installation cancelled."
-                exit 0
-                ;;
-        esac
-    done
-done
+exit 0
 fi

@@ -237,11 +237,47 @@ t_prune_keeps_file_edited_before_redeploy() {
     rm -rf "$tmp"
 }
 
+t_headless_install_configs_only() {
+    local tmp; tmp=$(mktemp -d)
+    HOME="$tmp" "$SCRIPTS_DIR/install.sh" --install --non-interactive --no-install >/dev/null 2>&1
+    local rc=$?
+    [[ "$rc" -eq 0 ]] && ok "headless --install --no-install exits 0" \
+        || bad "headless --install --no-install exits 0 (rc=$rc)"
+    [[ -d "$tmp/.config/quickshell/caelestia/modules" ]] \
+        && ok "quickshell section deployed" || bad "quickshell section deployed"
+    [[ ! -e "$tmp/.config/quickshell/caelestia/plugin" ]] \
+        && ok "plugin/ not deployed" || bad "plugin/ not deployed"
+    [[ ! -e "$tmp/.config/quickshell/caelestia/upstream" ]] \
+        && ok "upstream/ not deployed" || bad "upstream/ not deployed"
+    [[ -f "$tmp/.config/quickshell/caelestia/.deploy-manifest" ]] \
+        && ok "manifest written" || bad "manifest written"
+    rm -rf "$tmp"
+}
+
+t_update_skips_uninstalled() {
+    local tmp; tmp=$(mktemp -d)   # empty HOME: nothing installed
+    HOME="$tmp" "$SCRIPTS_DIR/install.sh" --update --non-interactive --dry-run >/dev/null 2>&1
+    local rc=$?
+    [[ "$rc" -eq 0 ]] && ok "update on empty HOME exits 0" || bad "update on empty HOME exits 0 (rc=$rc)"
+    rm -rf "$tmp"
+}
+
+t_update_after_install() {
+    local tmp; tmp=$(mktemp -d)
+    HOME="$tmp" "$SCRIPTS_DIR/install.sh" --install --non-interactive --no-install >/dev/null 2>&1
+    echo "local edit" > "$tmp/.config/hypr/hyprland/CUSTOM_EDIT_MARKER"
+    HOME="$tmp" "$SCRIPTS_DIR/install.sh" --update --non-interactive >/dev/null 2>&1
+    [[ -f "$tmp/.config/hypr/hyprland/CUSTOM_EDIT_MARKER" ]] \
+        && ok "update preserves user-created files" || bad "update preserves user-created files"
+    rm -rf "$tmp"
+}
+
 main() {
     t_syntax; t_help; t_check_shape; t_check_exit; t_stub_parity; t_bare_defaults_update
     t_deploy_new_and_update; t_conflict_keep_and_replace; t_dry_run_touches_nothing; t_excludes_respected
     t_prune_removes_deleted_source; t_prune_keeps_user_modified; t_no_prune_flag; t_unlisted_never_pruned
     t_prune_keeps_file_edited_before_redeploy
+    t_headless_install_configs_only; t_update_skips_uninstalled; t_update_after_install
     echo ""; echo "RESULT: $PASS passed, $FAIL failed"
     [[ "$FAIL" -eq 0 ]]
 }
