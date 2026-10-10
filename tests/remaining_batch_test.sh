@@ -63,7 +63,7 @@ else
     echo "  FAIL read without -r:"; echo "$RAW_READS" | head -6
     FAIL=1
 fi
-grep -q 'cp -a "$d" "$backup_dir"' "$REPO_DIR/update.sh" \
+grep -q 'cp -a "$d" "$backup_dir"' "$REPO_DIR/install.sh" \
     && echo "  PASS backups preserve attributes (cp -a)" \
     || { echo "  FAIL backup still uses cp -r"; FAIL=1; }
 for s in deploy.sh restart.sh merge-upstream.sh test-notifs.sh; do
