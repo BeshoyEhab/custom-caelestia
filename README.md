@@ -98,6 +98,18 @@ cd custom-caelestia
 ./install.sh
 ```
 
+One script (`install.sh`) covers install, update, status and plugin builds:
+
+| Command | What it does |
+| --- | --- |
+| `./install.sh` | Interactive menu — Enter installs with defaults, or toggle sections by number |
+| `./install.sh --install` | Full install: packages + configs + plugin |
+| `./install.sh --update` | Update deployed configs (auto-detects installed sections) |
+| `./install.sh --check` | Read-only status (`REPO_DIR`, `BRANCH`, `AHEAD`, `BEHIND`, `DIRTY`, `PLUGINS_STALE`); exit 0 = up to date, 1 = updates, 2 = error |
+| `./install.sh --build` | Rebuild + install the C++ plugin only |
+
+The same flags apply to every command: `--on-conflict` (ask/replace/keep/backup/new), `--backup`, `--dry-run`, `--force`, `--force-rebuild`, `--no-prune`, `--no-install`, `--non-interactive`, `--rebuild-quickshell`, `-v/--verbose`, `-h/--help`. Bare flags with no command (e.g. `./install.sh --non-interactive`) default to `--update`.
+
 The installer will:
 1. Show an interactive menu — press Enter to install with defaults, or toggle sections by number.
 2. Install core packages (`hyprland`, `quickshell-git`, tools) via pacman/AUR.
@@ -108,14 +120,18 @@ The installer will:
 
 ### Updating
 ```bash
-./update.sh
+./install.sh --update
 ```
 
-Supports `--force` (replace all files, skip mtime checks), `--dry-run`, `--backup`, `--on-conflict` (ask/replace/keep/backup/new). During interactive conflict resolution, option 7 adds the file's absolute path to `~/.updateignore` to skip it in future updates.
+`update.sh` is a compat stub that just `exec`s `install.sh`, so the deployed `~/.config/quickshell/caelestia/scripts/update.sh` symlink and the Nexus Updates page keep working unchanged.
+
+Updates only touch sections that are installed, and never replace files you modified — conflicting files are kept (or replaced/backed up, per `--on-conflict`). Supports `--force` (replace all files, skip mtime checks), `--dry-run`, `--backup`, `--on-conflict` (ask/replace/keep/backup/new). During interactive conflict resolution, option 7 adds the file's absolute path to `~/.updateignore` to skip it in future updates.
+
+Each deploy records the files it wrote in `.deploy-manifest` inside the target directory; on update, files that were deployed before but no longer exist in the repo are pruned (pass `--no-prune` to keep them). User-modified files are never pruned.
 
 The Nexus settings app drives the same scripts headlessly:
-- `./update.sh --check` — read-only status (`BEHIND`, `PLUGINS_STALE`, …), exit 0 = up to date
-- `./update.sh --non-interactive` — full update, conflicts resolved as `replace`, no prompts
+- `./install.sh --check` — read-only status (`BEHIND`, `PLUGINS_STALE`, …), exit 0 = up to date
+- `./install.sh --update --non-interactive` — full update, conflicts resolved as `replace`, no prompts
 - `./install.sh --non-interactive --no-install` — redeploy config files only (no packages, no plugin build, no sudo), always tty-free
 
 ---

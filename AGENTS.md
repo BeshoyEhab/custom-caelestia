@@ -171,23 +171,34 @@ PageBase {
 
 ## Install & Update Scripts
 
-### install.sh
-Interactive installer with 3 optional config sections:
+`install.sh` is the single setup script. `update.sh` is a compat stub that just
+`exec`s `install.sh` — deployed `~/.config/quickshell/caelestia/scripts/update.sh`
+symlinks and the Nexus Updates page keep working unchanged.
+
+| Command | Purpose |
+|---|---|
+| `./install.sh` | Interactive menu (bare flags with no command → `--update`) |
+| `./install.sh --install` | Full install: packages + configs + plugin |
+| `./install.sh --update` | Update deployed configs (auto-detects installed sections) |
+| `./install.sh --check` | Read-only status (`REPO_DIR`/`BRANCH`/`AHEAD`/`BEHIND`/`DIRTY`/`PLUGINS_STALE`); exit 0 = up to date, 1 = updates, 2 = error |
+| `./install.sh --build` | Rebuild + install the C++ plugin only |
+
+Shared flags (apply to any command): `--on-conflict ask|replace|keep|backup|new`,
+`--backup`, `--dry-run`, `--force`, `--force-rebuild`, `--no-prune`, `--no-install`,
+`--non-interactive`, `--rebuild-quickshell`, `-v/--verbose`, `-h/--help`.
+
+Install sections:
 1. **Core** (always installed): hyprland, quickshell, caelestia-cli; the C++ QML plugin is built locally (caelestia-shell is NOT installed from AUR — it conflicts with the locally-built plugin).
 2. **Hyprland config**: window rules, keybinds, scripts, systemd, portal config
 3. **Shell extras** (optional): fish, starship, btop, cava, kitty, foot, fuzzel, wlogout, fonts
 4. **Quickshell config**: caelestia shell theme, modules, services
 
-- **Reinstall-safe**: Uses `safe_deploy` that never destroys user files
+- **Reinstall-safe**: Uses `deploy_tree` that never destroys user files
 - Reads `.updateignore` to skip user-customized files
 - Symlink-aware: removes old symlinks before deploying
-
-### update.sh
-Auto-detects installed sections and only updates those. Options:
-- `--on-conflict ask|replace|keep|backup|new` (default: ask)
-- `--backup` - create safety backups before deploying
-- `--dry-run` - show what would change without doing it
-- `--non-interactive` - skip prompts, replace on conflict
+- **Manifest pruning**: each deploy records deployed paths in `.deploy-manifest`
+  inside the target; update deletes files removed from the repo unless `--no-prune`
+  (user-modified files are kept and warned about)
 
 ### .updateignore
 File patterns to skip during updates. Read from repo root + user config dirs.
@@ -208,7 +219,7 @@ Defaults: `custom/`, `monitors.lua`, `monitors.conf`, `shell.json`, `shell.json.
 | `shell/services/Colours.qml` | Colour palette singleton |
 | `shell/plugin/src/Caelestia/Config/` | C++ config backend (17 config classes) |
 | `shell/flake.nix` | Nix flake definition |
-| `install.sh` | Interactive installer (3 sections, reinstall-safe) |
-| `update.sh` | Update script (.updateignore, auto-detect sections) |
+| `install.sh` | Unified setup script: menu / `--install` / `--update` / `--check` / `--build` |
+| `update.sh` | Compat stub — `exec`s `install.sh` |
 | `.updateignore` | Files to skip during updates |
 | `CMakeLists.txt` | Top-level CMake (project: caelestia-shell v2.0.3-custom) |
