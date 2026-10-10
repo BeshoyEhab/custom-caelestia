@@ -24,4 +24,5 @@ qml_module(caelestia-services
         Sensors::Sensors
         caelestia-config
         caelestia-internal
+        caelestia-util
 )
