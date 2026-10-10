@@ -102,7 +102,7 @@ One script (`install.sh`) covers install, update, status and plugin builds:
 
 | Command | What it does |
 | --- | --- |
-| `./install.sh` | Interactive menu — Enter installs with defaults, or toggle sections by number |
+| `./install.sh` | Interactive top-level menu — Install / Update / Check / Build / Quit; choose Install to enter the section-toggle installer |
 | `./install.sh --install` | Full install: packages + configs + plugin |
 | `./install.sh --update` | Update deployed configs (auto-detects installed sections) |
 | `./install.sh --check` | Read-only status (`REPO_DIR`, `BRANCH`, `AHEAD`, `BEHIND`, `DIRTY`, `PLUGINS_STALE`); exit 0 = up to date, 1 = updates, 2 = error |
@@ -111,7 +111,7 @@ One script (`install.sh`) covers install, update, status and plugin builds:
 The same flags apply to every command: `--on-conflict` (ask/replace/keep/backup/new), `--backup`, `--dry-run`, `--force`, `--force-rebuild`, `--no-prune`, `--no-install`, `--non-interactive`, `--rebuild-quickshell`, `-v/--verbose`, `-h/--help`. Bare flags with no command (e.g. `./install.sh --non-interactive`) default to `--update`.
 
 The installer will:
-1. Show an interactive menu — press Enter to install with defaults, or toggle sections by number.
+1. Show a top-level menu (Install / Update / Check / Build / Quit) — choose Install to enter the section-toggle installer, where Enter installs with defaults or numbers toggle sections.
 2. Install core packages (`hyprland`, `quickshell-git`, tools) via pacman/AUR.
 3. Deploy configs while preserving your `shell.json`, custom scripts, and any files listed in `.updateignore`.
 4. Build and install the C++ QML plugin (prompts for sudo per command).
