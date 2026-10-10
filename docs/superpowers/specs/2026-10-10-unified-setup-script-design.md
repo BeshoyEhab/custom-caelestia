@@ -29,7 +29,7 @@ Single entry `install.sh`. Bare invocation shows an interactive menu
 | Command | Behavior |
 |---|---|
 | `--install` | Full install: packages + configs + plugin. Interactive section picker unless `--non-interactive`. |
-| `--update` | Update deployed configs; rebuild plugin only with `--build`. Auto-detects which sections are installed. |
+| `--update` | Update deployed configs; rebuild plugin when sources changed, or always with `--build`. Auto-detects which sections are installed. |
 | `--check` | Print `BEHIND=<n>` and `PLUGINS_STALE=<true|false>`; exit non-zero if either indicates updates. Nexus reads these exact strings. |
 | `--build` | Rebuild + install the C++ plugin only. |
 
