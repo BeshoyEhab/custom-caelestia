@@ -406,6 +406,88 @@ deploy_tree() {
     done < <(find "$src" -type f "${find_excludes[@]}" 2>/dev/null)
 }
 
+# ── Deploy manifest: enables safe pruning of repo-deleted files ─────────────
+# Format: one "rel<TAB>mtime" line per managed file. mtime is the target's
+# stat %y (nanosecond precision) right after we wrote it — prune deletes only
+# when mtime still matches (i.e. the user never touched the file since our
+# deploy). NOTE: %y, not %Y — second granularity would treat a same-second
+# user edit as "untouched" and prune it, breaking prune safety.
+MANIFEST_PRIOR=""
+
+manifest_begin() {
+    local dst="$1"
+    MANIFEST_PRIOR=""
+    # NOTE: if, not `[[ ]] &&` — the latter would make the function return 1
+    # when there is no prior manifest, which aborts callers under `set -e`.
+    if [[ -f "$dst/.deploy-manifest" ]]; then
+        MANIFEST_PRIOR="$dst/.deploy-manifest"
+    fi
+}
+
+manifest_finish() {
+    local dst="$1"
+    if [[ "$DRY_RUN" == true ]]; then
+        # Dry-run: never write/overwrite the manifest. Prune only reports;
+        # membership falls back to DEPLOYED_RELS when no current file exists.
+        [[ -n "$MANIFEST_PRIOR" && -f "$MANIFEST_PRIOR" ]] && prune_stale "$dst" "$MANIFEST_PRIOR" || true
+        return 0
+    fi
+    [[ -d "$dst" ]] || return 0
+    local tmp_manifest="$dst/.deploy-manifest.new"
+    : > "$tmp_manifest"
+    local rel target
+    for rel in ${DEPLOYED_RELS[@]+"${DEPLOYED_RELS[@]}"}; do
+        target="$dst/$rel"
+        [[ -f "$target" ]] || continue
+        should_ignore "$rel" "$target" && continue
+        printf '%s\t%s\n' "$rel" "$(stat -c %y "$target" 2>/dev/null || echo 0)" >> "$tmp_manifest"
+    done
+    if [[ -n "$MANIFEST_PRIOR" && -f "$MANIFEST_PRIOR" ]]; then
+        prune_stale "$dst" "$MANIFEST_PRIOR" "$tmp_manifest"
+    fi
+    mv "$tmp_manifest" "$dst/.deploy-manifest"
+}
+
+# $1=dst $2=prior manifest [$3=current manifest; omit = membership from DEPLOYED_RELS]
+prune_stale() {
+    local dst="$1" prior="$2" current="${3:-}"
+    [[ "$NO_PRUNE" == true ]] && return 0
+    [[ -f "$prior" ]] || return 0
+
+    local p_rel p_mtime target c_rel c_dummy c_found now_mtime
+    while IFS=$'\t' read -r p_rel p_mtime; do
+        [[ -z "$p_rel" ]] && continue
+        # Still produced by this run's deploy? Then nothing to do.
+        c_found=false
+        if [[ -n "$current" && -f "$current" ]]; then
+            while IFS=$'\t' read -r c_rel c_dummy; do
+                [[ "$c_rel" == "$p_rel" ]] && { c_found=true; break; }
+            done < "$current"
+        else
+            # No current-manifest file (dry-run): DEPLOYED_RELS is still
+            # populated by deploy_tree (and manual section loops).
+            for c_rel in ${DEPLOYED_RELS[@]+"${DEPLOYED_RELS[@]}"}; do
+                [[ "$c_rel" == "$p_rel" ]] && { c_found=true; break; }
+            done
+        fi
+        [[ "$c_found" == true ]] && continue
+        target="$dst/$p_rel"
+        [[ -f "$target" ]] || continue
+        should_ignore "$p_rel" "$target" && continue
+        now_mtime=$(stat -c %y "$target" 2>/dev/null || echo 0)
+        if [[ "$now_mtime" != "$p_mtime" ]]; then
+            warn "Keeping user-modified stale file: $target"
+            continue
+        fi
+        if [[ "$DRY_RUN" == true ]]; then
+            echo -e "  ${BLUE}[dry-run]${NC} Would prune: $target"
+        else
+            rm -f "$target"
+            log "Pruned stale: $target"
+        fi
+    done < "$prior"
+}
+
 # ── Components ────────────────────────────────────────────────────────────────
 # 3 sections: hyprland, shell-extras, quickshell
 # Core packages (hyprland, quickshell) are always installed.
@@ -603,34 +685,51 @@ deploy_hyprland() {
     local dst="$HOME/.config/hypr"
 
     if [[ -d "$src" ]]; then
+        manifest_begin "$dst"
         deploy_tree "$src" "$dst"
+        manifest_finish "$dst"
     fi
 
     # Caelestia config (shell.json etc.) — always preserve shell.json
     if [[ -d "$REPO_DIR/hyprland/.config/caelestia" ]]; then
-        mkdir -p "$HOME/.config/caelestia"
-        find "$REPO_DIR/hyprland/.config/caelestia" -type f | while IFS= read -r f; do
-            local rel="${f#"$REPO_DIR/hyprland/.config/caelestia/"}"
-            local target="$HOME/.config/caelestia/$rel"
+        local csrc="$REPO_DIR/hyprland/.config/caelestia"
+        local cdst="$HOME/.config/caelestia"
+        [[ "$DRY_RUN" != true ]] && mkdir -p "$cdst"
+        manifest_begin "$cdst"
+        DEPLOYED_RELS=()
+        local f rel target
+        while IFS= read -r f; do
+            rel="${f#"$csrc"/}"
+            target="$cdst/$rel"
             # Never overwrite shell.json — it's user-specific
             [[ "$rel" == "shell.json" || "$rel" == "shell.json.bak" ]] && continue
             if should_ignore "$rel" "$target"; then continue; fi
             if [[ ! -f "$target" ]]; then
-                mkdir -p "$(dirname "$target")"
-                cp -p "$f" "$target"
+                if [[ "$DRY_RUN" == true ]]; then
+                    echo -e "  ${BLUE}[dry-run]${NC} Would create: $target"
+                else
+                    mkdir -p "$(dirname "$target")"
+                    cp -p "$f" "$target"
+                fi
             fi
-        done
+            DEPLOYED_RELS+=("$rel")
+        done < <(find "$csrc" -type f 2>/dev/null)
+        manifest_finish "$cdst"
     fi
 
     # Systemd services
     if [[ -d "$REPO_DIR/hyprland/.config/systemd" ]]; then
+        manifest_begin "$HOME/.config/systemd/user"
         deploy_tree "$REPO_DIR/hyprland/.config/systemd/user" "$HOME/.config/systemd/user"
+        manifest_finish "$HOME/.config/systemd/user"
         systemctl --user daemon-reload 2>/dev/null || true
     fi
 
     # XDG Desktop Portal
     if [[ -d "$REPO_DIR/hyprland/.config/xdg-desktop-portal" ]]; then
+        manifest_begin "$HOME/.config/xdg-desktop-portal"
         deploy_tree "$REPO_DIR/hyprland/.config/xdg-desktop-portal" "$HOME/.config/xdg-desktop-portal"
+        manifest_finish "$HOME/.config/xdg-desktop-portal"
     fi
 
     # Set permissions
@@ -657,35 +756,58 @@ deploy_shell_extras() {
     # Fish shell
     if [[ -d "$REPO_DIR/configs/.config/fish" ]]; then
         log "  Fish shell config..."
+        manifest_begin "$HOME/.config/fish"
         deploy_tree "$REPO_DIR/configs/.config/fish" "$HOME/.config/fish"
+        manifest_finish "$HOME/.config/fish"
     fi
 
-    # Starship prompt
+    # Starship prompt — single-file dst: the manifest in ~/.config records
+    # only starship.toml, so pruning can never touch anything else there.
+    manifest_begin "$HOME/.config"
+    DEPLOYED_RELS=()
     if [[ -f "$REPO_DIR/configs/.config/starship.toml" ]]; then
-        local target="$HOME/.config/starship.toml"
-        if [[ ! -f "$target" ]]; then
-            cp -p "$REPO_DIR/configs/.config/starship.toml" "$target"
-            log "  Starship config deployed."
+        local starship_target="$HOME/.config/starship.toml"
+        if [[ ! -f "$starship_target" ]]; then
+            if [[ "$DRY_RUN" == true ]]; then
+                echo -e "  ${BLUE}[dry-run]${NC} Would create: $starship_target"
+            else
+                mkdir -p "$HOME/.config"
+                cp -p "$REPO_DIR/configs/.config/starship.toml" "$starship_target"
+                log "  Starship config deployed."
+            fi
         fi
+        DEPLOYED_RELS=("starship.toml")
     fi
+    manifest_finish "$HOME/.config"
 
     # App configs: btop, cava, kitty, foot, fuzzel, wlogout, fontconfig
     local app_configs=(btop cava kitty foot fuzzel wlogout fontconfig nvim)
     for app in "${app_configs[@]}"; do
         if [[ -d "$REPO_DIR/configs/.config/$app" ]]; then
+            manifest_begin "$HOME/.config/$app"
             deploy_tree "$REPO_DIR/configs/.config/$app" "$HOME/.config/$app"
+            manifest_finish "$HOME/.config/$app"
         fi
     done
 
-    # Fish-guide binary
+    # Fish-guide binary — single-file dst: manifest records only fish-guide.
+    manifest_begin "$HOME/.local/share/bin"
+    DEPLOYED_RELS=()
     if [[ -f "$REPO_DIR/configs/.local/share/bin/fish-guide" ]]; then
-        mkdir -p "$HOME/.local/share/bin"
-        if [[ ! -f "$HOME/.local/share/bin/fish-guide" ]]; then
-            cp -p "$REPO_DIR/configs/.local/share/bin/fish-guide" "$HOME/.local/share/bin/fish-guide"
-            chmod +x "$HOME/.local/share/bin/fish-guide"
-            log "  fish-guide installed."
+        local fish_guide_target="$HOME/.local/share/bin/fish-guide"
+        if [[ ! -f "$fish_guide_target" ]]; then
+            if [[ "$DRY_RUN" == true ]]; then
+                echo -e "  ${BLUE}[dry-run]${NC} Would create: $fish_guide_target"
+            else
+                mkdir -p "$HOME/.local/share/bin"
+                cp -p "$REPO_DIR/configs/.local/share/bin/fish-guide" "$fish_guide_target"
+                chmod +x "$fish_guide_target"
+                log "  fish-guide installed."
+            fi
         fi
+        DEPLOYED_RELS=("fish-guide")
     fi
+    manifest_finish "$HOME/.local/share/bin"
 
     log "Shell extras deployed."
 }
@@ -700,7 +822,9 @@ deploy_quickshell() {
         rm -f "$dst"
     fi
 
+    manifest_begin "$dst"
     deploy_tree "$src" "$dst" "${DEPLOY_EXCLUDES[@]}"
+    manifest_finish "$dst"
 
     # Symlink install/update scripts for settings app
     mkdir -p "$dst/scripts"

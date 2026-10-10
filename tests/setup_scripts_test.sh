@@ -132,9 +132,86 @@ t_excludes_respected() {
     rm -rf "$tmp"
 }
 
+t_prune_removes_deleted_source() {
+    local tmp src dst; tmp=$(mktemp -d); src=$tmp/repo; dst=$tmp/home
+    mk_repo "$src"
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false NO_PRUNE=false
+        manifest_begin "$dst"
+        deploy_tree "$src/mods" "$dst"
+        manifest_finish "$dst"
+    )
+    rm "$src/mods/a/f.txt"          # source deleted from repo
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false NO_PRUNE=false
+        manifest_begin "$dst"
+        deploy_tree "$src/mods" "$dst"
+        manifest_finish "$dst"
+    )
+    [[ ! -e "$dst/a/f.txt" ]] && ok "prune deletes source-removed file" \
+        || bad "prune deletes source-removed file"
+    rm -rf "$tmp"
+}
+
+t_prune_keeps_user_modified() {
+    local tmp src dst; tmp=$(mktemp -d); src=$tmp/repo; dst=$tmp/home
+    mk_repo "$src"
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false NO_PRUNE=false
+        manifest_begin "$dst"; deploy_tree "$src/mods" "$dst"; manifest_finish "$dst"
+    )
+    rm "$src/mods/a/f.txt"
+    echo "hacked" > "$dst/a/f.txt"  # user touched it after deploy
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false NO_PRUNE=false
+        manifest_begin "$dst"; deploy_tree "$src/mods" "$dst"; manifest_finish "$dst"
+    )
+    [[ -f "$dst/a/f.txt" ]] && ok "prune keeps user-modified file" \
+        || bad "prune keeps user-modified file"
+    rm -rf "$tmp"
+}
+
+t_no_prune_flag() {
+    local tmp src dst; tmp=$(mktemp -d); src=$tmp/repo; dst=$tmp/home
+    mk_repo "$src"
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false NO_PRUNE=false
+        manifest_begin "$dst"; deploy_tree "$src/mods" "$dst"; manifest_finish "$dst"
+    )
+    rm "$src/mods/a/f.txt"
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false NO_PRUNE=true
+        manifest_begin "$dst"; deploy_tree "$src/mods" "$dst"; manifest_finish "$dst"
+    )
+    [[ -f "$dst/a/f.txt" ]] && ok "--no-prune keeps stale file" \
+        || bad "--no-prune keeps stale file"
+    rm -rf "$tmp"
+}
+
+t_unlisted_never_pruned() {
+    local tmp src dst; tmp=$(mktemp -d); src=$tmp/repo; dst=$tmp/home
+    mk_repo "$src"
+    mkdir -p "$dst"; echo "user own" > "$dst/userfile.txt"  # never deployed
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false NO_PRUNE=false
+        manifest_begin "$dst"; deploy_tree "$src/mods" "$dst"; manifest_finish "$dst"
+    )
+    [[ -f "$dst/userfile.txt" ]] && ok "prune never touches unlisted files" \
+        || bad "prune never touches unlisted files"
+    rm -rf "$tmp"
+}
+
 main() {
     t_syntax; t_help; t_check_shape; t_check_exit; t_stub_parity; t_bare_defaults_update
     t_deploy_new_and_update; t_conflict_keep_and_replace; t_dry_run_touches_nothing; t_excludes_respected
+    t_prune_removes_deleted_source; t_prune_keeps_user_modified; t_no_prune_flag; t_unlisted_never_pruned
     echo ""; echo "RESULT: $PASS passed, $FAIL failed"
     [[ "$FAIL" -eq 0 ]]
 }
