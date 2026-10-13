@@ -18,6 +18,43 @@ Variants {
 
         required property ShellScreen modelData
 
+        // Insets the clock keeps from each edge (bar + border aware on all
+        // sides). Auto-placement analyses with the max and clamps with each.
+        readonly property real clockInsetL: contentItem.Tokens.padding.extraLargeIncreased + (GlobalConfig.bar.positioningEdge === 0 ? contentItem.Tokens.sizes.bar.innerWidth : 0) + Math.max(contentItem.Tokens.padding.small, contentItem.Config.border.thickness)
+        readonly property real clockInsetR: contentItem.Tokens.padding.extraLargeIncreased + (GlobalConfig.bar.positioningEdge === 1 ? contentItem.Tokens.sizes.bar.innerWidth : 0) + Math.max(contentItem.Tokens.padding.small, contentItem.Config.border.thickness)
+        readonly property real clockInsetT: contentItem.Tokens.padding.extraLargeIncreased + (GlobalConfig.bar.positioningEdge === 2 ? contentItem.Tokens.sizes.bar.innerWidth : 0) + Math.max(contentItem.Tokens.padding.small, contentItem.Config.border.thickness)
+        readonly property real clockInsetB: contentItem.Tokens.padding.extraLargeIncreased + (GlobalConfig.bar.positioningEdge === 3 ? contentItem.Tokens.sizes.bar.innerWidth : 0) + Math.max(contentItem.Tokens.padding.small, contentItem.Config.border.thickness)
+        readonly property real clockInsetMax: Math.max(clockInsetL, clockInsetR, clockInsetT, clockInsetB)
+
+        // position = auto-empty (flattest) / auto-full (busiest): the clock
+        // snaps to the least/most busy region of the wallpaper (end-4 style).
+        readonly property bool autoClockPlacement: {
+            const p = contentItem.Config.background.desktopClock.position;
+            return p === "auto-empty" || p === "auto-full";
+        }
+
+        // Rebuilt whenever anything that affects the analysis changes
+        // (placement mode, wallpaper, screen, box size, fill mode, insets).
+        // Empty means "don't analyse"; a non-empty value change kicks the run.
+        readonly property var clockAnalysisCmd: {
+            if (!win.autoClockPlacement || clockLoader.status !== Loader.Ready || clockLoader.width <= 0)
+                return [];
+            const img = Wallpapers.colourSource;
+            if (!img)
+                return [];
+            return [
+                "python3", Quickshell.shellPath("scripts/least_busy_region.py"),
+                "--screen-width", String(Math.round(win.width)),
+                "--screen-height", String(Math.round(win.height)),
+                "--width", String(Math.round(clockLoader.width)),
+                "--height", String(Math.round(clockLoader.height)),
+                "--pad", String(Math.round(win.clockInsetMax)),
+                "--mode", contentItem.Config.background.wallpaperMode,
+                ...(contentItem.Config.background.desktopClock.position === "auto-full" ? ["--busiest"] : []),
+                img
+            ];
+        }
+
         screen: modelData
         name: "background"
         WlrLayershell.exclusionMode: ExclusionMode.Ignore
@@ -31,6 +68,11 @@ Variants {
         anchors.right: true
         implicitWidth: modelData?.width ?? 1920
         implicitHeight: modelData?.height ?? 1080
+
+        onClockAnalysisCmdChanged: {
+            if (clockAnalysisCmd.length > 0)
+                analysisProc.exec(clockAnalysisCmd);
+        }
 
         Item {
             id: behindClock
@@ -108,6 +150,35 @@ Variants {
             }
         }
 
+        // Centre of the region found by least_busy_region.py; falls back to
+        // the screen centre until the first result (or after a failure).
+        QtObject {
+            id: autoPos
+
+            property real cx: win.width / 2
+            property real cy: win.height / 2
+        }
+
+        Process {
+            id: analysisProc
+
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    try {
+                        const d = JSON.parse(text);
+                        if (typeof d.center_x !== "number" || typeof d.center_y !== "number")
+                            throw new Error("bad payload");
+                        autoPos.cx = d.center_x;
+                        autoPos.cy = d.center_y;
+                    } catch (e) {
+                        console.warn(`[Background] wallpaper region analysis failed: ${e}`);
+                        autoPos.cx = win.width / 2;
+                        autoPos.cy = win.height / 2;
+                    }
+                }
+            }
+        }
+
         Loader {
             id: clockLoader
 
@@ -117,15 +188,15 @@ Variants {
             transform: Translate {
                 id: clockTrans
 
-                x: clockPos.custom ? clockPos.dx : 0
-                y: clockPos.custom ? clockPos.dy : 0
+                x: !win.autoClockPlacement && clockPos.custom ? clockPos.dx : 0
+                y: !win.autoClockPlacement && clockPos.custom ? clockPos.dy : 0
             }
 
             anchors.margins: Tokens.padding.extraLargeIncreased
             anchors.leftMargin: Tokens.padding.extraLargeIncreased + (GlobalConfig.bar.positioningEdge === 0 ? Tokens.sizes.bar.innerWidth + Math.max(Tokens.padding.small, Config.border.thickness) : Math.max(Tokens.padding.small, Config.border.thickness))
             anchors.topMargin: Tokens.padding.extraLargeIncreased + (GlobalConfig.bar.positioningEdge === 2 ? Tokens.sizes.bar.innerWidth + Math.max(Tokens.padding.small, Config.border.thickness) : Math.max(Tokens.padding.small, Config.border.thickness))
 
-            state: Config.background.desktopClock.position
+            state: win.autoClockPlacement ? "auto" : Config.background.desktopClock.position
             states: [
                 State {
                     name: "top-left"
@@ -207,6 +278,19 @@ Variants {
                         anchors.bottom: parent.bottom
                         anchors.right: parent.right
                     }
+                },
+                // Auto-placement: leaving a preset state reverts its anchors,
+                // so the clock is unanchored here and driven purely by x/y
+                // centred on the analysed region (clamped to the insets).
+                State {
+                    name: "auto"
+
+                    PropertyChanges {
+                        target: clockLoader
+
+                        x: Math.max(win.clockInsetL, Math.min(autoPos.cx - clockLoader.width / 2, win.width - win.clockInsetR - clockLoader.width))
+                        y: Math.max(win.clockInsetT, Math.min(autoPos.cy - clockLoader.height / 2, win.height - win.clockInsetB - clockLoader.height))
+                    }
                 }
             ]
 
@@ -222,10 +306,11 @@ Variants {
         }
 
         // Drag handle: when nothing covers the desktop, grabbing the clock
-        // nudges it anywhere. Only covers the clock rect, so wallpaper
+        // nudges it anywhere. Disabled during auto-placement (the analysis
+        // owns the position); only covers the clock rect, so wallpaper
         // clicks everywhere else are unaffected.
         MouseArea {
-            visible: clockLoader.active && clockLoader.status === Loader.Ready
+            visible: clockLoader.active && clockLoader.status === Loader.Ready && !win.autoClockPlacement
             x: clockLoader.x + clockTrans.x
             y: clockLoader.y + clockTrans.y
             width: clockLoader.width

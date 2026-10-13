@@ -41,6 +41,8 @@ class DesktopClock : public ConfigObject {
 
     CONFIG_PROPERTY(bool, enabled, false)
     CONFIG_PROPERTY(qreal, scale, 1.0)
+    // 9 anchor presets, or "auto-empty"/"auto-full": snap the clock to the
+    // flattest / busiest region of the wallpaper (see least_busy_region.py).
     CONFIG_PROPERTY(QString, position, QStringLiteral("bottom-right"))
     CONFIG_PROPERTY(QString, clockStyle, QStringLiteral("digital"))
     CONFIG_PROPERTY(bool, invertColors, false)

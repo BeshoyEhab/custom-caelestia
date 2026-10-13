@@ -13,6 +13,9 @@ import qs.modules.nexus.common
 PageBase {
     id: root
 
+    // Values of background.desktopClock.position, in menu order.
+    readonly property list<string> positionKeys: ["top-left", "top-center", "top-right", "middle-left", "middle-center", "middle-right", "bottom-left", "bottom-center", "bottom-right", "auto-empty", "auto-full"]
+
     title: qsTr("Wallpaper & style")
 
     ColumnLayout {
@@ -455,7 +458,6 @@ PageBase {
 
         SelectRow {
             first: true
-            last: true
             label: qsTr("Clock style")
             subtext: qsTr("Digital text or classical analog face")
             menuOnTop: true
@@ -475,6 +477,81 @@ PageBase {
             onSelected: {
                 const idx = menuItems.indexOf(item);
                 GlobalConfig.background.desktopClock.clockStyle = idx === 1 ? "analog" : "digital";
+            }
+        }
+
+        SelectRow {
+            Layout.topMargin: Tokens.spacing.extraSmall / 2 - parent.spacing
+
+            last: true
+            label: qsTr("Clock position")
+            subtext: qsTr("Preset corner, or the wallpaper's empty/busiest area")
+            menuOnTop: true
+            menuItems: [
+                MenuItem {
+                    text: qsTr("Top left")
+                    icon: GlobalConfig.background.desktopClock.position === "top-left" ? "check" : ""
+                    activeIcon: "grid_view"
+                },
+                MenuItem {
+                    text: qsTr("Top center")
+                    icon: GlobalConfig.background.desktopClock.position === "top-center" ? "check" : ""
+                    activeIcon: "grid_view"
+                },
+                MenuItem {
+                    text: qsTr("Top right")
+                    icon: GlobalConfig.background.desktopClock.position === "top-right" ? "check" : ""
+                    activeIcon: "grid_view"
+                },
+                MenuItem {
+                    text: qsTr("Middle left")
+                    icon: GlobalConfig.background.desktopClock.position === "middle-left" ? "check" : ""
+                    activeIcon: "grid_view"
+                },
+                MenuItem {
+                    text: qsTr("Middle center")
+                    icon: GlobalConfig.background.desktopClock.position === "middle-center" ? "check" : ""
+                    activeIcon: "grid_view"
+                },
+                MenuItem {
+                    text: qsTr("Middle right")
+                    icon: GlobalConfig.background.desktopClock.position === "middle-right" ? "check" : ""
+                    activeIcon: "grid_view"
+                },
+                MenuItem {
+                    text: qsTr("Bottom left")
+                    icon: GlobalConfig.background.desktopClock.position === "bottom-left" ? "check" : ""
+                    activeIcon: "grid_view"
+                },
+                MenuItem {
+                    text: qsTr("Bottom center")
+                    icon: GlobalConfig.background.desktopClock.position === "bottom-center" ? "check" : ""
+                    activeIcon: "grid_view"
+                },
+                MenuItem {
+                    text: qsTr("Bottom right")
+                    icon: GlobalConfig.background.desktopClock.position === "bottom-right" ? "check" : ""
+                    activeIcon: "grid_view"
+                },
+                MenuItem {
+                    text: qsTr("Emptiest area")
+                    icon: GlobalConfig.background.desktopClock.position === "auto-empty" ? "check" : ""
+                    activeIcon: "auto_awesome"
+                },
+                MenuItem {
+                    text: qsTr("Busiest area")
+                    icon: GlobalConfig.background.desktopClock.position === "auto-full" ? "check" : ""
+                    activeIcon: "auto_awesome"
+                }
+            ]
+            active: {
+                const i = root.positionKeys.indexOf(GlobalConfig.background.desktopClock.position);
+                return menuItems[i >= 0 ? i : 6];
+            }
+            onSelected: {
+                const idx = menuItems.indexOf(item);
+                if (idx >= 0)
+                    GlobalConfig.background.desktopClock.position = root.positionKeys[idx];
             }
         }
     }
