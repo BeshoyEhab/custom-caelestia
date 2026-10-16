@@ -13,9 +13,9 @@ Singleton {
 
     onEnabledChanged: {
         if (enabled)
-            Toaster.toast(qsTr("Presentation mode enabled"), qsTr("Hover interactions are now disabled"), "presentation");
+            Toaster.toast(qsTr("Presentation mode enabled"), qsTr("Hover interactions are now disabled"), "present_to_all");
         else
-            Toaster.toast(qsTr("Presentation mode disabled"), qsTr("Hover interactions are now enabled"), "presentation");
+            Toaster.toast(qsTr("Presentation mode disabled"), qsTr("Hover interactions are now enabled"), "present_to_all");
     }
 
     PersistentProperties {

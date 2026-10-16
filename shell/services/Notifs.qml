@@ -46,7 +46,7 @@ Singleton {
     }
 
     function shouldShowPopup(): bool {
-        if (props.dnd || [...Visibilities.screens.values()].some(v => v.sidebar))
+        if (props.dnd || PresentationMode.enabled || [...Visibilities.screens.values()].some(v => v.sidebar))
             return false;
         if (GlobalConfig.notifs.fullscreen === "off" && hasFullscreen())
             return false;

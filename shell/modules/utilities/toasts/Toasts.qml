@@ -14,6 +14,9 @@ Item {
     property bool flag
 
     function shouldShowToast(toast: Toast): bool {
+        // presentation exception: the toggle confirmation itself must stay visible
+        if (PresentationMode.enabled && toast.icon !== "present_to_all")
+            return false;
         if (!Notifs.hasFullscreen())
             return true;
         if (Config.utilities.toasts.fullscreen === "all")
