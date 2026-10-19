@@ -77,9 +77,21 @@ start_fixture redirect
 url="http://127.0.0.1:$PORT/"
 assert_case "mode=redirect -> portal <location> 302 (exit 1)" "$url" "portal http://portal.example.test/login 302" 1
 
+# Review branch: a 3xx with NO Location header — curl's %{redirect_url} is
+# empty, so the probe must classify portal against the probed URL itself.
+start_fixture redirect-no-location
+url="http://127.0.0.1:$PORT/"
+assert_case "mode=redirect-no-location -> portal <url> 302 (exit 1)" "$url" "portal $url 302" 1
+
 start_fixture html
 url="http://127.0.0.1:$PORT/"
 assert_case "mode=html -> portal <url> 200 (exit 1)" "$url" "portal $url 200" 1
+
+# Review branch: a hard HTTP error must report the OBSERVED status, not 000 —
+# 000 is reserved for "there was no HTTP response at all" (refused/timeout).
+start_fixture error500
+url="http://127.0.0.1:$PORT/"
+assert_case "mode=error500 -> unknown <url> 500 (exit 2)" "$url" "unknown $url 500" 2
 
 url="http://127.0.0.1:1/"
 assert_case "refused port -> unknown <url> 000 (exit 2)" "$url" "unknown $url 000" 2

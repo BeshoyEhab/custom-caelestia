@@ -81,8 +81,11 @@ PageBase {
         }
 
         ToggleRow {
-            Layout.topMargin: Nmcli.hasAvailableEthernet ? Tokens.spacing.large : 0
-            first: true
+            Layout.topMargin: Nmcli.hasAvailableEthernet && !CaptivePortal.active ? Tokens.spacing.large : 0
+            // While the portal rows are out they own the group's rounded top;
+            // without this both rows said `first: true` and the Wi-Fi row drew
+            // a rounded top mid-group.
+            first: !CaptivePortal.active
             text: qsTr("Wi-Fi")
             font: Tokens.font.body.medium
             horizontalPadding: Tokens.padding.largeIncreased

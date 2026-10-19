@@ -80,11 +80,15 @@ The bar uses an `Item` root with a split layout (`topLayout` + `bottomLayout` + 
 2. **No connectivity check** — without NetworkManager's connectivity probe there is no `PORTAL`/`LIMITED`/`unknown` state for the shell to react to.
    **Fix:** `system/NetworkManager/conf.d/30-connectivity-enabled.conf` (`enabled=true`), applied by the same `deploy_system_config()`; the runtime half is the unprivileged `busctl set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled b true`.
 3. **No portal helper** — nothing probes for the portal or opens the login page.
-   **Fix:** the `qs.services.CaptivePortal` singleton (`shell/services/CaptivePortal.qml`) driven by the `online|portal|unknown` classifier `hyprland/.config/hypr/hyprland/scripts/captive_portal_probe.sh`, plus the two "Sign in to network" rows: `shell/modules/bar/popouts/Network.qml` (bar network popout) and `shell/modules/nexus/pages/NetworkPage.qml` (Nexus, with "Recheck connection"). IPC: `qs -c caelestia ipc call captivePortal state|probe|open`.
+   **Fix:** the `qs.services.CaptivePortal` singleton (`shell/services/CaptivePortal.qml`) driven by the `online|portal|unknown` classifier `hyprland/.config/hypr/hyprland/scripts/captive_portal_probe.sh`, plus the two "Sign in to network" rows: `shell/modules/bar/popouts/Network.qml` (bar network popout) and `shell/modules/nexus/pages/NetworkPage.qml` (Nexus, with "Recheck connection"). IPC: `qs -c caelestia ipc call captivePortal state|probe|open`, plus the debug-only `probeAuto <url>`, which drives the *automatic* open path (toast + episode key + launch) against a local fixture behind exactly the same guards.
 
 **Verification notes:**
-- On a healthy network `qs -c caelestia ipc call captivePortal state` must read `connectivity=full active=false`; `ipc call captivePortal open` probes first and opens **no** window when the probe returns `online` (`lastProbe=online`).
-- A gated portal that answers `200` with the exact body `NetworkManager is online` classifies `online` (no auto-open), and an HTTPS-only portal with no redirect classifies `unknown` — both are known limits: the row still appears and opens the URL by hand.
+- On a healthy network `qs -c caelestia ipc call captivePortal state` must show `connectivity=full`, `connected=true`, `iface=` naming a real device (e.g. `wlp1s0`, never `lo`) and `active=false`; `ipc call captivePortal open` probes first and opens **no** window when the probe returns `online` (`lastProbe=online`).
+- **Known limit that reproduces the original symptom (not handled):** a gated portal that answers `200` with the exact body `NetworkManager is online` classifies `online`, *and* NetworkManager — probing that same URI — reports `full`, so `active` is false, no row appears and there is no manual escape.
+- **Known limit where the row still works:** an HTTPS-only portal with no redirect classifies `unknown`; `unknown` is part of the `active` gate, so the row appears and opens the URL by hand.
+- **Residuals ruled on by the review ledger:**
+  (a) `Nmcli.refreshStatus()`'s loopback exclusion closes the observed instance of its defect class, not the class itself: `lo` reports `connected (externally)` even with every real device down (now skipped), but an externally-connected virtual device (`docker0`/`virbr0`, `tun0`/`wg0`) still counts as connected. Blacklist over whitelist is deliberate — a blacklist fails *open* (an extra sign-in row), a whitelist fails *closed* (the rows never appear, i.e. the original bug).
+  (b) The automatic path's reset when connectivity returns to `full`, and its 60 s floor, are reasoned from the code, not executed live (connectivity never left `full` on the test machine).
 - Tests never touch `/etc`: `deploy_system_config` honours `SYSTEM_CONFIG_ROOT` and `CI_TEST`, and `tests/setup_scripts_test.sh` stubs `sudo`/`systemctl` on `PATH`.
 
 ## Workspace Overview (modules/workspaceoverview/)
@@ -237,6 +241,7 @@ Defaults: `custom/`, `monitors.lua`, `monitors.conf`, `shell.json`, `shell.json.
 | `shell/services/Colours.qml` | Colour palette singleton |
 | `shell/services/CaptivePortal.qml` | Captive-portal helper singleton (probe chain, auto-open guard, IPC target `captivePortal`) |
 | `hyprland/.config/hypr/hyprland/scripts/captive_portal_probe.sh` | Portal probe classifier — prints `online\|portal\|unknown <url> <http-status>`, exits `0\|1\|2` |
+| `hyprland/.config/hypr/hyprland/scripts/open_portal_browser.sh` | Portal sign-in launcher — preferred Brave app-window on a throwaway profile, `xdg-open` fallback, refuses non-http(s) URLs (exit 2) |
 | `system/resolved.conf.d/10-captive-portal.conf` | DoT drop-in (`DNSOverTLS=opportunistic`) installed into `/etc` by `deploy_system_config()` |
 | `system/NetworkManager/conf.d/30-connectivity-enabled.conf` | NetworkManager connectivity-check drop-in (`enabled=true`) installed into `/etc` by `deploy_system_config()` |
 | `shell/plugin/src/Caelestia/Config/` | C++ config backend (17 config classes) |

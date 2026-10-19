@@ -47,7 +47,7 @@ Inputs/conditions the spec implies but that no test in this plan covers end-to-e
 - Consumes: nothing.
 - Produces: `captive_portal_probe.sh <url>` → stdout `online|portal|unknown <url> <http-status>`, exit `0|1|2`. Task 4 calls it from QML.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/fixtures/fake_portal_server.py` (mode `online` prints `NetworkManager is online\n`, `no-content` returns 204, `redirect` returns 302 to `http://portal.example.test/login`, `html` returns 200 `<html><body>Please sign in</body></html>`; binds `127.0.0.1:0`, prints the port on its first stdout line, `log_message` silenced).
 
@@ -64,12 +64,12 @@ PROBE="$REPO_DIR/hyprland/.config/hypr/hyprland/scripts/captive_portal_probe.sh"
 
 Register the suite in `tests/run.sh` next to the existing `test_suite` calls: `test_suite "captive_portal_probe_test" "tests/captive_portal_probe_test.sh"`.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bash tests/captive_portal_probe_test.sh`
 Expected: FAIL — `captive_portal_probe.sh` does not exist (all cases fail; the script exits 127).
 
-- [ ] **Step 3: Implement `captive_portal_probe.sh`**
+- [x] **Step 3: Implement `captive_portal_probe.sh`**
 
 `#!/usr/bin/env bash`, `set -uo pipefail`. Usage guard for `<url>`. One curl call:
 
@@ -79,12 +79,12 @@ read -r http redirect < <(curl -s -m 8 -o "$body" -w '%{http_code} %{redirect_ur
 
 Classification order: `204` or body starting with `NetworkManager is online` → `online` (exit 0); `3xx` → `portal` with the `Location` header (`redirect`) when non-empty else `$url` (exit 1); other `2xx` → `portal` with `$url` (exit 1); anything else, or a curl failure (exit code 6/7/28) → `unknown $url 000` (exit 2). Body is read with `head -c 256`. Temp body file removed by an `EXIT` trap.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `bash tests/captive_portal_probe_test.sh`
 Expected: PASS for all five cases.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 chmod +x hyprland/.config/hypr/hyprland/scripts/captive_portal_probe.sh tests/captive_portal_probe_test.sh tests/fixtures/fake_portal_server.py
@@ -106,7 +106,7 @@ git commit -m "feat(captive-portal): add portal probe classifier script + hermet
 - Consumes: nothing.
 - Produces: `deploy_system_config()` — no args, no return; reads `SYSTEM_CONFIG_ROOT` (default `/etc`), `DRY_RUN`, `NO_INSTALL_USER`, `CI_TEST`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `tests/setup_scripts_test.sh`, add `t_deploy_system_config_hermetic` (sourced-functions style, `source_scripts`): with `SYSTEM_CONFIG_ROOT="$tmp/etc"`, `CI_TEST=false`, `NO_INSTALL_USER=false`, stubbed `sudo() { "$@"; }` and a stub `systemctl` on `PATH`, assert:
 
@@ -123,12 +123,12 @@ grep -q 'DNSOverTLS=opportunistic' "$tmp/etc/systemd/resolved.conf.d/10-captive-
 
 Also update the existing `t_update_after_install` (`tests/setup_scripts_test.sh:266-275`) so its real `--update` run cannot touch the host: pass `SYSTEM_CONFIG_ROOT="$tmp/etc"` and a `PATH` stub dir containing `sudo` and `systemctl` (same trick as `t_update_dry_run_skips_git_pull`'s git stub).
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bash tests/setup_scripts_test.sh 2>&1 | grep -A2 'deploy_system_config'`
 Expected: FAIL — `deploy_system_config: command not found`.
 
-- [ ] **Step 3: Implement the drop-ins and the deployer**
+- [x] **Step 3: Implement the drop-ins and the deployer**
 
 `system/resolved.conf.d/10-captive-portal.conf` (exact content):
 
@@ -153,12 +153,12 @@ enabled=true
 
 In `install.sh`, add `deploy_system_config()` next to the other deployers: skip with a clear message when `CI_TEST=true`; skip with the printed commands when `NO_INSTALL_USER=true` or `DRY_RUN=true`; otherwise `sudo install -D -m 644` each drop-in **only when it differs** (`cmp -s`), `sudo systemctl restart systemd-resolved` only when the resolved drop-in changed, and `busctl set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled b true` guarded by `command -v busctl` (log a warning, never `err`, if sudo fails). Call it as the first statement of `deploy_hyprland()` so `cmd_install` and `cmd_update` both reach it exactly once, after section detection.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bash tests/setup_scripts_test.sh` and `bash tests/e2e_deploy_test.sh`
 Expected: both PASS; `ls -l /etc/systemd/resolved.conf.d/ /etc/NetworkManager/conf.d/` unchanged by the run (host untouched).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add system install.sh tests/setup_scripts_test.sh
@@ -178,7 +178,7 @@ git commit -m "feat(captive-portal): ship DoT-opportunistic + NM connectivity dr
 - Consumes: nothing.
 - Produces: `Nmcli.connectivity: string` (`unknown|none|portal|limited|full`) and `Nmcli.recheckConnectivity(callback: var): void`; Task 4 binds to both.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/qml_captive_portal_test.sh` in the `tests/qml_eco_powersaver_test.sh` style (`check <desc> <file> <grep-pattern>`, `FAIL=1` on miss) asserting first the Task 3 surface:
 
@@ -191,21 +191,21 @@ check "Nmcli recheck API"               "$S/services/Nmcli.qml" 'function rechec
 
 Register it in `tests/run.sh`: `test_suite "qml_captive_portal_test" "tests/qml_captive_portal_test.sh"`.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bash tests/qml_captive_portal_test.sh`
 Expected: FAIL on all four checks.
 
-- [ ] **Step 3: Implement in `shell/services/Nmcli.qml`**
+- [x] **Step 3: Implement in `shell/services/Nmcli.qml`**
 
 Add `property string connectivity: "unknown"` and `readonly property string connectivityFields: "CONNECTIVITY"`. Add `function getConnectivity(): void` → `executeCommand(["-t", "-f", root.connectivityFields, "general"], result => { const line = (result.output || "").trim().split("\n")[0]; root.connectivity = line || "unknown"; })`. Add `function recheckConnectivity(callback: var): void` → `executeCommand(["networking", "connectivity", "check"], () => { getConnectivity(); if (callback) callback(root.connectivity); })`. Call `getConnectivity()` from inside `refreshOnConnectionChange()` (so the existing `nmcli monitor` reader drives it) and from `Component.onCompleted` next to the other initial getters (`Nmcli.qml:1443-1450`).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bash tests/qml_captive_portal_test.sh` and `bash tests/qml_test.sh` (import/structure gate)
 Expected: PASS both. Then deploy and check live: `./install.sh --update --no-install; pkill -x qs; sleep 0.5; setsid qs -c caelestia >/dev/null 2>&1 &`, and confirm the reported value agrees with `nmcli -t -f CONNECTIVITY general` and that `timeout 15 qs -c caelestia 2>&1 | grep -i "Nmcli\|not a type"` is clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add shell/services/Nmcli.qml tests/qml_captive_portal_test.sh tests/run.sh
@@ -234,7 +234,7 @@ git commit -m "feat(nmcli): expose connectivity state and recheck API"
 
   Task 5 calls `CaptivePortal.open()` (row click) and `CaptivePortal.recheck()` ("Recheck connection").
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/qml_captive_portal_test.sh`:
 
@@ -252,12 +252,12 @@ check "IPC target"                  "$S/services/CaptivePortal.qml" 'target: "ca
 check "re-probe timer"              "$S/services/CaptivePortal.qml" 'interval: 15000'
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bash tests/qml_captive_portal_test.sh`
 Expected: FAIL on the eleven new checks.
 
-- [ ] **Step 3: Implement `shell/services/CaptivePortal.qml`**
+- [x] **Step 3: Implement `shell/services/CaptivePortal.qml`**
 
 `pragma Singleton`, imports `QtQuick`, `Quickshell`, `Quickshell.Io`, `Caelestia`, `qs.services`, `qs.utils`. State: `readonly property bool connected: Nmcli.isConnected`; `lastProbe`; `portalUrl`; `readonly property bool active: connected && (Nmcli.connectivity === "portal" || Nmcli.connectivity === "limited" || Nmcli.connectivity === "unknown" || lastProbe === "portal")`; `property real lastOpenTime: 0`; `property string openedFor: ""` (episode key `ssid + "|" + portalUrl`). Probe path `${Paths.home}/.config/hypr/hyprland/scripts/captive_portal_probe.sh`. `probeNow()` runs it through a `Process` (`command: ["bash", probePath, url]`, `StdioCollector`) on the NM check URI `http://ping.archlinux.org/nm-check.txt`; on `unknown` retry once against `http://<gateway>/` read from `nmcli -t -f IP4.GATEWAY,IP6.GATEWAY device show <Nmcli.activeInterface>` (strip any `%iface`), falling back to the first default route from `ip route show default`. `open()` launches, in one detached `sh -c`, the throwaway-profile Brave app-window with an `xdg-open` fallback:
 
@@ -271,14 +271,14 @@ Quickshell.execDetached(["sh", "-c",
 
 Add `CaptivePortal;` to `shell/modules/ServiceLoader.qml`'s `Component.onCompleted` list.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bash tests/qml_captive_portal_test.sh` + `bash tests/qml_test.sh`, then deploy and smoke-test:
 `./install.sh --update --no-install; pkill -x qs; sleep 0.5; setsid qs -c caelestia >/dev/null 2>&1 &`
 Run: `qs -c caelestia ipc call captivePortal state`
 Expected: `full active=false …` on a normal network, no window, no toast. Then `qs -c caelestia ipc call captivePortal probe http://127.0.0.1:1/` → `unknown`, and manual check 5: `sudo mv /usr/bin/brave /usr/bin/brave.bak`, click the row in the bar popout → `xdg-open` path taken, then `sudo mv` back.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add shell/services/CaptivePortal.qml shell/modules/ServiceLoader.qml tests/qml_captive_portal_test.sh
@@ -298,26 +298,26 @@ git commit -m "feat(captive-portal): CaptivePortal service with probe, toast and
 - Consumes: `CaptivePortal.active`, `CaptivePortal.open()`, `CaptivePortal.recheck()`.
 - Produces: nothing new.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append three checks: bar popout contains `CaptivePortal.active`, Nexus page contains `CaptivePortal.active`, and both mention `qsTr("Sign in to network")`.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bash tests/qml_captive_portal_test.sh`
 Expected: FAIL on the three new checks.
 
-- [ ] **Step 3: Implement both rows**
+- [x] **Step 3: Implement both rows**
 
 Bar popout: `import qs.modules.nexus.common` (for `RowButton`), then a `RowButton { visible: CaptivePortal.active; Layout.preferredHeight: visible ? implicitHeight : 0; icon: "wifi_lock"; text: qsTr("Sign in to network"); subtext: Nmcli.active ? Nmcli.active.ssid : ""; trailingIcon: "open_in_new"; onClicked: CaptivePortal.open() }` as the first layout child, before the "Wireless" `StyledText`.
 
 Nexus page: the same `RowButton` with `first: true` (it is the first row of the group) and `onClicked: CaptivePortal.open()`, plus a "Recheck connection" `RowButton { icon: "refresh"; text: qsTr("Recheck connection"); visible: CaptivePortal.active; onClicked: CaptivePortal.recheck() }`. Keep the existing `NetworkList`/`ToggleRow` order intact below.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `bash tests/qml_captive_portal_test.sh` + `bash tests/qml_test.sh`, deploy (`./install.sh --update --no-install`), restart the shell, then manual check 3: with `nmcli -t -f STATE,CONNECTIVITY general` showing `full`, confirm no row is visible; then `busctl set-property … ConnectivityCheckEnabled b false` + `nmcli networking connectivity check` to force `unknown`/`limited` and confirm the row appears in both surfaces and does not open a window until clicked.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add shell/modules/bar/popouts/Network.qml shell/modules/nexus/pages/NetworkPage.qml tests/qml_captive_portal_test.sh
@@ -472,3 +472,67 @@ machine, so the gate would be true even with every real device down.
 - **Cleanup:** fixture stopped (port refuses, no stray process), no throwaway-profile
   process, user's browser untouched (`pgrep -x brave | wc -l` → 30), shell left running
   (pid 150674).
+
+#### Final wave (whole-branch review: F1–F21), 2026-10-19
+
+The whole-branch review returned **"With fixes"** (no Critical, no Important code defect);
+this wave closed every item it triaged, TDD-first. Tasks 1–5 checkboxes above are ticked to
+match the ledger.
+
+| Item | Change | Evidence |
+|---|---|---|
+| F1 | `NetworkPage.qml`: Wi-Fi `ToggleRow` `first: !CaptivePortal.active`, `Layout.topMargin` gated on `&& !CaptivePortal.active` (no gap mid-group, no double rounded top) | qml check `wifi row yields first during portal` — RED then GREEN |
+| F2 | `gatewayProc.onExited`: un-escape nmcli's `\:` → `:`, `\\` → `\` **before** the `%iface` split (same as `Nmcli.qml` SSID parse) | code + review; no live IPv6 portal gateway to observe (limit) |
+| F3 | `episodeKey()` → `portalUrl` alone, comment says why (`ssid` comes from async `getNetworks()`) | live: `episode=http://127.0.0.1:45051/`, and a 3rd `probeAuto` with the same URL **>60 s** later opened no window (below) |
+| F4 | `probeExplicit()` takes `root.probing` (returns `bool`), IPC `probe()` reports `error: a probe is already in flight` | qml check `in-flight probe refused` — RED then GREEN |
+| F5 | 30 s `Timer { running: root.probing → root.probing = false }` watchdog for wedged `nmcli`/`ip` chains | qml check `probing watchdog` — RED then GREEN |
+| F6 | `launchBrowser()` refuses anything not `http://`/`https://` (toast `Refusing to open an unsafe link`) | qml check `https-only launch guard` — RED then GREEN |
+| F7 | dropped unused `import Caelestia.Config` and unused `stderr: StdioCollector {}` | `tests/run.sh` still 8/8 |
+| F8 | gateway `Process` gets `environment: ({ LANG/LC_ALL: "C.UTF-8" })` (route/`ip` one does not need it) | code + review (structural) |
+| F9 | IPC `probeAuto(url)` — same in-flight guard, ends in `finishProbe(cls, url2, url2 ‖ url)`, i.e. the real automatic path | **live proof, below** |
+| F10 | new `hyprland/.config/hypr/hyprland/scripts/open_portal_browser.sh`; `launchBrowser()` now `execDetached(["bash", script, url, profile])` — no `sh -c`, no interpolation | new suite `tests/captive_portal_launch_fallback_test.sh` 4/4 + qml checks `uses portal launch script` / `throwaway brave profile` / `xdg-open fallback` re-pointed at the script |
+| F11 | `--no-install` guidance now includes `sudo systemctl restart systemd-resolved` | seen in the live `--update --no-install` output this wave |
+| F12 | `--dry-run` now also prints the `busctl … ConnectivityCheckEnabled b true` step | hermetic run (temp `SYSTEM_CONFIG_ROOT`) printed the 4th `[dry-run] Would …` line, 0 files written |
+| F13–F16 | `AGENTS.md`: healthy `state` keys stated separately, the `online`+`full` known limit stated honestly, the two ledger residuals (loopback blacklist scope; `full`-reset + 60 s floor reasoned not executed) documented, `open_portal_browser.sh` added to Key Files, `probeAuto` named on the IPC line | diff |
+| F17 | `README.md` revert recipe adds the `busctl … b false` step and its consequence (connectivity → `unknown` → row on every network) | diff |
+| F18 | Tasks 1–5 checkboxes ticked; this wave recorded | this section |
+| F19 | `tests/qml_captive_portal_test.sh` → mode `0755`, header no longer claims "RED test / fails before the feature" | `ls -l` → `-rwxr-xr-x` |
+| F20 | assertions: `probeAuto`, `https` guard, `open_portal_browser.sh`, watchdog, in-flight refusal (+ loopback already present from round 1, part 3); fixture modes `redirect-no-location` and `error500`; probe branches `3xx`-no-`Location` → `portal <url>` and `500` → `unknown <url> 500` | RED → GREEN, output below |
+| F21 | `tests/captive_portal_launch_fallback_test.sh` registered in `tests/run.sh` | 4/4, suite count 7 → 8 |
+
+**RED (real output, before the fixes):**
+`captive_portal_probe_test` → `FAIL mode=error500 … (got: 'unknown … 000' …; want: 'unknown … 500')`, `6 passed, 1 failed`;
+`qml_captive_portal_test` → `FAIL probeAuto on IPC target`, `FAIL https-only launch guard`, `FAIL uses portal launch script`,
+`FAIL probing watchdog`, `FAIL in-flight probe refused`, `FAIL wifi row yields first during portal`, plus the two re-pointed
+launcher checks against the not-yet-created script → `RESULT: FAIL`, exit 1;
+`captive_portal_launch_fallback_test` → `0 passed, 4 failed` (script absent).
+The loopback assertion was already GREEN — it was written and seen RED in round 1, part 3.
+
+**GREEN:** `qml_test` `6 passed, 0 failed`; `qml_captive_portal_test` `29 passed` `RESULT: PASS (green)`;
+`captive_portal_probe_test` `7 passed, 0 failed`; `captive_portal_launch_fallback_test` `4 passed, 0 failed`;
+`bash tests/run.sh` → `Results: 8 passed, 0 failed`, exit 0.
+
+**Live (deployed `--update --no-install`, shell restarted: one instance pid 220306, no QML errors):**
+healthy → `connectivity=full connected=true iface=wlp1s0 active=false lastProbe= portalUrl= candidateUrl= ssid=Besho episode=`,
+and `ipc call captivePortal open` → no window (throwaway procs 0). Fixture `html` on port 45051, then
+`ipc call captivePortal probeAuto http://127.0.0.1:45051/` → 1 s later
+`connectivity=full connected=true iface=wlp1s0 active=true lastProbe=portal portalUrl=http://127.0.0.1:45051/ candidateUrl=http://127.0.0.1:45051/ ssid=Besho episode=http://127.0.0.1:45051/`,
+exactly **one** window: `brave --app=http://127.0.0.1:45051/ --user-data-dir=/run/user/1000/caelestia/portal-profile`
+(pid 221418, + its helper processes; total brave 33 → 43), and a screenshot taken ~1 s after the call shows both the
+fixture page in that app-window and the toast **"Sign in to network / This network needs you to log in"**
+(`maybeAutoOpen()`'s exact text — toast path observed, file kept outside the repo in `/tmp/opencode/wave/fx/toast.png`).
+Second `probeAuto` with the same URL → still exactly 1 `--app=` window (60 s floor also active there). Third `probeAuto`
+with the same URL, >60 s after the first open (floor expired; the window had been closed externally in the meantime,
+so 0 profile processes were left) → state immediately after still `active=true lastProbe=portal … episode=http://127.0.0.1:45051/`
+and **still 0 windows**: with the floor expired and `lastProbe`/`portalUrl` satisfied, the episode key is the only guard
+left, so it — not the floor — is what blocked the second window. Settle → `… active=false lastProbe=online …` and
+`ipc call captivePortal open` again opened nothing (brave 30 → 30).
+
+**Not executed live, stated rather than claimed:** connectivity never left `full` on this machine, so the automatic path's
+`full`-reset (clearing `episode`/`openedFor` + the "Online" toast) and a genuine 60 s-floor expiry *while a window stayed
+open* were not observed end-to-end; they remain reasoned from the code (ledger residual (b) in AGENTS.md). The 60 s floor
+itself did participate in the #2 call, but that call cannot isolate it from the episode key — #3 is the isolation.
+Cleanup: fixture stopped (port refuses), no `fake_portal_server.py`, `open_portal_browser` or throwaway-profile process
+left, user's browser never pkilled, `ConnectivityCheckEnabled b true`, `/etc` still untouched
+(`/etc/systemd/resolved.conf.d/` absent, `NetworkManager/conf.d/` has only `default-wifi-powersave-on.conf`), shell left
+running (pid 220306).

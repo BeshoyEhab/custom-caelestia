@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# TDD RED test: Captive portal — Nmcli connectivity state.
-# Fails before the feature, passes after.
+# Captive-portal QML surface test: Nmcli connectivity state, the
+# CaptivePortal singleton (probe / auto-open guards / launch), and the two
+# "Sign in to network" rows. Grep-based structural assertions: PASS when the
+# feature's code is present, FAIL as soon as one of these surfaces regresses.
 set -uo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 S="$REPO_DIR/shell"
+LAUNCH="$REPO_DIR/hyprland/.config/hypr/hyprland/scripts/open_portal_browser.sh"
 FAIL=0
 
 echo "=== qml_captive_portal ==="
@@ -31,8 +34,10 @@ check "CaptivePortal seen by loader" "$S/modules/ServiceLoader.qml" 'CaptivePort
 check "active covers unknown"       "$S/services/CaptivePortal.qml" 'connectivity === "unknown"'
 check "auto-open requires portal"   "$S/services/CaptivePortal.qml" 'lastProbe === "portal"'
 check "uses probe script"           "$S/services/CaptivePortal.qml" 'captive_portal_probe.sh'
-check "throwaway brave profile"     "$S/services/CaptivePortal.qml" 'user-data-dir'
-check "xdg-open fallback"           "$S/services/CaptivePortal.qml" 'xdg-open'
+# The launch itself lives in the deployed open_portal_browser.sh (refuses
+# non-http(s), preferred Brave app-window with the throwaway profile).
+check "throwaway brave profile"     "$LAUNCH" 'user-data-dir'
+check "xdg-open fallback"           "$LAUNCH" 'xdg-open'
 check "toasts once per episode"     "$S/services/CaptivePortal.qml" 'Toaster.toast'
 check "cooldown guard"              "$S/services/CaptivePortal.qml" 'lastOpenTime'
 check "IPC target"                  "$S/services/CaptivePortal.qml" 'target: "captivePortal"'
@@ -53,11 +58,24 @@ check "Nmcli skips loopback"        "$S/services/Nmcli.qml" 'type !== "loopback"
 # The gate value and the interface it resolved stay observable from outside.
 check "state exposes connected+iface" "$S/services/CaptivePortal.qml" 'connected=${root.connected} iface=${Nmcli.activeInterface}'
 
+# Final wave (whole-branch review): the automatic-open path must be reachable
+# over IPC for a live fixture proof, only http(s) may reach a browser, a wedged
+# chain must not leave `probing` stuck true, and the debug probe must refuse to
+# run while another probe is in flight.
+check "probeAuto on IPC target"    "$S/services/CaptivePortal.qml" 'function probeAuto'
+check "https-only launch guard"    "$S/services/CaptivePortal.qml" 'startsWith("https://")'
+check "uses portal launch script"  "$S/services/CaptivePortal.qml" 'open_portal_browser.sh'
+check "probing watchdog"           "$S/services/CaptivePortal.qml" 'interval: 30000'
+check "in-flight probe refused"    "$S/services/CaptivePortal.qml" 'a probe is already in flight'
+
 # Task 5 surface: "Sign in to network" rows in both UI surfaces.
 check "Bar popout gated on CaptivePortal" "$S/modules/bar/popouts/Network.qml" 'CaptivePortal.active'
 check "Nexus page gated on CaptivePortal" "$S/modules/nexus/pages/NetworkPage.qml" 'CaptivePortal.active'
 check "Bar popout has sign-in row"        "$S/modules/bar/popouts/Network.qml" 'qsTr("Sign in to network")'
 check "Nexus page has sign-in row"        "$S/modules/nexus/pages/NetworkPage.qml" 'qsTr("Sign in to network")'
+# While the portal rows are out, the Wi-Fi row continues their group instead
+# of drawing a rounded top mid-group (duplicate `first: true`).
+check "wifi row yields first during portal" "$S/modules/nexus/pages/NetworkPage.qml" 'first: !CaptivePortal.active'
 
 if [[ $FAIL -ne 0 ]]; then
     echo "RESULT: FAIL (red - connectivity not implemented)"

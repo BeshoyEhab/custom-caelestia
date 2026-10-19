@@ -4,7 +4,6 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Caelestia
-import Caelestia.Config
 import qs.services
 import qs.utils
 
@@ -23,6 +22,7 @@ Singleton {
     readonly property bool connected: Nmcli.isConnected
     readonly property string ssid: Nmcli.active?.ssid ?? ""
     readonly property string probeScript: `${Paths.home}/.config/hypr/hyprland/scripts/captive_portal_probe.sh`
+    readonly property string launchScript: `${Paths.home}/.config/hypr/hyprland/scripts/open_portal_browser.sh`
     readonly property string checkUri: "http://ping.archlinux.org/nm-check.txt"
 
     // Last probe classification: "" | "online" | "portal" | "unknown".
@@ -36,7 +36,12 @@ Singleton {
     // button; kept separate from portalUrl (which stays portal-only).
     property string candidateUrl: ""
     // Episode bookkeeping for the automatic open path. openedFor is the
-    // episode key `ssid + "|" + portalUrl` of the last opened sign-in.
+    // episode key of the last opened sign-in: the PORTAL URL ALONE. The SSID
+    // is deliberately not part of the key — ssid comes from the async
+    // getNetworks() refresh, so the first auto-open can land before
+    // `networks` reflects the AP and an ssid-dependent key would change
+    // mid-episode, letting a second window open once the 60 s floor expires.
+    // ssid stays in the IPC `state` output, for display only.
     property real lastOpenTime: 0
     property string openedFor: ""
 
@@ -51,7 +56,8 @@ Singleton {
     property bool openWhenProbed: false
 
     function episodeKey(): string {
-        return `${root.ssid}|${root.portalUrl}`;
+        // Portal URL only: see the episode-bookkeeping comment above.
+        return root.portalUrl;
     }
 
     // ── Probe chain ────────────────────────────────────────────────────────
@@ -145,13 +151,20 @@ Singleton {
 
     // Debug-only: classify an explicit URL (no gateway retry, never opens
     // anything). The result lands in lastProbe/portalUrl/candidateUrl and is
-    // readable through the `state` IPC call.
-    function probeExplicit(url: string): void {
+    // readable through the `state` IPC call. Takes the same in-flight lock as
+    // probeNow() so a debug probe can never race a real chain into
+    // finishProbe; returns false when a probe is already in flight.
+    function probeExplicit(url: string): bool {
+        if (root.probing)
+            return false;
+        root.probing = true;
         root.runProbe(url, (cls, url2) => {
+            root.probing = false;
             root.lastProbe = cls;
             root.portalUrl = cls === "portal" ? url2 : "";
             root.candidateUrl = url2 || url;
         });
+        return true;
     }
 
     // ── Recheck / open ─────────────────────────────────────────────────────
@@ -169,9 +182,16 @@ Singleton {
     function launchBrowser(url: string): void {
         if (!url || url.length === 0)
             return;
-        Quickshell.execDetached(["sh", "-c",
-            'command -v brave >/dev/null 2>&1 && exec brave --app="$1" --user-data-dir="$2" || exec xdg-open "$1"',
-            "sh", url, `${Paths.tmp}/portal-profile`]);
+        // Scheme guard: a portal's Location header can be anything
+        // (file:///, javascript:, …), so only http(s) may reach a browser.
+        // Defence in depth — the launch script refuses non-http(s) itself.
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            Toaster.toast(qsTr("Sign in to network"), qsTr("Refusing to open an unsafe link"), "wifi_lock", Toast.Warning);
+            return;
+        }
+        // No `sh -c`, no interpolation: the script takes url and profile as
+        // plain argv.
+        Quickshell.execDetached(["bash", root.launchScript, url, `${Paths.tmp}/portal-profile`]);
     }
 
     // User-initiated: never cooldown-blocked, never a dead button. Launches
@@ -189,7 +209,8 @@ Singleton {
     }
 
     // Internal automatic path: only on a positive portal probe, once per
-    // episode (ssid + "|" + portalUrl), and at most one auto-open per 60 s.
+    // episode (the portal URL — see episodeKey()), and at most one auto-open
+    // per 60 s.
     function maybeAutoOpen(): void {
         if (root.lastProbe !== "portal" || root.portalUrl.length === 0)
             return;
@@ -240,6 +261,18 @@ Singleton {
         onTriggered: Nmcli.recheckConnectivity()
     }
 
+    // Watchdog for the probe chain: a wedged `nmcli device show` / `ip route`
+    // (curl itself is bounded by the script's -m 8) must not leave `probing`
+    // stuck true, which would silently disable every future probe. 30 s is
+    // several times the worst healthy chain; if we get here, the chain is
+    // wedged and is abandoned rather than blocking the feature forever.
+    Timer {
+        interval: 30000
+        repeat: false
+        running: root.probing
+        onTriggered: root.probing = false
+    }
+
     IpcHandler {
         function state(): string {
             return `connectivity=${Nmcli.connectivity} connected=${root.connected} iface=${Nmcli.activeInterface} active=${root.active} lastProbe=${root.lastProbe} portalUrl=${root.portalUrl} candidateUrl=${root.candidateUrl} ssid=${root.ssid} episode=${root.openedFor}`;
@@ -251,8 +284,27 @@ Singleton {
         function probe(url: string): string {
             if (!url || url.length === 0)
                 return "error: probe requires a url";
-            root.probeExplicit(url);
+            if (!root.probeExplicit(url))
+                return "error: a probe is already in flight";
             return `probing ${url}; read the result with: state`;
+        }
+
+        // Debug-only: drive the AUTOMATIC open path (finishProbe ->
+        // maybeAutoOpen) against a local fixture URL, so the toast, the
+        // episode key, the 60 s floor and the browser launch can actually be
+        // exercised end-to-end. It takes the same in-flight `probing` guard
+        // as probeNow() and ends in the same finishProbe() every other chain
+        // ends in — it bypasses no guard, it exists to verify them. Not a
+        // user entry point: `open()` is the manual path, `probe()` the
+        // classifier-only path (which never opens anything).
+        function probeAuto(url: string): string {
+            if (!url || url.length === 0)
+                return "error: probeAuto requires a url";
+            if (root.probing)
+                return "error: a probe is already in flight";
+            root.probing = true;
+            root.runProbe(url, (cls, url2) => root.finishProbe(cls, url2, url2 || url));
+            return `auto-probing ${url}; read the result with: state`;
         }
 
         function open(): void {
@@ -273,7 +325,6 @@ Singleton {
 
             command: ["bash", root.probeScript, url]
             stdout: StdioCollector {}
-            stderr: StdioCollector {}
 
             onExited: code => { // qmllint disable signal-handler-parameters
                 Qt.callLater(() => {
@@ -300,6 +351,12 @@ Singleton {
             property var callback: null
 
             command: ["nmcli", "-t", "-f", "IP4.GATEWAY,IP6.GATEWAY", "device", "show", iface]
+            // Terse output is only parseable in the C locale (same override
+            // Nmcli.qml uses); the `ip route` fallback does not need it.
+            environment: ({
+                    LANG: "C.UTF-8",
+                    LC_ALL: "C.UTF-8"
+                })
             stdout: StdioCollector {}
 
             onExited: code => { // qmllint disable signal-handler-parameters
@@ -311,9 +368,14 @@ Singleton {
                         const idx = line.indexOf(":");
                         if (idx < 0)
                             continue;
-                        const value = line.slice(idx + 1).trim();
-                        if (!value || value === "--")
+                        const raw = line.slice(idx + 1).trim();
+                        if (!raw || raw === "--")
                             continue;
+                        // nmcli -t escapes ":" inside values as "\:"; undo it the
+                        // way Nmcli.qml already does for SSIDs/BSSIDs ("\:" -> ":",
+                        // then "\\" -> "\") BEFORE the "%iface" split, so an IPv6
+                        // gateway like 2a02\:db8\:1 becomes a usable address.
+                        const value = raw.replace(/\\:/g, ":").replace(/\\\\/g, "\\");
                         // Strip any "%iface" suffix from a link-local v6 gateway.
                         gw = value.split("%")[0];
                         break;

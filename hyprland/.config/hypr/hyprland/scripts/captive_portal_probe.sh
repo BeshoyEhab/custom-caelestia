@@ -2,7 +2,8 @@
 # captive_portal_probe.sh <url>
 #
 # Classify <url> as online / portal / unknown. Prints exactly one line to
-# stdout: "<classification> <url> <http-status>" (unknown -> status 000).
+# stdout: "<classification> <url> <http-status>" (unknown -> the observed
+# status, or 000 when no HTTP response was received at all).
 # Diagnostics, if any, go to stderr.
 # Exit status: 0 online, 1 portal (login needed), 2 unknown or usage error.
 set -uo pipefail
@@ -59,5 +60,7 @@ case "$http" in
         ;;
 esac
 
-printf 'unknown %s 000\n' "$url"
+# Not 2xx/3xx: report the status we actually observed (000 stays reserved
+# for "no HTTP response", handled above).
+printf 'unknown %s %s\n' "$url" "$http"
 exit 2

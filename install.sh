@@ -753,6 +753,7 @@ deploy_system_config() {
         warn "System drop-ins not applied (--no-install). Run manually:"
         warn "  sudo install -D -m 644 $src_resolved $dst_resolved"
         warn "  sudo install -D -m 644 $src_nm $dst_nm"
+        warn "  sudo systemctl restart systemd-resolved"
         return 0
     fi
 
@@ -771,6 +772,11 @@ deploy_system_config() {
         fi
         if [[ "$nm_differs" == true ]]; then
             echo -e "  ${BLUE}[dry-run]${NC} Would install: $dst_nm"
+        fi
+        # The runtime half of the NetworkManager layer: applied right after the
+        # drop-ins, unprivileged, without restarting NM.
+        if command -v busctl &>/dev/null; then
+            echo -e "  ${BLUE}[dry-run]${NC} Would enable the NetworkManager connectivity check: busctl set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled b true"
         fi
         return 0
     fi
