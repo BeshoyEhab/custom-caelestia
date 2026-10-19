@@ -727,7 +727,86 @@ enable_pipewire() {
     }
 }
 
+# ── System drop-ins (captive portal login) ───────────────────────────────────
+# Two /etc drop-ins make cafe/hotel captive-portal login possible:
+#   systemd-resolved  DNSOverTLS=opportunistic — strict DoT breaks the portals'
+#                     plain-DNS servers, so the login page can never load.
+#   NetworkManager    connectivity check on — keeps the PORTAL/LIMITED state
+#                     that the shell's captive-portal helper reacts to.
+# Reads SYSTEM_CONFIG_ROOT (default /etc): an environment variable for tests,
+# not a CLI flag. CI_TEST skips (test harness); --no-install and --dry-run only
+# print what would run. Writes each drop-in only when it differs; restarts
+# systemd-resolved only when its drop-in changed.
+deploy_system_config() {
+    if [[ "${CI_TEST:-false}" == true ]]; then
+        return 0
+    fi
+
+    local root="${SYSTEM_CONFIG_ROOT:-/etc}"
+    local src_resolved="$REPO_DIR/system/resolved.conf.d/10-captive-portal.conf"
+    local src_nm="$REPO_DIR/system/NetworkManager/conf.d/30-connectivity-enabled.conf"
+    local dst_resolved="$root/systemd/resolved.conf.d/10-captive-portal.conf"
+    local dst_nm="$root/NetworkManager/conf.d/30-connectivity-enabled.conf"
+
+    # Headless configs-only runs never escalate: print the commands instead.
+    if [[ "$NO_INSTALL_USER" == true ]]; then
+        warn "System drop-ins not applied (--no-install). Run manually:"
+        warn "  sudo install -D -m 644 $src_resolved $dst_resolved"
+        warn "  sudo install -D -m 644 $src_nm $dst_nm"
+        return 0
+    fi
+
+    local resolved_differs=false nm_differs=false
+    if ! cmp -s "$src_resolved" "$dst_resolved" 2>/dev/null; then
+        resolved_differs=true
+    fi
+    if ! cmp -s "$src_nm" "$dst_nm" 2>/dev/null; then
+        nm_differs=true
+    fi
+
+    if [[ "$DRY_RUN" == true ]]; then
+        if [[ "$resolved_differs" == true ]]; then
+            echo -e "  ${BLUE}[dry-run]${NC} Would install: $dst_resolved"
+            echo -e "  ${BLUE}[dry-run]${NC} Would restart systemd-resolved"
+        fi
+        if [[ "$nm_differs" == true ]]; then
+            echo -e "  ${BLUE}[dry-run]${NC} Would install: $dst_nm"
+        fi
+        return 0
+    fi
+
+    local resolved_changed=false
+    if [[ "$resolved_differs" == true ]]; then
+        if sudo install -D -m 644 "$src_resolved" "$dst_resolved"; then
+            resolved_changed=true
+            log "Installed: $dst_resolved"
+        else
+            warn "Could not install $dst_resolved (needs sudo?); skipping."
+        fi
+    fi
+    if [[ "$nm_differs" == true ]]; then
+        if sudo install -D -m 644 "$src_nm" "$dst_nm"; then
+            log "Installed: $dst_nm"
+        else
+            warn "Could not install $dst_nm (needs sudo?); skipping."
+        fi
+    fi
+
+    if [[ "$resolved_changed" == true ]] && command -v systemctl &>/dev/null; then
+        sudo systemctl restart systemd-resolved \
+            || warn "Could not restart systemd-resolved; run: sudo systemctl restart systemd-resolved"
+    fi
+
+    # Take effect immediately without restarting NM. No sudo, never fatal.
+    if command -v busctl &>/dev/null; then
+        busctl set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled b true \
+            || warn "Could not enable NetworkManager connectivity check now (drop-in applies on next NM restart)."
+    fi
+}
+
 deploy_hyprland() {
+    # System layer for this section: /etc drop-ins (once per run).
+    deploy_system_config
     log "Deploying Hyprland config..."
     local src="$REPO_DIR/hyprland/.config/hypr"
     local dst="$HOME/.config/hypr"

@@ -262,11 +262,28 @@ t_update_skips_uninstalled() {
     rm -rf "$tmp"
 }
 
+# sudo passthrough + silent systemctl/busctl stubs: deploy_system_config's
+# system layer runs, but the host is never touched. systemctl records its args
+# at $SYSTEMCTL_MARKER (when set) so tests can assert restart-on-change.
+_sys_stub_bin() { # $1 = bin dir
+    mkdir -p "$1"
+    printf '#!/usr/bin/env bash\nexec "$@"\n' > "$1/sudo"
+    printf '#!/usr/bin/env bash\n[[ -n "${SYSTEMCTL_MARKER:-}" ]] && printf "%%s\\n" "$*" >> "$SYSTEMCTL_MARKER"\nexit 0\n' > "$1/systemctl"
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$1/busctl"
+    chmod +x "$1/sudo" "$1/systemctl" "$1/busctl"
+}
+
 t_update_after_install() {
     local tmp; tmp=$(mktemp -d)
-    HOME="$tmp" "$SCRIPTS_DIR/install.sh" --install --non-interactive --no-install >/dev/null 2>&1
+    # The real (non-dry, non-no-install) update below reaches
+    # deploy_system_config: redirect its /etc writes at a temp root and stub
+    # sudo/systemctl/busctl so the host is never touched.
+    _sys_stub_bin "$tmp/bin"
+    HOME="$tmp" SYSTEM_CONFIG_ROOT="$tmp/etc" PATH="$tmp/bin:$PATH" \
+        "$SCRIPTS_DIR/install.sh" --install --non-interactive --no-install >/dev/null 2>&1
     echo "local edit" > "$tmp/.config/hypr/hyprland/CUSTOM_EDIT_MARKER"
-    HOME="$tmp" "$SCRIPTS_DIR/install.sh" --update --non-interactive >/dev/null 2>&1
+    HOME="$tmp" SYSTEM_CONFIG_ROOT="$tmp/etc" PATH="$tmp/bin:$PATH" \
+        "$SCRIPTS_DIR/install.sh" --update --non-interactive >/dev/null 2>&1
     [[ -f "$tmp/.config/hypr/hyprland/CUSTOM_EDIT_MARKER" ]] \
         && ok "update preserves user-created files" || bad "update preserves user-created files"
     rm -rf "$tmp"
@@ -284,6 +301,103 @@ t_update_dry_run_skips_git_pull() {
     [[ "$rc" -eq 0 && ! -e "$tmp/git-was-called" ]] \
         && ok "dry-run update skips git pull" \
         || bad "dry-run update skips git pull (rc=$rc, git stub invoked=$([[ -e "$tmp/git-was-called" ]] && echo yes || echo no))"
+    rm -rf "$tmp"
+}
+
+# Task 2 (captive portal): deploy_system_config ships the two system drop-ins.
+# Hermetic: SYSTEM_CONFIG_ROOT → temp dir, sudo passthrough, systemctl/busctl
+# stubbed on PATH — the host /etc is never touched.
+t_deploy_system_config_hermetic() {
+    local tmp; tmp=$(mktemp -d)
+    local out before after
+    local resolved_dst="$tmp/etc/systemd/resolved.conf.d/10-captive-portal.conf"
+    local nm_dst="$tmp/etc/NetworkManager/conf.d/30-connectivity-enabled.conf"
+    _sys_stub_bin "$tmp/bin"
+
+    # First call: writes both drop-ins with the right content, restarts resolved.
+    out=$(
+        source_scripts
+        CI_TEST=false DRY_RUN=false NO_INSTALL_USER=false
+        SYSTEM_CONFIG_ROOT="$tmp/etc" PATH="$tmp/bin:$PATH"
+        export SYSTEM_CONFIG_ROOT SYSTEMCTL_MARKER="$tmp/systemctl-calls"
+        sudo() { "$@"; }
+        deploy_system_config
+    )
+    [[ -f "$resolved_dst" ]] && ok "deploy_system_config writes resolved drop-in" \
+        || bad "deploy_system_config writes resolved drop-in"
+    [[ -f "$nm_dst" ]] && ok "deploy_system_config writes NM connectivity drop-in" \
+        || bad "deploy_system_config writes NM connectivity drop-in"
+    grep -q 'DNSOverTLS=opportunistic' "$resolved_dst" 2>/dev/null \
+        && ok "deploy_system_config resolved drop-in has DNSOverTLS=opportunistic" \
+        || bad "deploy_system_config resolved drop-in has DNSOverTLS=opportunistic"
+    grep -q '^enabled=true$' "$nm_dst" 2>/dev/null \
+        && ok "deploy_system_config NM drop-in has enabled=true" \
+        || bad "deploy_system_config NM drop-in has enabled=true"
+    grep -q 'restart systemd-resolved' "$tmp/systemctl-calls" 2>/dev/null \
+        && ok "deploy_system_config restarts systemd-resolved on change" \
+        || bad "deploy_system_config restarts systemd-resolved on change"
+
+    # Idempotency: a second call writes nothing, restarts nothing, stays quiet.
+    before=$(stat -c '%i %y' "$resolved_dst" "$nm_dst" 2>/dev/null)
+    rm -f "$tmp/systemctl-calls"
+    out=$(
+        source_scripts
+        CI_TEST=false DRY_RUN=false NO_INSTALL_USER=false
+        SYSTEM_CONFIG_ROOT="$tmp/etc" PATH="$tmp/bin:$PATH"
+        export SYSTEM_CONFIG_ROOT SYSTEMCTL_MARKER="$tmp/systemctl-calls"
+        sudo() { "$@"; }
+        deploy_system_config
+    )
+    after=$(stat -c '%i %y' "$resolved_dst" "$nm_dst" 2>/dev/null)
+    [[ -n "$before" && "$before" == "$after" ]] \
+        && ok "deploy_system_config second call writes nothing" \
+        || bad "deploy_system_config second call writes nothing"
+    [[ ! -e "$tmp/systemctl-calls" ]] \
+        && ok "deploy_system_config second call does not restart systemd-resolved" \
+        || bad "deploy_system_config second call does not restart systemd-resolved"
+    ! grep -qE '\[!\]|\[x\]' <<<"$out" \
+        && ok "deploy_system_config second call prints nothing alarming" \
+        || bad "deploy_system_config second call prints nothing alarming"
+
+    # DRY_RUN: prints Would lines, creates nothing.
+    out=$(
+        source_scripts
+        CI_TEST=false DRY_RUN=true NO_INSTALL_USER=false
+        SYSTEM_CONFIG_ROOT="$tmp/dry" PATH="$tmp/bin:$PATH"
+        export SYSTEM_CONFIG_ROOT SYSTEMCTL_MARKER="$tmp/systemctl-calls"
+        sudo() { "$@"; }
+        deploy_system_config
+    )
+    grep -q 'Would' <<<"$out" && [[ ! -e "$tmp/dry" ]] \
+        && ok "deploy_system_config dry-run prints Would lines, writes nothing" \
+        || bad "deploy_system_config dry-run prints Would lines, writes nothing (got: $out)"
+
+    # NO_INSTALL_USER: prints the commands to run, creates nothing.
+    out=$(
+        source_scripts
+        CI_TEST=false DRY_RUN=false NO_INSTALL_USER=true
+        SYSTEM_CONFIG_ROOT="$tmp/no-install" PATH="$tmp/bin:$PATH"
+        export SYSTEM_CONFIG_ROOT SYSTEMCTL_MARKER="$tmp/systemctl-calls"
+        sudo() { "$@"; }
+        deploy_system_config
+    )
+    grep -q 'sudo install' <<<"$out" && [[ ! -e "$tmp/no-install" ]] \
+        && ok "deploy_system_config --no-install prints commands, writes nothing" \
+        || bad "deploy_system_config --no-install prints commands, writes nothing (got: $out)"
+
+    # CI_TEST: skips quietly, creates nothing.
+    out=$(
+        source_scripts
+        CI_TEST=true DRY_RUN=false NO_INSTALL_USER=false
+        SYSTEM_CONFIG_ROOT="$tmp/ci" PATH="$tmp/bin:$PATH"
+        export SYSTEM_CONFIG_ROOT SYSTEMCTL_MARKER="$tmp/systemctl-calls"
+        sudo() { "$@"; }
+        deploy_system_config
+    )
+    [[ -z "$out" && ! -e "$tmp/ci" ]] \
+        && ok "deploy_system_config CI_TEST skips quietly, writes nothing" \
+        || bad "deploy_system_config CI_TEST skips quietly, writes nothing (got: $out)"
+
     rm -rf "$tmp"
 }
 
@@ -432,6 +546,10 @@ t_update_updates_handrolled_files() {
     local tmp repo out rc; tmp=$(mktemp -d); repo="$tmp/repo"
     _mk_fake_repo "$repo"; _seed_sections "$tmp/home"
     _git_stub "$tmp/bin" "$tmp/git-was-called"
+    # The --on-conflict keep run below is a real (non-dry) update: redirect
+    # deploy_system_config's /etc writes at a temp root and stub
+    # sudo/systemctl/busctl so the host is never touched.
+    _sys_stub_bin "$tmp/bin"
     mkdir -p "$tmp/home/.config/caelestia" "$tmp/home/.local/share/bin"
     echo "old-cs"   > "$tmp/home/.config/caelestia/settings.conf"
     echo "old-star" > "$tmp/home/.config/starship.toml"
@@ -454,7 +572,7 @@ t_update_updates_handrolled_files() {
     # keep-conflict: user-newer target must survive
     echo "user-edit" > "$tmp/home/.config/starship.toml"
     touch -d "2030-01-01" "$tmp/home/.config/starship.toml"
-    HOME="$tmp/home" PATH="$tmp/bin:$PATH" \
+    HOME="$tmp/home" SYSTEM_CONFIG_ROOT="$tmp/etc" PATH="$tmp/bin:$PATH" \
         "$repo/install.sh" --update --non-interactive --on-conflict keep >/dev/null 2>&1
     [[ "$(cat "$tmp/home/.config/starship.toml")" == "user-edit" ]] \
         && ok "keep-conflict preserves user-edited starship.toml" \
@@ -521,6 +639,7 @@ main() {
     t_prune_keeps_file_edited_before_redeploy
     t_headless_install_configs_only; t_update_skips_uninstalled; t_update_after_install
     t_update_dry_run_skips_git_pull
+    t_deploy_system_config_hermetic
     t_build_dry_run
     t_stamp_check_multi_file; t_stamp_check_unchanged; t_stamp_check_cmake_lists
     t_bare_no_install_routes_install; t_update_build_keeps_update_mode
