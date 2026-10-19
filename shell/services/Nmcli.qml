@@ -857,8 +857,9 @@ Singleton {
             for (const line of lines) {
                 const parts = line.split(":");
                 if (parts.length >= 4) {
+                    const type = parts[1] || "";
                     const state = parts[2] || "";
-                    if (isConnectedState(state)) {
+                    if (type !== "loopback" && isConnectedState(state)) {
                         connected = true;
                         activeIf = parts[0] || "";
                         activeConn = parts[3] || "";

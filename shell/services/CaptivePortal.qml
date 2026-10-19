@@ -242,7 +242,7 @@ Singleton {
 
     IpcHandler {
         function state(): string {
-            return `connectivity=${Nmcli.connectivity} active=${root.active} lastProbe=${root.lastProbe} portalUrl=${root.portalUrl} candidateUrl=${root.candidateUrl} ssid=${root.ssid} episode=${root.openedFor}`;
+            return `connectivity=${Nmcli.connectivity} connected=${root.connected} iface=${Nmcli.activeInterface} active=${root.active} lastProbe=${root.lastProbe} portalUrl=${root.portalUrl} candidateUrl=${root.candidateUrl} ssid=${root.ssid} episode=${root.openedFor}`;
         }
 
         // Quickshell IPC returns are synchronous, so the classification

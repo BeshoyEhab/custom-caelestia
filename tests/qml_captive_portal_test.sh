@@ -45,6 +45,14 @@ check "candidateUrl for click"      "$S/services/CaptivePortal.qml" 'property st
 # matches a call site only; the definition reads `function refreshStatus(...`.
 check "Nmcli calls refreshStatus"   "$S/services/Nmcli.qml" 'refreshStatus();'
 
+# Round-1 fix, part 3: refreshStatus() must skip loopback — `lo` reports the
+# state `connected (externally)` even when every real device is down, which
+# would keep the CaptivePortal visibility gate true on a disconnected network.
+check "Nmcli skips loopback"        "$S/services/Nmcli.qml" 'type !== "loopback"'
+
+# The gate value and the interface it resolved stay observable from outside.
+check "state exposes connected+iface" "$S/services/CaptivePortal.qml" 'connected=${root.connected} iface=${Nmcli.activeInterface}'
+
 # Task 5 surface: "Sign in to network" rows in both UI surfaces.
 check "Bar popout gated on CaptivePortal" "$S/modules/bar/popouts/Network.qml" 'CaptivePortal.active'
 check "Nexus page gated on CaptivePortal" "$S/modules/nexus/pages/NetworkPage.qml" 'CaptivePortal.active'

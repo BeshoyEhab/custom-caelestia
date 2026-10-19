@@ -413,7 +413,7 @@ the gateway fallback dead forever; `activeConnection` has no consumers anywhere 
   Run before the fix: `FAIL Nmcli calls refreshStatus` → `RESULT: FAIL (red - connectivity not implemented)`, exit 1.
 - **Fix (nothing else changed in `shell/services/Nmcli.qml`):** a bare `refreshStatus();`
   added immediately after the existing `getConnectivity();` in `refreshOnConnectionChange()`
-  (`:1425`) and after the existing `getConnectivity();` in `Component.onCompleted` (`:1470`).
+  (`:1425`) and after the existing `getConnectivity();` in `Component.onCompleted` (`:1471`).
 - **GREEN:** `bash tests/qml_captive_portal_test.sh` → 21/21 `RESULT: PASS (green)`;
   `bash tests/qml_test.sh` → `6 passed, 0 failed`; `bash tests/run.sh` → `7 passed, 0 failed`.
 - **Deployed + restarted:** `./install.sh --update --no-install` (exit 0, `/etc` untouched,
@@ -435,3 +435,40 @@ the gateway fallback dead forever; `activeConnection` has no consumers anywhere 
   throwaway-profile process anywhere, no `pkill` ever aimed at the user's browser
   (final `pgrep -x brave | wc -l` → 30, the round's starting count), `qs -c caelestia`
   still running (pid 87119).
+
+##### Round 1, part 3 — loopback filtered, gate made observable
+
+Re-review finding: `refreshStatus()` takes the **first** line passing `isConnectedState`,
+which is `state.startsWith("connected")` — and `lo` reports `connected (externally)` on this
+machine, so the gate would be true even with every real device down.
+
+- **RED first:** two new checks in `tests/qml_captive_portal_test.sh` —
+  `check "Nmcli skips loopback" … 'type !== "loopback"'` and
+  `check "state exposes connected+iface" … 'connected=${root.connected} iface=${Nmcli.activeInterface}'`
+  → `FAIL Nmcli skips loopback`, `FAIL state exposes connected+iface`, exit 1.
+- **Fix (`shell/services/Nmcli.qml:860`-`:862`, nothing else):** `refreshStatus()` now reads
+  `parts[1]` as the type next to the state and requires `type !== "loopback" &&` before
+  `isConnectedState(state)` can match; the `parts.length >= 4` guard is unchanged. (With that
+  line added, the two `refreshStatus();` call sites moved to `:1426` and `:1472`.)
+- **Observable from outside:** `CaptivePortal`'s IPC `state()` line now carries
+  `connected=${root.connected} iface=${Nmcli.activeInterface}` (`shell/services/CaptivePortal.qml:245`).
+- **GREEN:** `qml_captive_portal_test` 23/23 `RESULT: PASS (green)`; `qml_test` `6 passed, 0 failed`;
+  `bash tests/run.sh` → `7 passed, 0 failed`.
+- **Live (deployed with `--update --no-install`, shell restarted, one instance pid 150674, no QML errors):**
+  healthy network → `connectivity=full connected=true iface=wlp1s0 active=false lastProbe= …`;
+  fixture port 45119 (`html` mode) → immediately after the probe:
+  `connectivity=full connected=true iface=wlp1s0 active=true lastProbe=portal portalUrl=http://127.0.0.1:45119/ candidateUrl=http://127.0.0.1:45119/ ssid=Besho episode=`
+  (same at t+2 s, no auto-open: brave 30 → 30, no throwaway process); then settle →
+  `… active=false lastProbe=online …` and `ipc call captivePortal open` opened no window
+  (30 → 30); `ConnectivityCheckEnabled` → `b true`.
+- **`iface=wlp1s0`, not `lo`** — the interface is the Wi-Fi device, as required.
+- **Limit (not proven live, by instruction):** the disconnected case cannot be exercised on
+  this machine without touching the human's network. Instead the same parse was re-run
+  offline against the machine's real `nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status`
+  output: `lo` (`type=loopback state='connected (externally)'`) matched before the change and
+  does **not** match after it; `wlp1s0` (`connected`) still matches; `p2p-dev-wlp1s0`
+  (`disconnected`) matches neither. That is a simulation of the parser's logic, not a live
+  shell observation, and is labelled as such in the report.
+- **Cleanup:** fixture stopped (port refuses, no stray process), no throwaway-profile
+  process, user's browser untouched (`pgrep -x brave | wc -l` → 30), shell left running
+  (pid 150674).
