@@ -29,6 +29,7 @@ test_suite "ram_cpu_test" "tests/qml_ram_cpu_test.sh"
 test_suite "widget_test"  "tests/widget_test.sh"
 test_suite "least_busy_region_test" "tests/python_least_busy_region_test.sh"
 test_suite "captive_portal_probe_test" "tests/captive_portal_probe_test.sh"
+test_suite "qml_captive_portal_test" "tests/qml_captive_portal_test.sh"
 
 echo ""
 echo "═══════════════════════════════════════════"

@@ -39,6 +39,10 @@ Singleton {
     // anything other than that as a usable connection.
     readonly property bool hasAvailableEthernet: ethernetDevices.some(d => d.state !== "unavailable")
     property list<var> activeProcesses: []
+    // NetworkManager connectivity state: "unknown" until the first query
+    // resolves; nmcli reports none|portal|limited|full (parsed verbatim,
+    // never assumed to be one of these).
+    property string connectivity: "unknown"
 
     readonly property alias connectionCheckTimer: connectionCheckTimer
     readonly property alias immediateCheckTimer: immediateCheckTimer
@@ -1402,8 +1406,24 @@ Singleton {
         return details;
     }
 
+    function getConnectivity(): void {
+        executeCommand(["-t", "-f", "CONNECTIVITY", "general"], result => {
+            const line = (result.output || "").trim().split("\n")[0];
+            root.connectivity = line || "unknown";
+        });
+    }
+
+    function recheckConnectivity(callback: var): void {
+        executeCommand(["networking", "connectivity", "check"], () => {
+            getConnectivity();
+            if (callback)
+                callback(root.connectivity);
+        });
+    }
+
     function refreshOnConnectionChange(): void {
         root.connectionChanged();
+        getConnectivity();
         getNetworks(networks => {
             const newActive = root.active;
 
@@ -1448,6 +1468,7 @@ Singleton {
         getNetworks(() => {});
         loadSavedConnections(() => {});
         getEthernetInterfaces(() => {});
+        getConnectivity();
 
         Qt.callLater(() => {
             if (root.wirelessInterfaces.length > 0) {
