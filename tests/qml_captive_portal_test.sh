@@ -76,9 +76,13 @@ check "Nexus page has sign-in row"        "$S/modules/nexus/pages/NetworkPage.qm
 # While the portal rows are out, the Wi-Fi row continues their group instead
 # of drawing a rounded top mid-group (duplicate `first: true`).
 check "wifi row yields first during portal" "$S/modules/nexus/pages/NetworkPage.qml" 'first: !CaptivePortal.active'
+# The "Recheck connection" row's click handler: deleting the wiring must fail
+# the suite (verified: the pattern matches the page as shipped and does not
+# match a copy of it with the call removed).
+check "Nexus recheck row wired to recheck()" "$S/modules/nexus/pages/NetworkPage.qml" 'onClicked: CaptivePortal.recheck()'
 
 if [[ $FAIL -ne 0 ]]; then
-    echo "RESULT: FAIL (red - connectivity not implemented)"
+    echo "RESULT: FAIL (captive-portal surface regression — see the FAIL lines above)"
     exit 1
 fi
 echo "RESULT: PASS (green)"

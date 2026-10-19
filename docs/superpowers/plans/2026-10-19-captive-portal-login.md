@@ -77,7 +77,8 @@ Expected: FAIL — `captive_portal_probe.sh` does not exist (all cases fail; the
 read -r http redirect < <(curl -s -m 8 -o "$body" -w '%{http_code} %{redirect_url}' "$url") || { echo "unknown $url 000"; exit 2; }
 ```
 
-Classification order: `204` or body starting with `NetworkManager is online` → `online` (exit 0); `3xx` → `portal` with the `Location` header (`redirect`) when non-empty else `$url` (exit 1); other `2xx` → `portal` with `$url` (exit 1); anything else, or a curl failure (exit code 6/7/28) → `unknown $url 000` (exit 2). Body is read with `head -c 256`. Temp body file removed by an `EXIT` trap.
+Classification order: `204` or body starting with `NetworkManager is online` → `online` (exit 0); `3xx` → `portal` with the `Location` header (`redirect`) when non-empty else `$url` (exit 1); other `2xx` → `portal` with `$url` (exit 1); anything else **with an observed status** → `unknown $url <status>` (exit 2, e.g. `unknown $url 500`), while a curl failure (exit code 6/7/28) or an empty status → `unknown $url 000` (exit 2). Body is read with `head -c 256`. Temp body file removed by an `EXIT` trap.
+*(Contract as implemented 2026-10-19: the plan text above originally collapsed every non-2xx/3xx result into `000`; the shipped script reports the status it actually observed and reserves `000` for "no HTTP response at all". Consumers read only the first two fields, so nothing else changed.)*
 
 - [x] **Step 4: Run test to verify it passes**
 
@@ -229,8 +230,8 @@ git commit -m "feat(nmcli): expose connectivity state and recheck API"
   - `function probeNow()` — run the probe chain, update `lastProbe`/`portalUrl`;
   - `function recheck()` — `Nmcli.recheckConnectivity()` then `probeNow()`;
   - `function open()` — user-initiated: `probeNow()` first when `lastProbe !== "portal"`, then always open the window (no cooldown, the click is explicit);
-  - internal auto path `maybeAutoOpen()` — only when `lastProbe === "portal"` and `openedFor !== ssid + "|" + portalUrl` and 60 s since `lastOpenTime`;
-  - `IpcHandler target: "captivePortal"`: `state(): string`, `probe(url: string): string`, `open(): void`.
+  - internal auto path `maybeAutoOpen()` — only when `lastProbe === "portal"` and `openedFor !== portalUrl` and 60 s since `lastOpenTime` *(as implemented: the episode key is `portalUrl` alone; the planned `ssid + "|" + portalUrl` was dropped because SSID resolves asynchronously and could split one episode into two)*;
+  - `IpcHandler target: "captivePortal"`: `state(): string`, `probe(url: string): string`, `open(): void`, plus the debug-only `probeAuto(url: string): string` *(as implemented — drives the automatic open path against a local fixture behind the same guards)*.
 
   Task 5 calls `CaptivePortal.open()` (row click) and `CaptivePortal.recheck()` ("Recheck connection").
 
@@ -259,13 +260,14 @@ Expected: FAIL on the eleven new checks.
 
 - [x] **Step 3: Implement `shell/services/CaptivePortal.qml`**
 
-`pragma Singleton`, imports `QtQuick`, `Quickshell`, `Quickshell.Io`, `Caelestia`, `qs.services`, `qs.utils`. State: `readonly property bool connected: Nmcli.isConnected`; `lastProbe`; `portalUrl`; `readonly property bool active: connected && (Nmcli.connectivity === "portal" || Nmcli.connectivity === "limited" || Nmcli.connectivity === "unknown" || lastProbe === "portal")`; `property real lastOpenTime: 0`; `property string openedFor: ""` (episode key `ssid + "|" + portalUrl`). Probe path `${Paths.home}/.config/hypr/hyprland/scripts/captive_portal_probe.sh`. `probeNow()` runs it through a `Process` (`command: ["bash", probePath, url]`, `StdioCollector`) on the NM check URI `http://ping.archlinux.org/nm-check.txt`; on `unknown` retry once against `http://<gateway>/` read from `nmcli -t -f IP4.GATEWAY,IP6.GATEWAY device show <Nmcli.activeInterface>` (strip any `%iface`), falling back to the first default route from `ip route show default`. `open()` launches, in one detached `sh -c`, the throwaway-profile Brave app-window with an `xdg-open` fallback:
+`pragma Singleton`, imports `QtQuick`, `Quickshell`, `Quickshell.Io`, `Caelestia`, `qs.services`, `qs.utils`. State: `readonly property bool connected: Nmcli.isConnected`; `lastProbe`; `portalUrl`; `readonly property bool active: connected && (Nmcli.connectivity === "portal" || Nmcli.connectivity === "limited" || Nmcli.connectivity === "unknown" || lastProbe === "portal")`; `property real lastOpenTime: 0`; `property string openedFor: ""` (episode key `portalUrl` — as implemented; the planned `ssid + "|" + portalUrl` split episodes when the async SSID arrived late). Probe path `${Paths.home}/.config/hypr/hyprland/scripts/captive_portal_probe.sh`. `probeNow()` runs it through a `Process` (`command: ["bash", probePath, url]`, `StdioCollector`) on the NM check URI `http://ping.archlinux.org/nm-check.txt`; on `unknown` retry once against `http://<gateway>/` read from `nmcli -t -f IP4.GATEWAY,IP6.GATEWAY device show <Nmcli.activeInterface>` (strip any `%iface`), falling back to the first default route from `ip route show default`. `open()`/`maybeAutoOpen()` launch through the deployed `hyprland/.config/hypr/hyprland/scripts/open_portal_browser.sh` (as implemented — preferred Brave app-window on the throwaway profile, `xdg-open` fallback, refuses non-http(s)):
 
 ```js
-Quickshell.execDetached(["sh", "-c",
-    'command -v brave >/dev/null 2>&1 && exec brave --app="$1" --user-data-dir="$2" || exec xdg-open "$1"',
-    "sh", root.portalUrl, `${Paths.tmp}/portal-profile`]);
+Quickshell.execDetached(["bash", `${Paths.home}/.config/hypr/hyprland/scripts/open_portal_browser.sh`,
+    url, `${Paths.tmp}/portal-profile`]);
 ```
+
+*(As implemented 2026-10-19: the planned inline `sh -c` launcher was replaced by that script so the launch is testable and carries no shell interpolation; the QML still refuses anything that is not `http://`/`https://` before calling it.)*
 
 `maybeAutoOpen()` sets `lastOpenTime`/`openedFor` before launching. Toasts: `Toaster.toast(qsTr("Sign in to network"), qsTr("This network needs you to log in"), "wifi_lock", Toast.Warning)` once per episode, and an "Online" `Toaster.toast` when `Nmcli.connectivity === "full"` ends an episode. `Connections` on `Nmcli.connectivityChanged`: `full` → clear `lastProbe`/`portalUrl`/`openedFor`; otherwise `probeNow()` then `maybeAutoOpen()`. Two `Timer`s while `active`: 15000 ms → `probeNow()`, 60000 ms → `Nmcli.recheckConnectivity()`.
 

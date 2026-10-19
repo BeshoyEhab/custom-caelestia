@@ -82,7 +82,7 @@ failure. This is the user's explicit decision (`yes` → `opportunistic`).
 | # | File | Change |
 |---|---|---|
 | C1 | `shell/services/Nmcli.qml` | Add `connectivity` (string: `unknown/none/portal/limited/full`), refreshed by a small `Process` running `nmcli -t -f CONNECTIVITY general` on every `nmcli monitor` line; add `recheckConnectivity(cb)` → `nmcli networking connectivity check`. |
-| C2 | `shell/services/CaptivePortal.qml` (new singleton) | `active` (bool, see state machine below); `portalUrl`; `open()`; `probe(url)`; `recheck()`; toast once per episode; cooldown; `IpcHandler target:"captivePortal"` (`state`, `probe(url)`, `open`) for manual debugging. |
+| C2 | `shell/services/CaptivePortal.qml` (new singleton) | `active` (bool, see state machine below); `portalUrl`; `open()`; `probe(url)`; `recheck()`; toast once per episode; cooldown; `IpcHandler target:"captivePortal"` (`state`, `probe(url)`, `open`) for manual debugging, plus the debug-only `probeAuto(url)` *(as implemented — drives the automatic open path, toast + episode key + launch, against a local fixture behind exactly the same guards)*. |
 | C2b | `hyprland/.config/hypr/hyprland/scripts/captive_portal_probe.sh` (new) | Pure probe + classifier (curl + header/body comparison), so tests run it directly without a live Quickshell. `captive_portal_probe.sh <url>` prints one line `online|portal|unknown <url> <http-status>`; exit 0/1/2. Deployed with the Hyprland tree (install.sh already `chmod +x`es that directory). |
 | C3 | `shell/modules/ServiceLoader.qml` | `CaptivePortal;` so it loads at shell start. |
 | C4 | `shell/modules/bar/popouts/Network.qml` | "Sign in to network" row at the top when `CaptivePortal.active` → `CaptivePortal.open()`. |
@@ -122,6 +122,11 @@ Detection and probe (C2) — state machine:
   "Online" confirmation after the state returns to `full`.
 - A1: auto-open once per (SSID, portalUrl) episode with a 60 s floor; once the
   user has been shown a window for an episode, only the UI reopens it.
+  *As implemented (2026-10-19): the episode key is `portalUrl` alone. SSID is
+  resolved asynchronously by `getNetworks()`, so keying on it could split one
+  episode in two and open a second window once the 60 s floor expired; it stays
+  in the IPC `state` output for display only. The 60 s floor and the
+  "only the UI reopens it" rule are unchanged.*
 - A3: `open()` is only reachable when a probe classified the network as portal.
 - Note (AGENTS.md): mirror every `shell/` edit into
   `~/.config/quickshell/caelestia/`.

@@ -62,6 +62,10 @@ PageBase {
 
         // Captive portal sign-in prompt; only visible when connectivity is uncertain.
         RowButton {
+            // The portal group's separation from the section above belongs on
+            // its FIRST visible row — this one, whenever the portal rows show.
+            // The Wi-Fi row below carries it only while they are hidden.
+            Layout.topMargin: Nmcli.hasAvailableEthernet ? Tokens.spacing.large : 0
             first: true
             visible: CaptivePortal.active
             Layout.preferredHeight: visible ? implicitHeight : 0
@@ -81,7 +85,9 @@ PageBase {
         }
 
         ToggleRow {
-            Layout.topMargin: Nmcli.hasAvailableEthernet && !CaptivePortal.active ? Tokens.spacing.large : 0
+            // Gap above the group only while the portal rows are hidden; when
+            // they show, the sign-in row above carries it instead.
+            Layout.topMargin: (!CaptivePortal.active && Nmcli.hasAvailableEthernet) ? Tokens.spacing.large : 0
             // While the portal rows are out they own the group's rounded top;
             // without this both rows said `first: true` and the Wi-Fi row drew
             // a rounded top mid-group.
