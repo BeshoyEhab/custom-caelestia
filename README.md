@@ -129,6 +129,8 @@ Updates only touch sections that are installed, and never replace files you modi
 
 Each deploy records the files it wrote in `.deploy-manifest` inside the target directory; on update, files that were deployed before but no longer exist in the repo are pruned (pass `--no-prune` to keep them). User-modified files are never pruned.
 
+**Captive-portal system drop-ins:** install and update also apply two files from `system/` into `/etc` (requires `sudo`; skipped by `--no-install`, printed as `Would install` lines by `--dry-run`): `/etc/systemd/resolved.conf.d/10-captive-portal.conf` (`DNSOverTLS=opportunistic`, so DNS keeps working on cafe/hotel portal networks) and `/etc/NetworkManager/conf.d/30-connectivity-enabled.conf` (keeps NetworkManager's connectivity check on). To revert, delete both files and run `sudo systemctl restart systemd-resolved`.
+
 The Nexus settings app drives the same scripts headlessly:
 - `./install.sh --check` — read-only status (`BEHIND`, `PLUGINS_STALE`, …), exit 0 = up to date
 - `./install.sh --update --non-interactive` — full update, conflicts resolved as `replace`, no prompts

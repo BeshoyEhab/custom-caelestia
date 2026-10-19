@@ -337,16 +337,16 @@ git commit -m "feat(ui): sign-in-to-network rows in bar popout and Nexus network
 - Consumes: everything above.
 - Produces: a deployed, verified system.
 
-- [ ] **Step 1: Document**
+- [x] **Step 1: Document**
 
 `AGENTS.md`: add a "Captive portal / portal Wi-Fi" entry under Known Issues (three causes + where the fix lives: `system/`, `shell/services/CaptivePortal.qml`, `captive_portal_probe.sh`) and add the new files to the "Key Files to Know" table. `README.md`: note in the Updating/Installation area that `install.sh` applies a `/etc/systemd/resolved.conf.d/10-captive-portal.conf` (`DNSOverTLS=opportunistic`) and an NM connectivity drop-in, skipping both with `--no-install`, and how to revert (delete the two files, restart `systemd-resolved`).
 
-- [ ] **Step 2: Dry-run then deploy**
+- [x] **Step 2: Dry-run then deploy**
 
 Run: `./install.sh --dry-run` → expect the two `Would write`/`Would restart` lines and no file changes.
 Run: `./install.sh --update` → expect the drop-ins written, `systemd-resolved` restarted, `ConnectivityCheckEnabled` now `true`, and the shell files deployed to `~/.config/quickshell/caelestia/`.
 
-- [ ] **Step 3: Verify the three layers**
+- [x] **Step 3: Verify the three layers**
 
 Run and expect:
 - `resolvectl status | grep -i dnsovertls` → `opportunistic` (no `+DNSOverTLS` strict mode).
@@ -354,9 +354,18 @@ Run and expect:
 - `nmcli networking connectivity check` → `full` at home, and `qs -c caelestia ipc call captivePortal state` → `active=false`.
 - `bash tests/run.sh` → all suites PASS (including the two new ones).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add AGENTS.md README.md docs/superpowers/plans/2026-10-19-captive-portal-login.md
 git commit -m "docs(captive-portal): document portal helper, DNS drop-in and verification"
 ```
+
+#### Task 6 verification record (live run, 2026-10-19)
+
+Deviation from the steps above, recorded per the Task 6 brief:
+
+- **Step 2:** `./install.sh --update` was **not** run. This machine has no passwordless sudo and privileged commands belong to the human, so the run was split into `./install.sh --dry-run` (printed `Would install: /etc/systemd/resolved.conf.d/10-captive-portal.conf`, `Would restart systemd-resolved`, `Would install: /etc/NetworkManager/conf.d/30-connectivity-enabled.conf`; no file changed) plus `./install.sh --update --no-install` (deployed the configs to `~/.config`, printed the manual `sudo install` commands instead of escalating). The real `/etc` application is one human run — see `.superpowers/sdd/2026-10-19-captive-portal-login/task-6-report.md`.
+- **Step 3:** `connectivity=full active=false` and `b true` were confirmed, and `bash tests/run.sh` passes. The `opportunistic` expectation did **not** hold: `resolvectl status` still shows `+DNSOverTLS` (strict) because the drop-in is unapplied, and `ConnectivityCheckEnabled` already read `b true` before this task (the NM drop-in file is likewise absent from `/etc`).
+- **Not verified live:** the "row becomes visible" state — flipping `ConnectivityCheckEnabled` to `b false` and re-checking still left `connectivity=full`, so `active` never became `true`. The row-visible path is covered only by the QML test checks (`active covers unknown`), not by this machine's session.
+- Tasks 1–5 checkboxes were left to their own tasks (reports in `.superpowers/sdd/2026-10-19-captive-portal-login/`); Task 6 ran the full suite over all of them.

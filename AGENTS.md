@@ -69,6 +69,24 @@ The bar uses an `Item` root with a split layout (`topLayout` + `bottomLayout` + 
 5. **BarWrapper has no `implicitHeight`** — it gets its height from parent anchors (top+bottom for vertical, left+right for horizontal).
 6. **`Tokens.sizes.bar.innerWidth`** is the content width; `contentWidth = innerWidth + padding*2`.
 
+### Captive portal / portal Wi-Fi
+
+**Symptom:** On cafe/hotel Wi-Fi the sign-in page never loads, NetworkManager never reports `PORTAL`, and the bar/Nexus offer no way to reach the login page.
+
+**Cause:** Three independent root causes, each with its own fix:
+
+1. **Strict `DNSOverTLS=yes`** — portal networks hand out DNS servers that don't speak DNS-over-TLS, so every lookup fails and the login page is unreachable.
+   **Fix:** `system/resolved.conf.d/10-captive-portal.conf` (`DNSOverTLS=opportunistic`) applied to `/etc/systemd/resolved.conf.d/` by `install.sh`'s `deploy_system_config()` (needs `sudo`; skipped with `--no-install`, shown as `Would install` / `Would restart systemd-resolved` by `--dry-run`).
+2. **No connectivity check** — without NetworkManager's connectivity probe there is no `PORTAL`/`LIMITED`/`unknown` state for the shell to react to.
+   **Fix:** `system/NetworkManager/conf.d/30-connectivity-enabled.conf` (`enabled=true`), applied by the same `deploy_system_config()`; the runtime half is the unprivileged `busctl set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled b true`.
+3. **No portal helper** — nothing probes for the portal or opens the login page.
+   **Fix:** the `qs.services.CaptivePortal` singleton (`shell/services/CaptivePortal.qml`) driven by the `online|portal|unknown` classifier `hyprland/.config/hypr/hyprland/scripts/captive_portal_probe.sh`, plus the two "Sign in to network" rows: `shell/modules/bar/popouts/Network.qml` (bar network popout) and `shell/modules/nexus/pages/NetworkPage.qml` (Nexus, with "Recheck connection"). IPC: `qs -c caelestia ipc call captivePortal state|probe|open`.
+
+**Verification notes:**
+- On a healthy network `qs -c caelestia ipc call captivePortal state` must read `connectivity=full active=false`; `ipc call captivePortal open` probes first and opens **no** window when the probe returns `online` (`lastProbe=online`).
+- A gated portal that answers `200` with the exact body `NetworkManager is online` classifies `online` (no auto-open), and an HTTPS-only portal with no redirect classifies `unknown` — both are known limits: the row still appears and opens the URL by hand.
+- Tests never touch `/etc`: `deploy_system_config` honours `SYSTEM_CONFIG_ROOT` and `CI_TEST`, and `tests/setup_scripts_test.sh` stubs `sudo`/`systemctl` on `PATH`.
+
 ## Workspace Overview (modules/workspaceoverview/)
 
 **CRITICAL: Repeater with `property var` (JS array) models does NOT render delegates** in this Quickshell/Qt6 build. Delegates are created (Component.onCompleted fires, data is correct) but produce no visual output.
@@ -217,6 +235,10 @@ Defaults: `custom/`, `monitors.lua`, `monitors.conf`, `shell.json`, `shell.json.
 | Path | Purpose |
 |---|---|
 | `shell/services/Colours.qml` | Colour palette singleton |
+| `shell/services/CaptivePortal.qml` | Captive-portal helper singleton (probe chain, auto-open guard, IPC target `captivePortal`) |
+| `hyprland/.config/hypr/hyprland/scripts/captive_portal_probe.sh` | Portal probe classifier — prints `online\|portal\|unknown <url> <http-status>`, exits `0\|1\|2` |
+| `system/resolved.conf.d/10-captive-portal.conf` | DoT drop-in (`DNSOverTLS=opportunistic`) installed into `/etc` by `deploy_system_config()` |
+| `system/NetworkManager/conf.d/30-connectivity-enabled.conf` | NetworkManager connectivity-check drop-in (`enabled=true`) installed into `/etc` by `deploy_system_config()` |
 | `shell/plugin/src/Caelestia/Config/` | C++ config backend (17 config classes) |
 | `shell/flake.nix` | Nix flake definition |
 | `install.sh` | Unified setup script: menu / `--install` / `--update` / `--check` / `--build` |
