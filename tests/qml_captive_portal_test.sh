@@ -39,6 +39,12 @@ check "IPC target"                  "$S/services/CaptivePortal.qml" 'target: "ca
 check "re-probe timer"              "$S/services/CaptivePortal.qml" 'interval: 15000'
 check "candidateUrl for click"      "$S/services/CaptivePortal.qml" 'property string candidateUrl'
 
+# Round-1 fix: the `active` gate reads Nmcli.isConnected, whose only writer
+# lives in refreshStatus() — so the wiring must actually CALL it, or the
+# "Sign in to network" rows can never appear. The literal `refreshStatus();`
+# matches a call site only; the definition reads `function refreshStatus(...`.
+check "Nmcli calls refreshStatus"   "$S/services/Nmcli.qml" 'refreshStatus();'
+
 # Task 5 surface: "Sign in to network" rows in both UI surfaces.
 check "Bar popout gated on CaptivePortal" "$S/modules/bar/popouts/Network.qml" 'CaptivePortal.active'
 check "Nexus page gated on CaptivePortal" "$S/modules/nexus/pages/NetworkPage.qml" 'CaptivePortal.active'

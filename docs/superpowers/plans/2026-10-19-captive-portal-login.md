@@ -398,7 +398,40 @@ genuine positive portal classification via `qs -c caelestia ipc call captivePort
   `connectivity=full active=false lastProbe=online`, `ConnectivityCheckEnabled` → `b true`.
 - `bash tests/run.sh` → 7 passed / 0 failed; `bash tests/qml_captive_portal_test.sh` → PASS.
 
-**Still open (needs a controller ruling, not decided here):** a fix for the dead
-`Nmcli.isConnected` gate — either wire `refreshStatus()` into `Component.onCompleted` +
-the `nmcli monitor` refresh path, or drop/replace the `connected` clause in
-`CaptivePortal.active`. Until then Task 5's "row appears" acceptance cannot pass.
+**Ruled by the controller and fixed in this round:** wire `refreshStatus()` into the
+refresh path — do **not** drop the gate from `CaptivePortal.active` (dropping it would make
+`active` true on a disconnected network, where NM reports `unknown`/`none`, and would leave
+the gateway fallback dead forever; `activeConnection` has no consumers anywhere and
+`activeInterface`/`isConnected` have exactly one consumer each, both in
+`CaptivePortal.qml` `:23`/`:73`, so nothing outside this feature changes behaviour).
+
+##### Round 1, part 2 — gate wired (TDD) and `active=true` observed live
+
+- **RED first:** `tests/qml_captive_portal_test.sh` gained
+  `check "Nmcli calls refreshStatus" "$S/services/Nmcli.qml" 'refreshStatus();'` (the
+  literal matches a call site only — the definition reads `function refreshStatus(callback: var): void {`).
+  Run before the fix: `FAIL Nmcli calls refreshStatus` → `RESULT: FAIL (red - connectivity not implemented)`, exit 1.
+- **Fix (nothing else changed in `shell/services/Nmcli.qml`):** a bare `refreshStatus();`
+  added immediately after the existing `getConnectivity();` in `refreshOnConnectionChange()`
+  (`:1425`) and after the existing `getConnectivity();` in `Component.onCompleted` (`:1470`).
+- **GREEN:** `bash tests/qml_captive_portal_test.sh` → 21/21 `RESULT: PASS (green)`;
+  `bash tests/qml_test.sh` → `6 passed, 0 failed`; `bash tests/run.sh` → `7 passed, 0 failed`.
+- **Deployed + restarted:** `./install.sh --update --no-install` (exit 0, `/etc` untouched,
+  deployed `Nmcli.qml` byte-identical to the repo) → `pkill -x qs; sleep 1;
+  setsid qs -c caelestia &` → one instance (pid 87119), no QML errors in the startup log.
+- **Fixture proof (same hermetic fixture, port 41003):** read immediately after
+  `ipc call captivePortal probe http://127.0.0.1:41003/`:
+  `connectivity=full active=true lastProbe=portal portalUrl=http://127.0.0.1:41003/ candidateUrl=http://127.0.0.1:41003/ ssid=Besho episode=`
+  (same line at t+2 s). **This is Task 5's row-visible state, observed live.** No window
+  opened by itself (`brave` count unchanged, no throwaway-profile process) — expected, the
+  `probe` IPC path never opens; the 15 s re-probe timer (now running, because `active` is
+  true) clears the portal state on its next tick, which is also expected.
+- **Healthy-path regression:** `probe http://ping.archlinux.org/nm-check.txt` →
+  `connectivity=full active=false lastProbe=online …`; `ipc call captivePortal open` on this
+  network → exit 0, **no window** (brave 32 → 32, no throwaway process, window list = the
+  human's kitty + their own Brave), state unchanged; `ConnectivityCheckEnabled` → `b true`;
+  `nmcli` → `connected:full`.
+- **Cleanup:** fixture processes killed (port now refuses, no stray server), no
+  throwaway-profile process anywhere, no `pkill` ever aimed at the user's browser
+  (final `pgrep -x brave | wc -l` → 30, the round's starting count), `qs -c caelestia`
+  still running (pid 87119).

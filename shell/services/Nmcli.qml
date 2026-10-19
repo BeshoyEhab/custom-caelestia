@@ -1422,6 +1422,7 @@ Singleton {
     function refreshOnConnectionChange(): void {
         root.connectionChanged();
         getConnectivity();
+        refreshStatus();
         getNetworks(networks => {
             const newActive = root.active;
 
@@ -1467,6 +1468,7 @@ Singleton {
         loadSavedConnections(() => {});
         getEthernetInterfaces(() => {});
         getConnectivity();
+        refreshStatus();
 
         Qt.callLater(() => {
             if (root.wirelessInterfaces.length > 0) {
