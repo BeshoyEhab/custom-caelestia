@@ -1406,19 +1406,17 @@ Singleton {
         return details;
     }
 
-    function getConnectivity(): void {
+    function getConnectivity(callback: var): void {
         executeCommand(["-t", "-f", "CONNECTIVITY", "general"], result => {
             const line = (result.output || "").trim().split("\n")[0];
             root.connectivity = line || "unknown";
+            if (callback)
+                callback(root.connectivity);
         });
     }
 
     function recheckConnectivity(callback: var): void {
-        executeCommand(["networking", "connectivity", "check"], () => {
-            getConnectivity();
-            if (callback)
-                callback(root.connectivity);
-        });
+        executeCommand(["networking", "connectivity", "check"], () => getConnectivity(callback));
     }
 
     function refreshOnConnectionChange(): void {
