@@ -12,8 +12,11 @@ import qs.utils
 //
 // Probes connectivity with the user's probe script and, when a portal
 // positively answers, offers (and once per episode performs) the sign-in
-// window open. A browser is only ever launched after a probe classified
-// the network as "portal" - never on "online" or "unknown".
+// window open. The automatic path only ever launches a browser after a
+// probe classified the network as "portal" - never on "online" or
+// "unknown". An explicit click (open()) always responds: it launches the
+// portal URL, or the best candidate URL on unknown, or reports "already
+// online" when the fresh probe says the network is fine.
 Singleton {
     id: root
 
@@ -25,7 +28,13 @@ Singleton {
     // Last probe classification: "" | "online" | "portal" | "unknown".
     property string lastProbe: ""
     // Where the portal wants us to log in (only set when lastProbe is portal).
+    // The auto-open invariant depends on this being empty for online/unknown.
     property string portalUrl: ""
+    // Best URL to hand a user who clicked the row: the probe's Location
+    // value, else the gateway URL, else the probe URL. Survives an
+    // online/unknown classification so an explicit click is never a dead
+    // button; kept separate from portalUrl (which stays portal-only).
+    property string candidateUrl: ""
     // Episode bookkeeping for the automatic open path. openedFor is the
     // episode key `ssid + "|" + portalUrl` of the last opened sign-in.
     property real lastOpenTime: 0
@@ -87,50 +96,61 @@ Singleton {
 
     // Probe the NetworkManager check URI; on "unknown" retry once against
     // http://<gateway>/. If that also comes back unknown, leave it there:
-    // the row stays visible and nothing opens.
+    // the row stays visible and nothing opens. Candidate for the explicit
+    // click is the Location value if the probe saw a redirect, else the URL
+    // that was actually probed (the gateway/`checkUri` fallback).
     function probeNow(): void {
         if (root.probing)
             return;
         root.probing = true;
         root.runProbe(root.checkUri, (cls, url) => {
             if (cls !== "unknown") {
-                root.finishProbe(cls, url);
+                root.finishProbe(cls, url, url || root.checkUri);
                 return;
             }
             root.resolveGateway(gw => {
                 if (!gw || gw.length === 0) {
-                    root.finishProbe("unknown", "");
+                    root.finishProbe("unknown", "", root.checkUri);
                     return;
                 }
-                root.runProbe(`http://${gw}/`, (cls2, url2) => root.finishProbe(cls2, url2));
+                const gwUrl = `http://${gw}/`;
+                root.runProbe(gwUrl, (cls2, url2) => root.finishProbe(cls2, url2, url2 || gwUrl));
             });
         });
     }
 
-    function finishProbe(cls: string, url: string): void {
+    function finishProbe(cls: string, url: string, candidate: string): void {
         root.probing = false;
         root.lastProbe = cls;
         root.portalUrl = cls === "portal" ? url : "";
+        root.candidateUrl = candidate || "";
 
         if (root.openWhenProbed) {
             root.openWhenProbed = false;
-            // Explicit user action: open on a fresh portal answer, but never
-            // on online/unknown (there would be nothing sensible to open).
+            // Explicit user action: always respond. portalUrl is only set for
+            // a portal, so fall back to the candidate URL on unknown; on
+            // online there is nothing to open, so just say so.
             if (cls === "portal") {
                 root.markOpened();
-                root.launchBrowser();
+                root.launchBrowser(root.portalUrl);
+            } else if (cls === "unknown") {
+                root.launchBrowser(root.candidateUrl);
+                Toaster.toast(qsTr("Sign in to network"), qsTr("Opening the network login page"), "wifi_lock");
+            } else {
+                Toaster.toast(qsTr("Online"), qsTr("This network already looks online"), "wifi", Toast.Success);
             }
         }
         root.maybeAutoOpen();
     }
 
     // Debug-only: classify an explicit URL (no gateway retry, never opens
-    // anything). The result lands in lastProbe/portalUrl and is readable
-    // through the `state` IPC call.
+    // anything). The result lands in lastProbe/portalUrl/candidateUrl and is
+    // readable through the `state` IPC call.
     function probeExplicit(url: string): void {
         root.runProbe(url, (cls, url2) => {
             root.lastProbe = cls;
             root.portalUrl = cls === "portal" ? url2 : "";
+            root.candidateUrl = url2 || url;
         });
     }
 
@@ -146,18 +166,22 @@ Singleton {
         root.openedFor = root.episodeKey();
     }
 
-    function launchBrowser(): void {
+    function launchBrowser(url: string): void {
+        if (!url || url.length === 0)
+            return;
         Quickshell.execDetached(["sh", "-c",
             'command -v brave >/dev/null 2>&1 && exec brave --app="$1" --user-data-dir="$2" || exec xdg-open "$1"',
-            "sh", root.portalUrl, `${Paths.tmp}/portal-profile`]);
+            "sh", url, `${Paths.tmp}/portal-profile`]);
     }
 
-    // User-initiated: never cooldown-blocked. Probes first when the last
-    // result was not a portal, then opens whatever portal URL is current.
+    // User-initiated: never cooldown-blocked, never a dead button. Launches
+    // immediately when a portal is already known; otherwise arms the pending
+    // flag (even if a probe is in flight, so the click is consumed not lost)
+    // and lets finishProbe respond to the fresh result.
     function open(): void {
         if (root.lastProbe === "portal" && root.portalUrl.length > 0) {
             root.markOpened();
-            root.launchBrowser();
+            root.launchBrowser(root.portalUrl);
             return;
         }
         root.openWhenProbed = true;
@@ -175,7 +199,7 @@ Singleton {
             return;
         root.markOpened();
         Toaster.toast(qsTr("Sign in to network"), qsTr("This network needs you to log in"), "wifi_lock", Toast.Warning);
-        root.launchBrowser();
+        root.launchBrowser(root.portalUrl);
     }
 
     // ── Reactivity ─────────────────────────────────────────────────────────
@@ -191,6 +215,7 @@ Singleton {
                 const hadEpisode = root.openedFor.length > 0;
                 root.lastProbe = "";
                 root.portalUrl = "";
+                root.candidateUrl = "";
                 root.openedFor = "";
                 if (hadEpisode)
                     Toaster.toast(qsTr("Online"), qsTr("Connected to the internet"), "wifi", Toast.Success);
@@ -217,7 +242,7 @@ Singleton {
 
     IpcHandler {
         function state(): string {
-            return `connectivity=${Nmcli.connectivity} active=${root.active} lastProbe=${root.lastProbe} portalUrl=${root.portalUrl} ssid=${root.ssid} episode=${root.openedFor}`;
+            return `connectivity=${Nmcli.connectivity} active=${root.active} lastProbe=${root.lastProbe} portalUrl=${root.portalUrl} candidateUrl=${root.candidateUrl} ssid=${root.ssid} episode=${root.openedFor}`;
         }
 
         // Quickshell IPC returns are synchronous, so the classification

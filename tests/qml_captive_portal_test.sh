@@ -37,6 +37,7 @@ check "toasts once per episode"     "$S/services/CaptivePortal.qml" 'Toaster.toa
 check "cooldown guard"              "$S/services/CaptivePortal.qml" 'lastOpenTime'
 check "IPC target"                  "$S/services/CaptivePortal.qml" 'target: "captivePortal"'
 check "re-probe timer"              "$S/services/CaptivePortal.qml" 'interval: 15000'
+check "candidateUrl for click"      "$S/services/CaptivePortal.qml" 'property string candidateUrl'
 
 if [[ $FAIL -ne 0 ]]; then
     echo "RESULT: FAIL (red - connectivity not implemented)"
