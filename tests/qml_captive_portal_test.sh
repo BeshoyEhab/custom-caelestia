@@ -25,6 +25,19 @@ check "Nmcli queries CONNECTIVITY"      "$S/services/Nmcli.qml" '"-t", "-f", "CO
 check "Nmcli refreshes on monitor line" "$S/services/Nmcli.qml" 'getConnectivity'
 check "Nmcli recheck API"               "$S/services/Nmcli.qml" 'function recheckConnectivity'
 
+# Task 4 surface: CaptivePortal singleton.
+check "CaptivePortal singleton"     "$S/services/CaptivePortal.qml" 'pragma Singleton'
+check "CaptivePortal seen by loader" "$S/modules/ServiceLoader.qml" 'CaptivePortal'
+check "active covers unknown"       "$S/services/CaptivePortal.qml" 'connectivity === "unknown"'
+check "auto-open requires portal"   "$S/services/CaptivePortal.qml" 'lastProbe === "portal"'
+check "uses probe script"           "$S/services/CaptivePortal.qml" 'captive_portal_probe.sh'
+check "throwaway brave profile"     "$S/services/CaptivePortal.qml" 'user-data-dir'
+check "xdg-open fallback"           "$S/services/CaptivePortal.qml" 'xdg-open'
+check "toasts once per episode"     "$S/services/CaptivePortal.qml" 'Toaster.toast'
+check "cooldown guard"              "$S/services/CaptivePortal.qml" 'lastOpenTime'
+check "IPC target"                  "$S/services/CaptivePortal.qml" 'target: "captivePortal"'
+check "re-probe timer"              "$S/services/CaptivePortal.qml" 'interval: 15000'
+
 if [[ $FAIL -ne 0 ]]; then
     echo "RESULT: FAIL (red - connectivity not implemented)"
     exit 1
