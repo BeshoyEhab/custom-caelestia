@@ -333,13 +333,13 @@ handle_conflict() {
     echo -e "${YELLOW}│${NC}  Repository version differs from your local file."
     while true; do
         echo -e "${YELLOW}└─${NC} Choose:"
-        echo "  ${GREEN}1${NC}) Replace with repo version"
-        echo "  ${GREEN}2${NC}) Keep local file"
-        echo "  ${GREEN}3${NC}) Backup → .old, then replace"
-        echo "  ${GREEN}4${NC}) Save repo as .new, keep local"
-        echo "  ${GREEN}5${NC}) Show diff"
-        echo "  ${GREEN}6${NC}) Skip"
-        echo "  ${GREEN}7${NC}) Add to .updateignore & skip"
+        echo -e "  ${GREEN}1${NC}) Replace with repo version"
+        echo -e "  ${GREEN}2${NC}) Keep local file"
+        echo -e "  ${GREEN}3${NC}) Backup → .old, then replace"
+        echo -e "  ${GREEN}4${NC}) Save repo as .new, keep local"
+        echo -e "  ${GREEN}5${NC}) Show diff"
+        echo -e "  ${GREEN}6${NC}) Skip"
+        echo -e "  ${GREEN}7${NC}) Add to .updateignore & skip"
         local choice
         read -r -p "  → " choice < /dev/tty
         case "$choice" in
