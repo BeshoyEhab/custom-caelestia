@@ -39,6 +39,12 @@ check "IPC target"                  "$S/services/CaptivePortal.qml" 'target: "ca
 check "re-probe timer"              "$S/services/CaptivePortal.qml" 'interval: 15000'
 check "candidateUrl for click"      "$S/services/CaptivePortal.qml" 'property string candidateUrl'
 
+# Task 5 surface: "Sign in to network" rows in both UI surfaces.
+check "Bar popout gated on CaptivePortal" "$S/modules/bar/popouts/Network.qml" 'CaptivePortal.active'
+check "Nexus page gated on CaptivePortal" "$S/modules/nexus/pages/NetworkPage.qml" 'CaptivePortal.active'
+check "Bar popout has sign-in row"        "$S/modules/bar/popouts/Network.qml" 'qsTr("Sign in to network")'
+check "Nexus page has sign-in row"        "$S/modules/nexus/pages/NetworkPage.qml" 'qsTr("Sign in to network")'
+
 if [[ $FAIL -ne 0 ]]; then
     echo "RESULT: FAIL (red - connectivity not implemented)"
     exit 1

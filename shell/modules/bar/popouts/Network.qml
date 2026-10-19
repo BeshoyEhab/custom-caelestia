@@ -7,6 +7,7 @@ import Caelestia.Config
 import qs.components
 import qs.components.controls
 import qs.services
+import qs.modules.nexus.common
 import qs.utils
 
 ColumnLayout {
@@ -21,6 +22,17 @@ ColumnLayout {
 
     spacing: Tokens.spacing.small
     width: Tokens.sizes.bar.networkWidth
+
+    // Captive portal sign-in prompt; only visible when connectivity is uncertain.
+    RowButton {
+        visible: CaptivePortal.active
+        Layout.preferredHeight: visible ? implicitHeight : 0
+        icon: "wifi_lock"
+        text: qsTr("Sign in to network")
+        subtext: Nmcli.active ? Nmcli.active.ssid : ""
+        trailingIcon: "open_in_new"
+        onClicked: CaptivePortal.open()
+    }
 
     // Wireless section
     StyledText {

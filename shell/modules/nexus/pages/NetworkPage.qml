@@ -60,6 +60,26 @@ PageBase {
             }
         }
 
+        // Captive portal sign-in prompt; only visible when connectivity is uncertain.
+        RowButton {
+            first: true
+            visible: CaptivePortal.active
+            Layout.preferredHeight: visible ? implicitHeight : 0
+            icon: "wifi_lock"
+            text: qsTr("Sign in to network")
+            subtext: Nmcli.active ? Nmcli.active.ssid : ""
+            trailingIcon: "open_in_new"
+            onClicked: CaptivePortal.open()
+        }
+
+        RowButton {
+            visible: CaptivePortal.active
+            Layout.preferredHeight: visible ? implicitHeight : 0
+            icon: "refresh"
+            text: qsTr("Recheck connection")
+            onClicked: CaptivePortal.recheck()
+        }
+
         ToggleRow {
             Layout.topMargin: Nmcli.hasAvailableEthernet ? Tokens.spacing.large : 0
             first: true
