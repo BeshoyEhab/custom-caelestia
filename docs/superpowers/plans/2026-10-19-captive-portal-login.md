@@ -369,3 +369,36 @@ Deviation from the steps above, recorded per the Task 6 brief:
 - **Step 3:** `connectivity=full active=false` and `b true` were confirmed, and `bash tests/run.sh` passes. The `opportunistic` expectation did **not** hold: `resolvectl status` still shows `+DNSOverTLS` (strict) because the drop-in is unapplied, and `ConnectivityCheckEnabled` already read `b true` before this task (the NM drop-in file is likewise absent from `/etc`).
 - **Not verified live:** the "row becomes visible" state — flipping `ConnectivityCheckEnabled` to `b false` and re-checking still left `connectivity=full`, so `active` never became `true`. The row-visible path is covered only by the QML test checks (`active covers unknown`), not by this machine's session.
 - Tasks 1–5 checkboxes were left to their own tasks (reports in `.superpowers/sdd/2026-10-19-captive-portal-login/`); Task 6 ran the full suite over all of them.
+
+##### Round 1 follow-up — hermetic positive-portal check (same day, controller ruling)
+
+`tests/fixtures/fake_portal_server.py html` on `127.0.0.1:<port>` fed the running shell a
+genuine positive portal classification via `qs -c caelestia ipc call captivePortal probe`
+(no `/etc`, no sudo, no real portal):
+
+- Probe chain **works live**: `state` reported `lastProbe=portal`,
+  `portalUrl=http://127.0.0.1:45019/`, `candidateUrl=http://127.0.0.1:45019/`.
+- **`active` still did not become `true`** (read three times over ~6 s):
+  `connectivity=full active=false lastProbe=portal …`.
+- **Root cause (blocking Task 5's acceptance):** `CaptivePortal.active` is
+  `root.connected && (…)` and `root.connected` is `Nmcli.isConnected`, whose only writer
+  is `Nmcli.refreshStatus()` (`shell/services/Nmcli.qml:850`, assignment at `:870`) — and
+  `refreshStatus()` has **zero callers** in the repo, in the deployed `~/.config` copy, and
+  in `shell/upstream/services/Nmcli.qml`. `Nmcli.isConnected` therefore never leaves its
+  initial `false`, so the two "Sign in to network" rows can never become visible — this is
+  a code defect, not an observation gap. `Nmcli.activeInterface`/`activeConnection`
+  (written only inside the same dead function) are permanently empty too, so
+  `CaptivePortal.resolveGateway()` always takes the `ip route show default` fallback.
+- Explicit path **works live**: `ipc call captivePortal open` launched the throwaway
+  profile window — `brave --app=http://127.0.0.1:45019/ --user-data-dir=/run/user/1000/caelestia/portal-profile`
+  (10 processes at +3 s, `episode=Besho|http://127.0.0.1:45019/`); no automatic window
+  opened from the `probe` IPC call alone (that path never opens by design). The window was
+  gone at the next check (~1 min later); no kill was issued by the tester.
+- Settle-back confirmed: `probe http://ping.archlinux.org/nm-check.txt` →
+  `connectivity=full active=false lastProbe=online`, `ConnectivityCheckEnabled` → `b true`.
+- `bash tests/run.sh` → 7 passed / 0 failed; `bash tests/qml_captive_portal_test.sh` → PASS.
+
+**Still open (needs a controller ruling, not decided here):** a fix for the dead
+`Nmcli.isConnected` gate — either wire `refreshStatus()` into `Component.onCompleted` +
+the `nmcli monitor` refresh path, or drop/replace the `connected` clause in
+`CaptivePortal.active`. Until then Task 5's "row appears" acceptance cannot pass.
