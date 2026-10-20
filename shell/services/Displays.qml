@@ -22,6 +22,7 @@ Singleton {
     property int pinnedWorkspace: 2
     property string workspaceFileText: ""
     property bool busy: false
+    property bool healing: false
     property string lastError: ""
 
     readonly property var activeMonitors: monitors.filter(m => !m.disabled)
@@ -67,12 +68,12 @@ Singleton {
             preferredMain = mainName;
             saveState();
         }
-        if (!canProject) {
+        if (["main", "duplicate", "extend", "second"].indexOf(next) === -1)
+            return;
+        if (!canProject && next !== "main") {
             lastError = "No second display detected";
             return;
         }
-        if (["main", "duplicate", "extend", "second"].indexOf(next) === -1)
-            return;
         if (!preferredSecondary && secondaryMonitor)
             preferredSecondary = secondaryMonitor.name;
         if (next !== "extend")
@@ -155,11 +156,24 @@ Singleton {
             placement: placement,
             secondary: secondaryMonitor
         });
+
+        // A persisted "second only" on a virtual output turns into a black
+        // screen at the next login: the virtual output is gone, so the rule
+        // that disabled the laptop panel is the only one left. Refuse it.
+        if (!DMath.keepsAPhysicalOutput(rules, monitors)) {
+            lastError = "Refusing to switch off every physical display. Connect the second screen first.";
+            busy = false;
+            return;
+        }
+
         const header = DMath.fileHeader(new Date());
         monitorsFile.setText(`${header}\n\n${rules.map(r => DMath.luaMonitor(r)).join("\n\n")}\n`);
 
         // Workspace pin: only meaningful while a second output is in use.
-        let wsRules = DMath.parseWorkspaceRules(workspaceFileText);
+        // Drop rules for outputs that are no longer connected so a stale pin
+        // does not come back when the file is re-read.
+        const present = monitors.map(m => m.name);
+        let wsRules = DMath.parseWorkspaceRules(workspaceFileText).filter(r => present.indexOf(r.monitor) !== -1);
         if (secondaryMonitor && nextMode !== "main") {
             wsRules = DMath.mergeWorkspaceRule(wsRules, {
                 workspace: pinnedWorkspace,
@@ -174,7 +188,32 @@ Singleton {
 
         busy = true;
         lastError = "";
-        reloadProc.running = true;
+        runRules(rules);
+        if (secondaryMonitor && nextMode !== "main")
+            wsMoveProc.move(pinnedWorkspace, secondaryMonitor.name);
+    }
+
+    // Apply at runtime with hyprctl eval instead of `hyprctl reload`: a reload
+    // re-runs the whole config and has crashed Hyprland 0.56 when an output was
+    // disabled at the same time. The generated files keep it across sessions.
+    function runRules(rules): void {
+        evalProc.code = rules.map(r => DMath.luaMonitor(r)).join("\n");
+        evalProc.running = true;
+    }
+
+    function heal(): void {
+        if (healing || monitors.length === 0)
+            return;
+        healing = true;
+        const rules = DMath.healRules(monitors);
+        const header = DMath.fileHeader(new Date());
+        monitorsFile.setText(`${header}\n\n${rules.map(r => DMath.luaMonitor(r)).join("\n\n")}\n`);
+        lastError = "Restored the display layout: no physical output was active.";
+        busy = true;
+        // A runtime eval cannot revive an output Hyprland has marked disabled;
+        // only a reload re-runs the monitor rules. The file just written is
+        // known to keep a physical panel on, so this cannot black-screen.
+        healProc.running = true;
     }
 
     Process {
@@ -205,6 +244,11 @@ Singleton {
                 } catch (e) {
                     root.lastError = `Failed to parse hyprctl monitors: ${e}`;
                 }
+
+                const usable = root.monitors.filter(m => !m.disabled && m.width > 0 && m.height > 0 && !DMath.isVirtual(m.name));
+                const hasPhysical = root.monitors.some(m => !DMath.isVirtual(m.name));
+                if (hasPhysical && usable.length === 0)
+                    root.heal();
             }
         }
 
@@ -212,14 +256,44 @@ Singleton {
     }
 
     Process {
-        id: reloadProc
+        id: evalProc
+
+        property string code: ""
+
+        command: ["hyprctl", "eval", evalProc.code]
+
+        onExited: { // qmllint disable signal-handler-parameters
+            root.busy = false;
+            root.healing = false;
+            root.refresh();
+        }
+    }
+
+    Process {
+        id: healProc
 
         command: ["hyprctl", "reload"]
 
         onExited: { // qmllint disable signal-handler-parameters
+            root.healing = false;
             root.busy = false;
             root.refresh();
         }
+    }
+
+    Process {
+        id: wsMoveProc
+
+        property var moveArgs: []
+
+        command: ["hyprctl", "dispatch", "moveworkspacetomonitor"].concat(wsMoveProc.moveArgs)
+
+        function move(workspace, monitor): void {
+            moveArgs = [String(workspace), monitor];
+            running = true;
+        }
+
+        onExited: root.refresh() // qmllint disable signal-handler-parameters
     }
 
     FileView {

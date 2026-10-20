@@ -6,3 +6,4 @@ build/
 backups
 .worktrees/
 .superpowers/sdd/
+__pycache__/

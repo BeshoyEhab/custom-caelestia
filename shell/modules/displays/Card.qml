@@ -93,36 +93,48 @@ FocusScope {
                 toggled: Displays.mode === "main"
                 icon: "monitor"
                 label: "Main only"
-                disabled: !root.hasSecond
-                opacity: disabled ? 0.5 : 1
-                onClicked: Displays.setMode("main")
+                enabled: root.hasSecond
+                opacity: enabled ? 1 : 0.5
+                onClicked: {
+                    if (root.hasSecond)
+                        Displays.setMode("main");
+                }
             }
 
             ToggleButton {
                 toggled: Displays.mode === "duplicate"
                 icon: "content_copy"
                 label: "Duplicate"
-                disabled: !root.hasSecond
-                opacity: disabled ? 0.5 : 1
-                onClicked: Displays.setMode("duplicate")
+                enabled: root.hasSecond
+                opacity: enabled ? 1 : 0.5
+                onClicked: {
+                    if (root.hasSecond)
+                        Displays.setMode("duplicate");
+                }
             }
 
             ToggleButton {
                 toggled: Displays.mode === "extend"
                 icon: "desktop_windows"
                 label: "Extend"
-                disabled: !root.hasSecond
-                opacity: disabled ? 0.5 : 1
-                onClicked: Displays.setMode("extend")
+                enabled: root.hasSecond
+                opacity: enabled ? 1 : 0.5
+                onClicked: {
+                    if (root.hasSecond)
+                        Displays.setMode("extend");
+                }
             }
 
             ToggleButton {
                 toggled: Displays.mode === "second"
                 icon: "tv"
                 label: "Second only"
-                disabled: !root.hasSecond
-                opacity: disabled ? 0.5 : 1
-                onClicked: Displays.setMode("second")
+                enabled: root.hasSecond
+                opacity: enabled ? 1 : 0.5
+                onClicked: {
+                    if (root.hasSecond)
+                        Displays.setMode("second");
+                }
             }
         }
 
@@ -273,9 +285,10 @@ FocusScope {
 
         StyledText {
             Layout.fillWidth: true
-            visible: Displays.busy
-            text: "Applying…"
-            color: Colours.palette.m3outline
+            visible: Displays.busy || Displays.lastError.length > 0
+            wrapMode: Text.WordWrap
+            text: Displays.lastError.length > 0 ? Displays.lastError : "Applying…"
+            color: Displays.lastError.length > 0 ? Colours.palette.m3error : Colours.palette.m3outline
             font: Tokens.font.body.small
         }
     }

@@ -142,7 +142,7 @@ done
 # ── 6. Displays service contract ─────────────────────────────────────────────
 SVC="$SHELL_DIR/services/Displays.qml"
 if [[ -f "$SVC" ]]; then
-    for needle in "pragma Singleton" "hyprctl" "monitors.lua" "workspaces.lua" "reload" "DisplayMath"; do
+    for needle in "pragma Singleton" "hyprctl" "monitors.lua" "workspaces.lua" "\"eval\"" "DisplayMath"; do
         grep -q -- "$needle" "$SVC" || fail "Displays.qml missing '$needle'"
     done
     pass "Displays service contract"

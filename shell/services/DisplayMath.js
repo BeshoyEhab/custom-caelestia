@@ -179,6 +179,43 @@ function layout(opts) {
     return rules;
 }
 
+function isVirtual(name) {
+    // Hyprland auto-creates FALLBACK when every real output is switched off.
+    return /^(HEADLESS-|FALLBACK)/i.test(String(name || ""));
+}
+
+// Enable every known output, left to right from the origin. Used to recover
+// from a config that left the machine with no usable output.
+function healRules(all) {
+    const rules = [];
+    let x = 0;
+    const monitors = all || [];
+    const physical = monitors.filter(m => !isVirtual(m.name));
+    // Prefer the real panels: re-enabling the FALLBACK output as well would
+    // leave the user with a duplicate virtual screen.
+    for (const monitor of physical.length ? physical : monitors) {
+        const size = logicalSize(monitor);
+        rules.push({
+            output: monitor.name,
+            mode: monitor.width > 0 && monitor.height > 0 ? modeString(monitor) : "preferred",
+            position: `${Math.round(x)}x0`,
+            scale: monitor.scale > 0 ? monitor.scale : 1
+        });
+        x += size.w > 0 ? size.w : 1920;
+    }
+    return rules;
+}
+
+// Refuse a layout that switches off every physical display, keeping only a
+// virtual output alive. That is what turns a stale "second only" rule into a
+// black screen on the next login (the virtual output no longer exists).
+function keepsAPhysicalOutput(rules, all) {
+    const hasPhysical = (all || []).some(m => !isVirtual(m.name));
+    if (!hasPhysical)
+        return true;
+    return (rules || []).some(r => !r.disabled && !isVirtual(r.output));
+}
+
 function luaMonitor(rule) {
     const fields = [`    output = "${rule.output}"`];
     if (rule.disabled) {

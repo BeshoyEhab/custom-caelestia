@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import qs.components.containers
 import qs.components.misc
@@ -88,7 +89,27 @@ Scope {
         }
 
         function state(): string {
-            return `mode=${Displays.mode} main=${Displays.mainName} secondary=${Displays.secondaryName} placement=${Displays.placement} workspace=${Displays.pinnedWorkspace}`;
+            return `mode=${Displays.mode} main=${Displays.mainName} secondary=${Displays.secondaryName} placement=${Displays.placement} workspace=${Displays.pinnedWorkspace} busy=${Displays.busy} error=${Displays.lastError}`;
+        }
+
+        function setMode(mode: string): void {
+            Displays.setMode(mode);
+        }
+
+        function setMain(name: string): void {
+            Displays.setMain(name);
+        }
+
+        function setPlacement(placement: string): void {
+            Displays.setPlacement(placement);
+        }
+
+        function setWorkspace(workspace: int): void {
+            Displays.setPinnedWorkspace(workspace);
+        }
+
+        function refresh(): void {
+            Displays.refresh();
         }
 
         target: "displays"
