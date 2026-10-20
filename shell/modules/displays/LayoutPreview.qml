@@ -12,8 +12,6 @@ Item {
     property var monitors: []
     property string mainName: ""
 
-    readonly property var activeMonitors: (root.monitors || []).filter(m => !m.disabled)
-
     Component {
         id: monitorComp
 
@@ -48,7 +46,11 @@ Item {
                 child.destroy();
         }
 
-        const list = root.activeMonitors;
+        // Filter the source here, not through a derived binding: QML has not
+        // re-evaluated bindings yet while monitorsChanged is being handled, so
+        // a bound list would still be the previous (often empty) one and the
+        // preview would stay blank until the next refresh.
+        const list = (root.monitors || []).filter(m => !m.disabled);
         if (list.length === 0 || root.width < 10 || root.height < 10)
             return;
 

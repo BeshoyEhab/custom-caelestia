@@ -77,7 +77,7 @@ Windows-style projection picker: main screen, duplicate, extend (left/right/up/d
 |---|---|
 | `shell/services/Displays.qml` | Singleton: refresh from `hyprctl monitors all -j`, apply, heal, persistence |
 | `shell/services/DisplayMath.js` | Pure layout math, Lua generation, `healRules`, `keepsAPhysicalOutput`, `isVirtual` |
-| `shell/modules/displays/DisplaySwitcher.qml` | Layer-shell popup, IPC target `displays` |
+| `shell/modules/displays/DisplaySwitcher.qml` | Real window (FloatingWindow), IPC target `displays` |
 | `tests/display_math_test.js` | Node suite (wrapped by `tests/display_math_test.sh`) |
 | `tests/displays_e2e_test.sh` | Opt-in live test (`DISPLAYS_E2E=1`), creates a headless output |
 
@@ -92,6 +92,9 @@ Rules that must not regress:
 4. `hyprctl keyword` does not work under the Lua parser; use `eval`/`dispatch`.
 5. `hyprctl monitors all -j` reports `mirrorOf` as the target monitor **ID string**, so mode detection compares both id and name.
 6. `setMode("main")` must work with a single display (it writes the file and prunes workspace pins for missing outputs).
+7. **Never read a derived binding inside its source's change handler.** In `LayoutPreview.rebuild()`, `onMonitorsChanged` fires before QML has invalidated the bindings that depend on `monitors`, so a bound `activeMonitors` still returns the previous (empty) list and the preview stays blank until the next refresh. Filter `monitors` inline there; the same pattern caused the "no screen until I press reload" report.
+8. The main/second monitor button rows are horizontal `ListView`s: size them with `Math.max(46, contentHeight)`, not a fixed 46, or the `ToggleButton` (≈50px) is clipped at the bottom.
+9. `DisplaySwitcher` retries `Displays.refresh()` every 600ms while `monitors` is empty (the first `hyprctl` after login can beat Hyprland), and `Displays.refresh()` queues a run if `hyprctl` is already in flight.
 
 ## Cheat sheet (SUPER+/)
 
@@ -101,14 +104,17 @@ Dynamic sheet built from `hyprctl binds -j` (the OSD moved to SUPER+Shift+/).
 |---|---|
 | `shell/services/Keybinds.js` | Pure parser/grouping/filtering (`parseBinds`, `group`, `filterBinds`) |
 | `shell/services/KeybindsModel.qml` | Singleton state: groups, rows, query, `includeUnlabeled`, reload |
-| `shell/modules/cheatsheet/Cheatsheet.qml` | Window, IPC target `cheatsheet`, `configreloaded` refresh |
+| `shell/modules/cheatsheet/CheatSheet.qml` | Window, IPC target `cheatsheet`, `configreloaded` refresh |
 | `shell/modules/cheatsheet/Content.qml` | Search field, category headers, keycap rows |
 | `tests/keybinds_parse_test.js` | Node suite (wrapped by `tests/keybinds_parse_test.sh`) |
 
 - Description prefix before `": "` is the category; binds without one go to `Unlabeled` and are **hidden by default** (toggle in the header).
-- Repetitive binds collapse: workspace 1-10 → `<Number>`, left/right/up/down → `<Direction>`, keeping only the first.
+- Repetitive binds collapse: workspace 1-10 → `<Number>`, keeping only the first. Directions are **not** merged: "focus left" and "focus right" are different actions, and merging produced eight-combo rows.
+- Binds with the same description (case-insensitive) are the same action: they share one row, with one keycap line per combo (a nested `ListView` over `combos`).
 - Hyprland reports `key: ""` for binds written as `code:<n>` (the loop-generated workspace binds); the parser recovers them from a trailing number in the description.
-- Keycaps use Windows-style labels (`⊞ Ctrl Alt Shift`) and must fit five slots in a 310px column. A `Repeater` over a JS array does not render, so the row spells out five `KeyCap` slots.
+- Keycaps use Windows-style labels (`⊞ Ctrl Alt Shift`) and fit five slots in a 290px column. A `Repeater` over a JS array does not render, so the row spells out five `KeyCap` slots.
+- **Both this popup and the display switcher are real `FloatingWindow` toplevels**, not layer-shell surfaces, so SUPER+Q closes them instead of the app behind. They get `float` + `center` window rules matched by title (`^(Keyboard shortcuts)$`, `^(Displays)$`) in `hyprland/.config/hypr/hyprland/rules.lua`; keep the titles and rules in sync. `onVisibleChanged` mirrors a compositor close back into `opened`, otherwise the next toggle would be a no-op.
+- Use the attached form `StyledScrollBar.vertical: StyledScrollBar { flickable: list }`. Putting it as a plain child of a `ListView` makes the list scroll itself to the end instead of drawing a bar.
 
 ## Captive portal / portal Wi-Fi
 

@@ -49,9 +49,16 @@ Singleton {
     }
     readonly property bool canProject: secondaryMonitor !== null
 
+    // A refresh requested while hyprctl is already running must not be lost:
+    // at shell start the singleton's first call and show() can race.
+    property bool refreshQueued: false
+
     function refresh(): void {
-        if (!monitorProc.running)
-            monitorProc.running = true;
+        if (monitorProc.running) {
+            refreshQueued = true;
+            return;
+        }
+        monitorProc.running = true;
     }
 
     function saveState(): void {
@@ -252,7 +259,13 @@ Singleton {
             }
         }
 
-        onExited: root.busy = false // qmllint disable signal-handler-parameters
+        onExited: { // qmllint disable signal-handler-parameters
+            root.busy = false;
+            if (root.refreshQueued) {
+                root.refreshQueued = false;
+                Qt.callLater(() => root.refresh());
+            }
+        }
     }
 
     Process {

@@ -3,8 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Wayland
-import qs.components.containers
+import Caelestia.Config
 import qs.components.misc
 import qs.services
 
@@ -37,42 +36,43 @@ Scope {
         Variants {
             model: Screens.screens
 
-            StyledWindow {
+            FloatingWindow {
                 id: win
 
                 required property ShellScreen modelData
 
                 screen: modelData
-                name: "displays"
+                title: "Displays"
                 color: "transparent"
-                WlrLayershell.exclusionMode: ExclusionMode.Ignore
-                WlrLayershell.layer: WlrLayer.Overlay
-                WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+                surfaceFormat.opaque: false
+                implicitWidth: card.implicitWidth
+                implicitHeight: card.implicitHeight
+                contentItem.Config.screen: screen.name
+                contentItem.Tokens.screen: screen.name
 
-                anchors.top: true
-                anchors.bottom: true
-                anchors.left: true
-                anchors.right: true
-                implicitWidth: modelData.width
-                implicitHeight: modelData.height
-
-                Rectangle {
-                    anchors.fill: parent
-                    color: Colours.palette.m3scrim
-                    opacity: 0.55
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: root.hide()
-                    }
+                // SUPER+Q closes the focused window; keep our state in sync.
+                onVisibleChanged: {
+                    if (!visible && root.opened)
+                        root.opened = false;
                 }
 
                 Card {
-                    anchors.centerIn: parent
+                    id: card
+
+                    anchors.fill: parent
                     onClose: root.hide()
                 }
             }
         }
+    }
+
+    // The first hyprctl call can land before Hyprland is ready (e.g. right
+    // after login) and return no monitors. Keep asking until one appears.
+    Timer {
+        interval: 600
+        repeat: true
+        running: root.opened && Displays.monitors.length === 0
+        onTriggered: Displays.refresh()
     }
 
     IpcHandler {

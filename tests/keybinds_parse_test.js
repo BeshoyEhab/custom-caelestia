@@ -74,8 +74,22 @@ assert(workspace.binds[0].combo === "SUPER + <Number>", "collapsed workspace kee
 assert(workspace.binds[0].keys.join(" ") === "⊞ <Number>", "collapsed workspace keycaps stay symbolic");
 assert(workspace.binds[0].action === "Focus <Number>", "collapsed workspace action is generic");
 const windowGroup = collapsed.find(g => g.category === "Window");
-assert(windowGroup.binds.length === 1, "left/right/up collapse to one row");
-assert(windowGroup.binds[0].combo === "SUPER + CTRL + <Direction>", "collapsed direction keeps the modifier");
-assert(windowGroup.binds[0].action === "Focus <Direction>", "collapsed direction action is generic");
+assert(windowGroup.binds.length === 3, "directions stay separate rows");
+assert(windowGroup.binds.map(b => b.combo).sort().join(" | ") === "SUPER + CTRL + Left | SUPER + CTRL + Right | SUPER + CTRL + Up",
+  "direction keys keep their names");
+
+// Equivalent keys share one description, so they share one row.
+const duplicates = JSON.stringify([
+  { modmask: 64, key: "M", description: "Media: Toggle mute" },
+  { modmask: 0, key: "XF86AudioMute", description: "Media: Toggle mute" },
+  { modmask: 64, key: "N", description: "Media: Next track" }
+]);
+const merged = ctx.group(ctx.parseBinds(duplicates));
+assert(merged[0].binds.length === 2, "equivalent keys merge into one row");
+const mute = merged[0].binds.find(b => b.action === "Toggle mute");
+assert(mute.combos.length === 2, "both key combos are kept on the row");
+assert(mute.combo === "SUPER + M", "the first combo is the row default");
+assert(ctx.filterBinds(merged, "xf86audiomute")[0].category === "Media", "search finds secondary combos");
+assert(ctx.filterBinds(merged, "next track")[0].binds[0].combos.length === 1, "single-key rows still work");
 
 console.log("keybinds_parse: all assertions passed");

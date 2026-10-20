@@ -120,7 +120,7 @@ FocusScope {
             spacing: 2
             model: KeybindsModel.rows
 
-            StyledScrollBar {
+            StyledScrollBar.vertical: StyledScrollBar {
                 flickable: list
             }
 
@@ -130,7 +130,25 @@ FocusScope {
                 required property var modelData
 
                 width: list.width
-                height: modelData.kind === "header" ? 46 : 48
+                height: modelData.kind === "header" ? 46 : 12 + Math.max(1, (modelData.combos || []).length) * 36
+
+                HoverHandler {
+                    id: rowHover
+                }
+
+                StyledRect {
+                    anchors.fill: parent
+                    anchors.leftMargin: -Tokens.padding.small
+                    anchors.rightMargin: -Tokens.padding.small
+                    radius: Tokens.rounding.small
+                    color: Colours.palette.m3surfaceContainerHighest
+                    opacity: rowHover.hovered && row.modelData.kind === "bind" ? 0.4 : 0
+                    Behavior on opacity {
+                        Anim {
+                            type: Anim.StandardSmall
+                        }
+                    }
+                }
 
                 StyledText {
                     anchors.left: parent.left
@@ -150,69 +168,82 @@ FocusScope {
                     spacing: Tokens.spacing.medium
                     visible: row.modelData.kind === "bind"
 
-                    Row {
-                        id: keyRow
+                    // One line per equivalent key combo: same description means
+                    // the same action, so they share the row.
+                    ListView {
+                        id: keyList
 
-                        Layout.preferredWidth: 310
-                        Layout.preferredHeight: 32
-                        spacing: 3
+                        Layout.preferredWidth: 290
+                        Layout.preferredHeight: Math.max(1, (row.modelData.combos || []).length) * 36
+                        interactive: false
                         clip: true
+                        model: row.modelData.combos
 
-                        function token(index) {
-                            const keys = row.modelData.keys ?? [];
-                            return index < keys.length ? keys[index] : "";
-                        }
+                        delegate: Row {
+                            id: comboRow
 
-                        KeyCap {
-                            label: keyRow.token(0)
-                        }
+                            required property var modelData
 
-                        StyledText {
-                            anchors.verticalCenter: parent.verticalCenter
-                            visible: keyRow.token(1).length > 0
-                            text: "+"
-                            color: Colours.palette.m3outline
-                            font: Tokens.font.body.small
-                        }
+                            width: keyList.width
+                            height: 32
+                            spacing: 3
 
-                        KeyCap {
-                            label: keyRow.token(1)
-                        }
+                            function token(index) {
+                                const keys = comboRow.modelData.keys ?? [];
+                                return index < keys.length ? keys[index] : "";
+                            }
 
-                        StyledText {
-                            anchors.verticalCenter: parent.verticalCenter
-                            visible: keyRow.token(2).length > 0
-                            text: "+"
-                            color: Colours.palette.m3outline
-                            font: Tokens.font.body.small
-                        }
+                            KeyCap {
+                                label: comboRow.token(0)
+                            }
 
-                        KeyCap {
-                            label: keyRow.token(2)
-                        }
+                            StyledText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: comboRow.token(1).length > 0
+                                text: "+"
+                                color: Colours.palette.m3outline
+                                font: Tokens.font.body.small
+                            }
 
-                        StyledText {
-                            anchors.verticalCenter: parent.verticalCenter
-                            visible: keyRow.token(3).length > 0
-                            text: "+"
-                            color: Colours.palette.m3outline
-                            font: Tokens.font.body.small
-                        }
+                            KeyCap {
+                                label: comboRow.token(1)
+                            }
 
-                        KeyCap {
-                            label: keyRow.token(3)
-                        }
+                            StyledText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: comboRow.token(2).length > 0
+                                text: "+"
+                                color: Colours.palette.m3outline
+                                font: Tokens.font.body.small
+                            }
 
-                        StyledText {
-                            anchors.verticalCenter: parent.verticalCenter
-                            visible: keyRow.token(4).length > 0
-                            text: "+"
-                            color: Colours.palette.m3outline
-                            font: Tokens.font.body.small
-                        }
+                            KeyCap {
+                                label: comboRow.token(2)
+                            }
 
-                        KeyCap {
-                            label: keyRow.token(4)
+                            StyledText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: comboRow.token(3).length > 0
+                                text: "+"
+                                color: Colours.palette.m3outline
+                                font: Tokens.font.body.small
+                            }
+
+                            KeyCap {
+                                label: comboRow.token(3)
+                            }
+
+                            StyledText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: comboRow.token(4).length > 0
+                                text: "+"
+                                color: Colours.palette.m3outline
+                                font: Tokens.font.body.small
+                            }
+
+                            KeyCap {
+                                label: comboRow.token(4)
+                            }
                         }
                     }
 
@@ -220,10 +251,31 @@ FocusScope {
                         Layout.fillWidth: true
                         elide: Text.ElideRight
                         text: row.modelData.kind === "bind" ? row.modelData.action : ""
-                        color: Colours.palette.m3onSurfaceVariant
+                        color: Colours.palette.m3onSurface
                         font: Tokens.font.body.medium
                     }
                 }
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Tokens.spacing.small
+
+            StyledText {
+                text: "Type to search"
+                color: Colours.palette.m3outline
+                font: Tokens.font.body.small
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            StyledText {
+                text: "Esc to close"
+                color: Colours.palette.m3outline
+                font: Tokens.font.body.small
             }
         }
 

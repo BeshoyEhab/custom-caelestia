@@ -4,8 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
-import Quickshell.Wayland
-import qs.components.containers
+import Caelestia.Config
 import qs.components.misc
 import qs.services
 
@@ -43,40 +42,29 @@ Scope {
         Variants {
             model: Screens.screens
 
-            StyledWindow {
+            FloatingWindow {
                 id: win
 
                 required property ShellScreen modelData
 
                 screen: modelData
-                name: "cheatsheet"
+                title: "Keyboard shortcuts"
                 color: "transparent"
-                WlrLayershell.exclusionMode: ExclusionMode.Ignore
-                WlrLayershell.layer: WlrLayer.Overlay
-                WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+                surfaceFormat.opaque: false
+                implicitWidth: Math.min(1240, modelData.width * 0.78)
+                implicitHeight: Math.min(880, modelData.height * 0.78)
+                contentItem.Config.screen: screen.name
+                contentItem.Tokens.screen: screen.name
 
-                anchors.top: true
-                anchors.bottom: true
-                anchors.left: true
-                anchors.right: true
-                implicitWidth: modelData.width
-                implicitHeight: modelData.height
-
-                Rectangle {
-                    anchors.fill: parent
-                    color: Colours.palette.m3scrim
-                    opacity: 0.55
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: root.hide()
-                    }
+                // The compositor closes a window with SUPER+Q; mirror that back
+                // into our state so the next toggle reopens it.
+                onVisibleChanged: {
+                    if (!visible && root.opened)
+                        root.opened = false;
                 }
 
                 Content {
-                    anchors.centerIn: parent
-                    implicitWidth: Math.min(1240, modelData.width * 0.78)
-                    implicitHeight: Math.min(880, modelData.height * 0.78)
+                    anchors.fill: parent
                     onClose: root.hide()
                 }
             }

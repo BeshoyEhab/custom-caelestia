@@ -15,7 +15,7 @@ FocusScope {
     readonly property bool hasSecond: Displays.monitors.filter(m => m.name !== Displays.mainName).length > 0
     readonly property var otherMonitors: Displays.monitors.filter(m => m.name !== Displays.mainName)
 
-    implicitWidth: 880
+    implicitWidth: 920
     implicitHeight: column.implicitHeight + Tokens.padding.largeIncreased * 2
     focus: true
 
@@ -69,15 +69,29 @@ FocusScope {
             }
         }
 
-        LayoutPreview {
+        Item {
             Layout.fillWidth: true
-            Layout.preferredHeight: 210
-            monitors: Displays.monitors
-            mainName: Displays.mainName
+            Layout.preferredHeight: 280
+            Layout.minimumHeight: 280
+
+            LayoutPreview {
+                anchors.fill: parent
+                monitors: Displays.monitors
+                mainName: Displays.mainName
+            }
+
+            StyledText {
+                anchors.centerIn: parent
+                visible: Displays.monitors.length === 0
+                text: "Looking for displays…"
+                color: Colours.palette.m3outline
+                font: Tokens.font.body.medium
+            }
         }
 
         StyledText {
             Layout.fillWidth: true
+            Layout.topMargin: Tokens.spacing.small
             visible: !root.hasSecond
             wrapMode: Text.WordWrap
             text: "Only one display is connected. Plug in a second screen to duplicate it, extend the desktop, or move this screen's output to the other one."
@@ -193,8 +207,9 @@ FocusScope {
             }
 
             ListView {
+                id: mainList
                 Layout.fillWidth: true
-                Layout.preferredHeight: 46
+                Layout.preferredHeight: Math.max(46, contentHeight)
                 orientation: ListView.Horizontal
                 spacing: Tokens.spacing.small
                 clip: true
@@ -223,8 +238,9 @@ FocusScope {
             }
 
             ListView {
+                id: secondList
                 Layout.fillWidth: true
-                Layout.preferredHeight: 46
+                Layout.preferredHeight: Math.max(46, contentHeight)
                 orientation: ListView.Horizontal
                 spacing: Tokens.spacing.small
                 clip: true

@@ -42,7 +42,7 @@ Singleton {
         for (const group of filtered) {
             next.push({ kind: "header", label: group.category, count: group.binds.length });
             for (const bind of group.binds)
-                next.push({ kind: "bind", combo: bind.combo, keys: bind.keys, action: bind.action });
+                next.push({ kind: "bind", combo: bind.combo, keys: bind.keys, combos: bind.combos, action: bind.action });
         }
         rows = next;
     }

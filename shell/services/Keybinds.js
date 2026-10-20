@@ -119,33 +119,30 @@ function numberedFallback(bind) {
     };
 }
 
-// A bind that is only a variant of the one before it: workspace 2-0 next to
-// workspace 1, or right/up/down next to left. Showing all of them makes the
-// sheet unreadable; only the first is kept and its key is made generic.
+// Workspace numbers are ten near-identical binds: keep the first and show it
+// as <Number>. Directions are NOT merged: "send to workspace left" and
+// "...right" are different actions, and merging them produced rows with eight
+// key combos.
 function isRepetitiveTail(bind) {
     const key = String(bind.key ?? "");
     if (/^(mouse|page)/i.test(key))
         return false;
     if (key === "<Number>")
         return false;
-    if (/^[2-9]$/.test(key) || key === "0")
-        return true;
-    return /^(right|up|down)\b/i.test(key);
+    return /^[2-9]$/.test(key) || key === "0";
 }
 
 function isRepetitiveHead(bind) {
     const key = String(bind.key ?? "");
-    return key === "1" || key === "<Number>" || /^left$/i.test(key);
+    return key === "1" || key === "<Number>";
 }
 
 function genericKey(key) {
-    return String(key ?? "").replace(/^1$/, "<Number>").replace(/^left$/i, "<Direction>");
+    return String(key ?? "").replace(/^1$/, "<Number>");
 }
 
 function genericAction(action) {
-    return String(action ?? "")
-        .replace(/\b1\b/, "<Number>")
-        .replace(/\b(left|right|up|down)\b/i, "<Direction>");
+    return String(action ?? "").replace(/\b1\b/, "<Number>");
 }
 
 function blankTo(value, fallback) {
@@ -241,17 +238,36 @@ function group(binds) {
             seen.add(signature);
             kept.push(Object.assign({}, bind, { combo: combo, keys: keys, action: action }));
         }
-        if (kept.length > 0)
-            groups.push({ category: category, binds: kept });
+        // Two keys with the same description are the same action: show them
+        // in one row so the equivalence is visible.
+        const byAction = new Map();
+        const merged = [];
+        for (const bind of kept) {
+            const signature = bind.action.toLowerCase();
+            if (!byAction.has(signature)) {
+                const entry = Object.assign({}, bind, { combos: [] });
+                byAction.set(signature, entry);
+                merged.push(entry);
+            }
+            byAction.get(signature).combos.push({
+                combo: bind.combo,
+                keys: bind.keys,
+                mouse: bind.mouse
+            });
+        }
+
+        if (merged.length > 0)
+            groups.push({ category: category, binds: merged });
     }
     return groups;
 }
 
 function matches(bind, query) {
     const needle = query.toLowerCase();
-    return bind.combo.toLowerCase().includes(needle)
-        || bind.action.toLowerCase().includes(needle)
-        || bind.category.toLowerCase().includes(needle);
+    if (bind.action.toLowerCase().includes(needle) || bind.category.toLowerCase().includes(needle))
+        return true;
+    const combos = bind.combos || [{ combo: bind.combo }];
+    return combos.some(c => String(c.combo).toLowerCase().includes(needle));
 }
 
 function filterBinds(groups, query) {
