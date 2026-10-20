@@ -27,6 +27,7 @@ ShellRoot {
     Background {}
     Drawers {}
     AreaPicker {}
+    Displays {}
     Lock {
         id: lock
     }
