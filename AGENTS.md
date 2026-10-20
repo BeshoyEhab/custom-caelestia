@@ -215,10 +215,10 @@ Install sections:
 3. **Shell extras** (optional): fish, starship, btop, cava, kitty, foot, fuzzel, wlogout, fonts
 4. **Quickshell config**: caelestia shell theme, modules, services
 
-- **Reinstall-safe**: Uses `deploy_tree` that never destroys user files
+- **Reinstall-safe**: Uses `deploy_tree` that never destroys user files. Each deploy records a sha256 baseline per file; the next update updates files you never touched, and asks only about files you edited (showing the diff, defaulting to keeping yours, and saving a timestamped `.bak` when you take the repo version).
 - Reads `.updateignore` to skip user-customized files
 - Symlink-aware: removes old symlinks before deploying
-- **Manifest pruning**: each deploy records deployed paths in `.deploy-manifest`
+- **Manifest pruning**: each deploy records `rel<TAB>mtime<TAB>sha256` in `.deploy-manifest`
   inside the target; update deletes files removed from the repo unless `--no-prune`
   (user-modified files are kept and warned about)
 

@@ -52,7 +52,7 @@ During updates and installation, the installer **automatically stashes** your us
 
 You can skip files from updates via `.updateignore`. The script reads from:
 - `$REPO/.updateignore` — project-wide ignores
-- `~/.updateignore` — your personal ignores (option 7 in conflict prompts adds absolute paths here)
+- `~/.updateignore` — your personal ignores (pressing `i` at a conflict prompt adds the absolute path here)
 - `~/.config/hypr/.updateignore`, `~/.config/quickshell/.updateignore`, `~/.config/quickshell/caelestia/.updateignore`
 - Patterns support gitignore syntax; absolute paths match the full target path.
 
@@ -125,9 +125,9 @@ The installer will:
 
 `update.sh` is a compat stub that just `exec`s `install.sh`, so the deployed `~/.config/quickshell/caelestia/scripts/update.sh` symlink and the Nexus Updates page keep working unchanged.
 
-Updates only touch sections that are installed, and never replace files you modified — conflicting files are kept (or replaced/backed up, per `--on-conflict`). Supports `--force` (replace all files, skip mtime checks), `--dry-run`, `--backup`, `--on-conflict` (ask/replace/keep/backup/new). During interactive conflict resolution, option 7 adds the file's absolute path to `~/.updateignore` to skip it in future updates.
+Updates only touch sections that are installed. Files you never edited are updated quietly, and a prompt appears only when you edited a file *and* the repo version changed. That prompt shows the diff; Enter keeps your version, `t` takes the repo's (your copy is saved as `<file>.bak-<timestamp>`), `s` saves the repo copy as `<file>.new`, `i` adds the path to `~/.updateignore`, `K`/`T` apply keep/take to the rest, and `q` stops. `--force` replaces every differing file (skipping the baseline check), `--dry-run` shows what would happen, and `--on-conflict` still selects a non-interactive policy (ask/replace/keep/backup/new). At the end a summary reports added/updated/kept/taken counts.
 
-Each deploy records the files it wrote in `.deploy-manifest` inside the target directory; on update, files that were deployed before but no longer exist in the repo are pruned (pass `--no-prune` to keep them). User-modified files are never pruned.
+Each deploy records the files it wrote, their mtime and their sha256 in `.deploy-manifest` inside the target directory. The hash is what lets the next update tell "you edited this" from "we deployed this" — no timestamp guessing. Manifests written by older versions carry only the mtime, which is used the same way until the next deploy adds hashes. On update, files that were deployed before but no longer exist in the repo are pruned (pass `--no-prune` to keep them); user-modified files are never pruned.
 
 **Captive-portal system drop-ins:** install and update also apply two files from `system/` into `/etc` (requires `sudo`; skipped by `--no-install`, printed as `Would install` lines by `--dry-run`): `/etc/systemd/resolved.conf.d/10-captive-portal.conf` (`DNSOverTLS=opportunistic`, so DNS keeps working on cafe/hotel portal networks) and `/etc/NetworkManager/conf.d/30-connectivity-enabled.conf` (keeps NetworkManager's connectivity check on). To revert, delete both files and run `sudo systemctl restart systemd-resolved`, then switch the runtime property back off — it survives NetworkManager restarts, so deleting the drop-in alone is not enough: `busctl set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled b false`. Note the consequence: with the connectivity check off, NetworkManager reports `unknown`, and the shell shows the "Sign in to network" row on every network.
 

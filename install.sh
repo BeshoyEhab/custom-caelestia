@@ -298,76 +298,199 @@ match_gitignore() {
 }
 
 # ── Conflict handling ────────────────────────────────────────────────────────
+# A conflict is "your copy differs from what we deployed AND from the repo".
 # Sets CONFLICT_WROTE=true only on paths that actually overwrite the target
-# (replace/backup); keep/new/skip leave it false so the manifest keeps the
-# prior mtime and a user-edited file is never re-blessed as ours.
+# (take/backup); keep/new/ignore leave it false so the manifest carries the
+# prior baseline forward and the file stays yours.
 CONFLICT_WROTE=false
+CONFLICT_APPLY=""        # bulk answer for the rest of the run: keep | take
+CONFLICT_QUIT=false
+CONFLICT_INDEX=0
+CONFLICT_TOTAL=0
+CONFLICT_INPUT="${CONFLICT_INPUT:-}"   # tests point this at a file; default /dev/tty
+CONFLICT_FD=""
+CONFLICT_ANSWER=""
+CONFLICT_ANSWER_ACTION=""
+
+# Per-run counters, printed by report_update_summary at the end of --update.
+STAT_ADDED=0; STAT_UPDATED=0; STAT_KEPT=0; STAT_TAKEN=0; STAT_IGNORED=0
+
+_backup_path() { # $1 = target → prints "<target>.bak-<timestamp>"
+    printf '%s.bak-%s' "$1" "$(date +%Y%m%d-%H%M%S)"
+}
+
+# One input stream for the whole run: an explicit file (tests), the terminal,
+# or stdin when there is no terminal at all.
+_conflict_read() {
+    if [[ -z "$CONFLICT_FD" ]]; then
+        if [[ -n "$CONFLICT_INPUT" && -r "$CONFLICT_INPUT" ]]; then
+            exec {CONFLICT_FD}<"$CONFLICT_INPUT"
+        elif [[ -r /dev/tty ]]; then
+            exec {CONFLICT_FD}</dev/tty
+        else
+            CONFLICT_FD=0
+        fi
+    fi
+    CONFLICT_ANSWER=""
+    IFS= read -r CONFLICT_ANSWER <&"$CONFLICT_FD" || true
+}
+
+# Shows the change, then asks. The diff is the default view — deciding should
+# not cost an extra keystroke. Empty answer = keep yours.
+_ask_conflict() { # $1=repo_file $2=home_file → sets CONFLICT_ANSWER_ACTION
+    local repo_file="$1" home_file="$2" diff_out lines
+    echo ""
+    if [[ "$CONFLICT_TOTAL" -gt 1 ]]; then
+        echo -e "${YELLOW}┌─ Conflict ${CONFLICT_INDEX}/${CONFLICT_TOTAL}:${NC} ${BOLD}$home_file${NC}"
+    else
+        echo -e "${YELLOW}┌─ Conflict:${NC} ${BOLD}$home_file${NC}"
+    fi
+    echo -e "${YELLOW}│${NC}  You edited this file; the repo version changed too."
+    diff_out=$(diff -u --label "yours" --label "repo" "$home_file" "$repo_file" 2>/dev/null || true)
+    if [[ -n "$diff_out" ]]; then
+        echo -e "${YELLOW}│${NC}"
+        lines=$(wc -l <<<"$diff_out")
+        if [[ "$lines" -gt 40 ]]; then
+            head -n 40 <<<"$diff_out" | sed 's/^/  /'
+            echo -e "  ${YELLOW}… $((lines - 40)) more lines${NC}"
+        else
+            sed 's/^/  /' <<<"$diff_out"
+        fi
+    fi
+    echo -e "${YELLOW}└─${NC} ${GREEN}Enter${NC}/k keep yours · ${GREEN}t${NC} take repo · ${GREEN}s${NC} save repo as .new · ${GREEN}i${NC} ignore forever · ${GREEN}K${NC} keep all · ${GREEN}T${NC} take all · ${GREEN}q${NC} stop"
+    while true; do
+        _conflict_read
+        case "$CONFLICT_ANSWER" in
+            ""|k) CONFLICT_ANSWER_ACTION=keep; return 0 ;;
+            K)    CONFLICT_APPLY=keep; CONFLICT_ANSWER_ACTION=keep; return 0 ;;
+            t)    CONFLICT_ANSWER_ACTION=take; return 0 ;;
+            T)    CONFLICT_APPLY=take; CONFLICT_ANSWER_ACTION=take; return 0 ;;
+            s)    CONFLICT_ANSWER_ACTION=new; return 0 ;;
+            i)    CONFLICT_ANSWER_ACTION=ignore; return 0 ;;
+            q)    CONFLICT_ANSWER_ACTION=quit; return 0 ;;
+            *)    echo -e "  ${RED}Enter, k, t, s, i, K, T or q.${NC}" ;;
+        esac
+    done
+}
+
 handle_conflict() {
     local repo_file="$1" home_file="$2"
     local action="${3:-$ON_CONFLICT}"
     CONFLICT_WROTE=false
 
-    if [[ "$action" != "ask" ]]; then
-        case "$action" in
-            replace) cp -p "$repo_file" "$home_file"; CONFLICT_WROTE=true; log "Replaced: $home_file" ;;
-            keep)    echo -e "  ${BLUE}Kept:${NC} $home_file" ;;
-            backup)
-                local dir base
-                dir=$(dirname "$home_file"); base=$(basename "$home_file")
-                mv "$home_file" "${dir}/${base}.old"
-                cp -p "$repo_file" "$home_file"
-                CONFLICT_WROTE=true
-                log "Backed up → ${base}.old, replaced" ;;
-            new)
-                local dir base
-                dir=$(dirname "$home_file"); base=$(basename "$home_file")
-                cp -p "$repo_file" "${dir}/${base}.new"
-                echo -e "  ${YELLOW}Saved:${NC} repo as ${base}.new, kept local" ;;
-        esac
-        return
+    if [[ "$action" == "ask" ]]; then
+        if [[ "$CONFLICT_QUIT" == true ]]; then
+            return 0
+        elif [[ -n "$CONFLICT_APPLY" ]]; then
+            action="$CONFLICT_APPLY"
+        else
+            _ask_conflict "$repo_file" "$home_file"
+            action="$CONFLICT_ANSWER_ACTION"
+            if [[ "$action" == "quit" ]]; then
+                CONFLICT_QUIT=true
+                warn "Stopped at your request; remaining conflicts left as they are."
+                return 0
+            fi
+        fi
     fi
 
-    # Interactive prompt
-    echo ""
-    echo -e "${YELLOW}┌─ Conflict:${NC} ${BOLD}$home_file${NC}"
-    echo -e "${YELLOW}│${NC}  Repository version differs from your local file."
-    while true; do
-        echo -e "${YELLOW}└─${NC} Choose:"
-        echo -e "  ${GREEN}1${NC}) Replace with repo version"
-        echo -e "  ${GREEN}2${NC}) Keep local file"
-        echo -e "  ${GREEN}3${NC}) Backup → .old, then replace"
-        echo -e "  ${GREEN}4${NC}) Save repo as .new, keep local"
-        echo -e "  ${GREEN}5${NC}) Show diff"
-        echo -e "  ${GREEN}6${NC}) Skip"
-        echo -e "  ${GREEN}7${NC}) Add to .updateignore & skip"
-        local choice
-        read -r -p "  → " choice < /dev/tty
-        case "$choice" in
-            1) handle_conflict "$repo_file" "$home_file" "replace"; break ;;
-            2) handle_conflict "$repo_file" "$home_file" "keep"; break ;;
-            3) handle_conflict "$repo_file" "$home_file" "backup"; break ;;
-            4) handle_conflict "$repo_file" "$home_file" "new"; break ;;
-            5) echo ""; diff -u "$home_file" "$repo_file" || true; echo "" ;;
-            6) echo -e "  ${BLUE}Skipped:${NC} $home_file"; break ;;
-            7)
-                local ignore_file="$HOME/.updateignore"
-                echo "$home_file" >> "$ignore_file"
-                IGNORE_PATTERNS+=("$home_file")
-                echo -e "  ${GREEN}Ignored:${NC} added '$home_file' to ~/.updateignore"
-                break
-                ;;
-            *) echo -e "  ${RED}Invalid. Enter 1-7.${NC}" ;;
-        esac
-    done
+    local dir base bak
+    case "$action" in
+        replace|take)
+            bak=$(_backup_path "$home_file")
+            cp -p "$home_file" "$bak"
+            cp -p "$repo_file" "$home_file"
+            CONFLICT_WROTE=true
+            STAT_TAKEN=$((STAT_TAKEN + 1))
+            log "Replaced: $home_file (backup: $(basename "$bak"))" ;;
+        keep)
+            echo -e "  ${BLUE}Kept:${NC} $home_file"
+            STAT_KEPT=$((STAT_KEPT + 1)) ;;
+        backup)
+            dir=$(dirname "$home_file"); base=$(basename "$home_file")
+            mv "$home_file" "${dir}/${base}.old"
+            cp -p "$repo_file" "$home_file"
+            CONFLICT_WROTE=true
+            STAT_TAKEN=$((STAT_TAKEN + 1))
+            log "Backed up → ${base}.old, replaced" ;;
+        new)
+            dir=$(dirname "$home_file"); base=$(basename "$home_file")
+            cp -p "$repo_file" "${dir}/${base}.new"
+            STAT_KEPT=$((STAT_KEPT + 1))
+            echo -e "  ${YELLOW}Saved:${NC} repo as ${base}.new, kept local" ;;
+        ignore)
+            echo "$home_file" >> "$HOME/.updateignore"
+            IGNORE_PATTERNS+=("$home_file")
+            STAT_IGNORED=$((STAT_IGNORED + 1))
+            echo -e "  ${GREEN}Ignored:${NC} added '$home_file' to ~/.updateignore" ;;
+    esac
 }
 
 # ── The one deploy path ──────────────────────────────────────────────────────
 # Merges repo → dst. Conflict modes via ON_CONFLICT; DRY_RUN prints only;
-# FORCE skips the mtime heuristic. Records managed rel-paths in DEPLOYED_RELS.
+# FORCE skips the baseline check. Records managed rel-paths in DEPLOYED_RELS.
 # NOTE: uses process substitution (not a pipe) so DEPLOYED_RELS survives.
 DEPLOYED_RELS=()       # rel-paths written/confirmed by the last deploy_tree call
 DEPLOYED_WRITTEN=()    # subset of those we actually (over)wrote THIS run
 DEPLOY_EXCLUDES=(-not -path "*/build/*" -not -path "*/upstream/*" -not -path "*/plugin/*" -not -path "*/.git*")
+
+# ── Baseline: "did the user touch this file since we deployed it?" ──────────
+# Preferred signal is the sha256 recorded at deploy time; manifests written by
+# older versions carry only the target's mtime, which works just as well for
+# "unchanged since deploy" (cp -p preserves the deployed mtime).
+# NOTE: declare -g — these are sourced from inside functions (tests, and
+# source_scripts), and a plain `declare -A` would be local to the caller.
+declare -gA BASE_HASH=()
+declare -gA BASE_MTIME=()
+
+_file_hash() { # $1 = path → sha256 hex, or empty when sha256sum is unavailable
+    command -v sha256sum >/dev/null 2>&1 || return 0
+    sha256sum "$1" 2>/dev/null | cut -d' ' -f1
+}
+
+_load_baselines() { # $1 = dst
+    BASE_HASH=(); BASE_MTIME=()
+    local mf="$1/.deploy-manifest" rel mt h
+    [[ -f "$mf" ]] || return 0
+    while IFS=$'\t' read -r rel mt h; do
+        [[ -z "$rel" ]] && continue
+        BASE_MTIME["$rel"]="$mt"
+        [[ -n "${h:-}" ]] && BASE_HASH["$rel"]="$h"
+    done < "$mf"
+    return 0
+}
+
+# 0 = content still exactly what we deployed (safe to update without asking).
+_untouched_since_deploy() { # $1=rel $2=target $3=repo_file
+    local rel="$1" target="$2" repo_file="$3" h rm tm
+    if [[ -n "${BASE_HASH[$rel]:-}" ]]; then
+        h=$(_file_hash "$target")
+        [[ -n "$h" && "$h" == "${BASE_HASH[$rel]}" ]]
+        return
+    fi
+    if [[ -n "${BASE_MTIME[$rel]:-}" ]]; then
+        [[ "$(stat -c %y "$target" 2>/dev/null || echo 0)" == "${BASE_MTIME[$rel]}" ]]
+        return
+    fi
+    # No baseline at all (manifest from before hashes, file we never deployed):
+    # fall back to the old "newer mtime wins" rule so this upgrade stays safe.
+    rm=$(stat -c %Y "$repo_file" 2>/dev/null || echo 0)
+    tm=$(stat -c %Y "$target" 2>/dev/null || echo 0)
+    [[ "$tm" -le "$rm" ]]
+}
+
+report_update_summary() {
+    local parts=()
+    [[ "$STAT_ADDED" -gt 0 ]] && parts+=("$STAT_ADDED added")
+    [[ "$STAT_UPDATED" -gt 0 ]] && parts+=("$STAT_UPDATED updated")
+    [[ "$STAT_KEPT" -gt 0 ]] && parts+=("$STAT_KEPT kept")
+    [[ "$STAT_TAKEN" -gt 0 ]] && parts+=("$STAT_TAKEN taken (backups kept)")
+    [[ "$STAT_IGNORED" -gt 0 ]] && parts+=("$STAT_IGNORED ignored")
+    [[ "${#parts[@]}" -eq 0 ]] && return 0
+    echo ""
+    echo -e "  ${BOLD}Summary:${NC} $(IFS=', '; echo "${parts[*]}")"
+}
+
 deploy_tree() {
     local src="$1" dst="$2"
     shift 2
@@ -376,65 +499,88 @@ deploy_tree() {
     DEPLOYED_WRITTEN=()
     [[ "$DRY_RUN" != true ]] && mkdir -p "$dst"
 
-    local repo_file rel target repo_mtime target_mtime
+    _load_baselines "$dst"
+
+    local repo_file rel target
+    local -a new_rels=() upd_rels=() conf_rels=()
     while IFS= read -r repo_file; do
         rel="${repo_file#"$src"/}"
         target="$dst/$rel"
-
         should_ignore "$rel" "$target" && continue
         DEPLOYED_RELS+=("$rel")
-        [[ "$DRY_RUN" != true ]] && mkdir -p "$(dirname "$target")"
-
         if [[ ! -f "$target" ]]; then
-            if [[ "$DRY_RUN" == true ]]; then
-                echo -e "  ${BLUE}[dry-run]${NC} Would create: $target"
-                continue
-            fi
-            cp -p "$repo_file" "$target"
-            DEPLOYED_WRITTEN+=("$rel")
-            continue
-        fi
-
-        cmp -s "$repo_file" "$target" 2>/dev/null && continue
-
-        if [[ "$FORCE" == true ]]; then
-            if [[ "$DRY_RUN" == true ]]; then
-                echo -e "  ${BLUE}[dry-run]${NC} Would replace: $target"
-                continue
-            fi
-            cp -p "$repo_file" "$target"
-            DEPLOYED_WRITTEN+=("$rel")
-            continue
-        fi
-
-        repo_mtime=$(stat -c %Y "$repo_file" 2>/dev/null || echo 0)
-        target_mtime=$(stat -c %Y "$target" 2>/dev/null || echo 0)
-        if [[ "$target_mtime" -le "$repo_mtime" ]]; then
-            if [[ "$DRY_RUN" == true ]]; then
-                echo -e "  ${BLUE}[dry-run]${NC} Would update: $target"
-                continue
-            fi
-            cp -p "$repo_file" "$target"
-            DEPLOYED_WRITTEN+=("$rel")
+            new_rels+=("$rel")
+        elif cmp -s "$repo_file" "$target" 2>/dev/null; then
+            : # identical — the manifest carries the existing baseline forward
+        elif [[ "$FORCE" == true ]] || _untouched_since_deploy "$rel" "$target" "$repo_file"; then
+            upd_rels+=("$rel")
         else
-            if [[ "$DRY_RUN" == true ]]; then
-                echo -e "  ${YELLOW}[dry-run]${NC} Would conflict: $target"
-                continue
-            fi
-            handle_conflict "$repo_file" "$target"
-            if [[ "$CONFLICT_WROTE" == true ]]; then
-                DEPLOYED_WRITTEN+=("$rel")
-            fi
+            conf_rels+=("$rel")
         fi
     done < <(find "$src" -type f "${find_excludes[@]}" 2>/dev/null)
+
+    # Say what is about to happen before asking anything.
+    if [[ "$ON_CONFLICT" == "ask" && "$DRY_RUN" != true && "${#conf_rels[@]}" -gt 0 ]]; then
+        local plan="" need="need"
+        [[ "${#new_rels[@]}" -gt 0 ]] && plan+="${#new_rels[@]} new, "
+        [[ "${#upd_rels[@]}" -gt 0 ]] && plan+="${#upd_rels[@]} updated, "
+        [[ "${#conf_rels[@]}" -eq 1 ]] && need="needs"
+        echo -e "  ${YELLOW}This update:${NC} ${plan}${#conf_rels[@]} ${need} your call"
+    fi
+
+    # Additions and safe updates first: quitting at a conflict never leaves
+    # the run half-applied for files that needed no decision.
+    for rel in ${new_rels[@]+"${new_rels[@]}"}; do
+        target="$dst/$rel"
+        if [[ "$DRY_RUN" == true ]]; then
+            echo -e "  ${BLUE}[dry-run]${NC} Would create: $target"
+            continue
+        fi
+        mkdir -p "$(dirname "$target")"
+        cp -p "$src/$rel" "$target"
+        DEPLOYED_WRITTEN+=("$rel")
+        STAT_ADDED=$((STAT_ADDED + 1))
+    done
+
+    for rel in ${upd_rels[@]+"${upd_rels[@]}"}; do
+        target="$dst/$rel"
+        if [[ "$DRY_RUN" == true ]]; then
+            if [[ "$FORCE" == true ]]; then
+                echo -e "  ${BLUE}[dry-run]${NC} Would replace: $target"
+            else
+                echo -e "  ${BLUE}[dry-run]${NC} Would update: $target"
+            fi
+            continue
+        fi
+        mkdir -p "$(dirname "$target")"
+        cp -p "$src/$rel" "$target"
+        DEPLOYED_WRITTEN+=("$rel")
+        STAT_UPDATED=$((STAT_UPDATED + 1))
+    done
+
+    CONFLICT_TOTAL=${#conf_rels[@]}
+    CONFLICT_INDEX=0
+    for rel in ${conf_rels[@]+"${conf_rels[@]}"}; do
+        CONFLICT_INDEX=$((CONFLICT_INDEX + 1))
+        target="$dst/$rel"
+        if [[ "$DRY_RUN" == true ]]; then
+            echo -e "  ${YELLOW}[dry-run]${NC} Would conflict: $target"
+            continue
+        fi
+        handle_conflict "$src/$rel" "$target"
+        [[ "$CONFLICT_WROTE" == true ]] && DEPLOYED_WRITTEN+=("$rel")
+        [[ "$CONFLICT_QUIT" == true ]] && break
+    done
+    return 0
 }
 
 # ── Deploy manifest: enables safe pruning of repo-deleted files ─────────────
-# Format: one "rel<TAB>mtime" line per managed file. mtime is the target's
-# stat %y (nanosecond precision) right after we wrote it — prune deletes only
-# when mtime still matches (i.e. the user never touched the file since our
-# deploy). NOTE: %y, not %Y — second granularity would treat a same-second
-# user edit as "untouched" and prune it, breaking prune safety.
+# Format: one "rel<TAB>mtime<TAB>sha256" line per managed file (older manifests
+# have two fields). mtime is the target's stat %y right after we wrote it —
+# prune deletes only when it still matches (i.e. the user never touched the
+# file since our deploy). NOTE: %y, not %Y — second granularity would treat a
+# same-second user edit as "untouched" and prune it, breaking prune safety.
+# sha256 is the baseline deploy_tree uses to tell "your edit" from "our file".
 MANIFEST_PRIOR=""
 
 manifest_begin() {
@@ -463,16 +609,17 @@ manifest_finish() {
     # prior manifest entry forward. A pre-existing file we never wrote and have
     # no record of is NOT ours → leave it out entirely so pruning can never
     # touch it (first-sighting baselines used to bless user edits as ours).
-    local -A prior_map=()
+    local -A prior_map=() prior_hash=()
     if [[ -n "$MANIFEST_PRIOR" && -f "$MANIFEST_PRIOR" ]]; then
-        local pr_rel pr_mtime
-        while IFS=$'\t' read -r pr_rel pr_mtime; do
+        local pr_rel pr_mtime pr_hash
+        while IFS=$'\t' read -r pr_rel pr_mtime pr_hash; do
             [[ -z "$pr_rel" ]] && continue
             prior_map["$pr_rel"]="$pr_mtime"
+            [[ -n "${pr_hash:-}" ]] && prior_hash["$pr_rel"]="$pr_hash"
         done < "$MANIFEST_PRIOR"
     fi
 
-    local rel target w written mtime
+    local rel target w written mtime h
     for rel in ${DEPLOYED_RELS[@]+"${DEPLOYED_RELS[@]}"}; do
         target="$dst/$rel"
         [[ -f "$target" ]] || continue
@@ -481,14 +628,23 @@ manifest_finish() {
         for w in ${DEPLOYED_WRITTEN[@]+"${DEPLOYED_WRITTEN[@]}"}; do
             [[ "$w" == "$rel" ]] && { written=true; break; }
         done
+        h=""
         if [[ "$written" == true ]]; then
             mtime=$(stat -c %y "$target" 2>/dev/null || echo 0)
+            h=$(_file_hash "$target")
         elif [[ -n "${prior_map[$rel]+x}" ]]; then
             mtime="${prior_map[$rel]}"
+            # Never re-bless an untouched-by-us file with a hash of the user's
+            # edit: carry the prior hash, or keep the legacy mtime-only line.
+            h="${prior_hash[$rel]:-}"
         else
             continue
         fi
-        printf '%s\t%s\n' "$rel" "$mtime" >> "$tmp_manifest"
+        if [[ -n "$h" ]]; then
+            printf '%s\t%s\t%s\n' "$rel" "$mtime" "$h" >> "$tmp_manifest"
+        else
+            printf '%s\t%s\n' "$rel" "$mtime" >> "$tmp_manifest"
+        fi
     done
     if [[ -n "$MANIFEST_PRIOR" && -f "$MANIFEST_PRIOR" ]]; then
         prune_stale "$dst" "$MANIFEST_PRIOR" "$tmp_manifest"
@@ -502,13 +658,13 @@ prune_stale() {
     [[ "$NO_PRUNE" == true ]] && return 0
     [[ -f "$prior" ]] || return 0
 
-    local p_rel p_mtime target c_rel c_dummy c_found now_mtime
-    while IFS=$'\t' read -r p_rel p_mtime; do
+    local p_rel p_mtime p_hash target c_rel c_dummy c_rest c_found now_mtime
+    while IFS=$'\t' read -r p_rel p_mtime p_hash; do
         [[ -z "$p_rel" ]] && continue
         # Still produced by this run's deploy? Then nothing to do.
         c_found=false
         if [[ -n "$current" && -f "$current" ]]; then
-            while IFS=$'\t' read -r c_rel c_dummy; do
+            while IFS=$'\t' read -r c_rel c_dummy c_rest; do
                 [[ "$c_rel" == "$p_rel" ]] && { c_found=true; break; }
             done < "$current"
         else
@@ -1348,6 +1504,9 @@ cmd_update() {
     echo "═══════════════════════════════════════════════════════════════"
     echo ""
 
+    STAT_ADDED=0; STAT_UPDATED=0; STAT_KEPT=0; STAT_TAKEN=0; STAT_IGNORED=0
+    CONFLICT_APPLY=""; CONFLICT_QUIT=false
+
     detect_sections
     [[ "$SECTION_HYPRLAND" == true ]] && log "Detected: Hyprland config" || warn "Not found: Hyprland config (~/.config/hypr/hyprland) — skipping"
     [[ "$SECTION_QUICKSHELL" == true ]] && log "Detected: Quickshell config" || warn "Not found: Quickshell config (~/.config/quickshell/caelestia) — skipping"
@@ -1381,6 +1540,7 @@ cmd_update() {
         log "Reloading Hyprland..."
         hyprctl reload &>/dev/null || true
     fi
+    report_update_summary
     log "Update complete!"
 }
 

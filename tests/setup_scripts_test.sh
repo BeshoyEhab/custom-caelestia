@@ -632,6 +632,151 @@ t_update_honours_updateignore_single_files() {
     rm -rf "$tmp"
 }
 
+# ── Update conflicts: content baseline, prompt, backups, summary ────────────
+# A deploy that also writes the manifest, so the next run has a baseline.
+_deploy_manifested() { # $1=src $2=dst
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false NO_PRUNE=false
+        manifest_begin "$2"; deploy_tree "$1" "$2"; manifest_finish "$2"
+    ) >/dev/null
+}
+
+# Bounded so a prompt that ignores CONFLICT_INPUT fails instead of blocking.
+_run_prompt() { # $1=repo_file $2=home_file $3=answers → combined output
+    timeout 15 bash -c '
+        CI_TEST=true source "$1/install.sh" >/dev/null 2>&1
+        ON_CONFLICT=ask DRY_RUN=false FORCE=false CONFLICT_INPUT="$4"
+        handle_conflict "$2" "$3"
+    ' _ "$SCRIPTS_DIR" "$1" "$2" "$3" 2>&1
+}
+
+t_conflict_prompt_enter_keeps() {
+    local tmp out rc; tmp=$(mktemp -d); mkdir -p "$tmp/home"
+    printf '\n' > "$tmp/answers"
+    echo "v2 from repo" > "$tmp/repo.txt"; echo "mine" > "$tmp/home/f.txt"
+    out=$(_run_prompt "$tmp/repo.txt" "$tmp/home/f.txt" "$tmp/answers"); rc=$?
+    [[ "$rc" -eq 0 ]] \
+        && ok "conflict prompt: returns after one answer" \
+        || bad "conflict prompt: returns after one answer (rc=$rc, timed out?)"
+    [[ "$(cat "$tmp/home/f.txt")" == "mine" ]] \
+        && ok "conflict prompt: Enter keeps the local file" \
+        || bad "conflict prompt: Enter keeps the local file (got: $(cat "$tmp/home/f.txt"))"
+    grep -q '+++ repo' <<<"$out" \
+        && ok "conflict prompt: shows the diff without a keystroke" \
+        || bad "conflict prompt: shows the diff without a keystroke (got: $(head -3 <<<"$out" | tr '\n' '|'))"
+    rm -rf "$tmp"
+}
+
+t_conflict_prompt_take_backs_up() {
+    local tmp bak rc; tmp=$(mktemp -d); mkdir -p "$tmp/home"
+    printf 't\n' > "$tmp/answers"
+    echo "v2 from repo" > "$tmp/repo.txt"; echo "mine" > "$tmp/home/f.txt"
+    _run_prompt "$tmp/repo.txt" "$tmp/home/f.txt" "$tmp/answers" >/dev/null; rc=$?
+    [[ "$rc" -eq 0 ]] \
+        && ok "conflict prompt: take returns after one answer" \
+        || bad "conflict prompt: take returns after one answer (rc=$rc, timed out?)"
+    [[ "$(cat "$tmp/home/f.txt")" == "v2 from repo" ]] \
+        && ok "conflict prompt: t takes the repo version" \
+        || bad "conflict prompt: t takes the repo version (got: $(cat "$tmp/home/f.txt"))"
+    bak=$(ls "$tmp/home"/f.txt.bak-* 2>/dev/null | head -1)
+    [[ -n "$bak" && "$(cat "$bak")" == "mine" ]] \
+        && ok "conflict prompt: t keeps a timestamped backup" \
+        || bad "conflict prompt: t keeps a timestamped backup (bak=${bak:-none})"
+    rm -rf "$tmp"
+}
+
+t_conflict_prompt_bulk_keep() {
+    local tmp src dst out; tmp=$(mktemp -d); src=$tmp/repo/mods; dst=$tmp/home
+    mk_repo "$tmp/repo"; _deploy_manifested "$src" "$dst"
+    echo "mine-a" >> "$dst/a/f.txt"; echo "mine-b" >> "$dst/b/g.txt"
+    echo "v2" > "$src/a/f.txt";       echo "v2" > "$src/b/g.txt"
+    printf 'K\n' > "$tmp/answers"
+    out=$(CONFLICT_INPUT="$tmp/answers" timeout 15 bash -c '
+        CI_TEST=true source "$1/install.sh" >/dev/null 2>&1
+        ON_CONFLICT=ask DRY_RUN=false FORCE=false
+        deploy_tree "$2" "$3"
+    ' _ "$SCRIPTS_DIR" "$src" "$dst" 2>&1)
+    [[ "$(cat "$dst/a/f.txt")" == *"mine-a"* && "$(cat "$dst/b/g.txt")" == *"mine-b"* ]] \
+        && ok "conflict prompt: K keeps every remaining file" \
+        || bad "conflict prompt: K keeps every remaining file"
+    [[ "$(grep -c 'Conflict' <<<"$out")" -eq 1 ]] \
+        && ok "conflict prompt: bulk answer asks only once" \
+        || bad "conflict prompt: bulk answer asks only once (asked $(grep -c 'Conflict' <<<"$out")x)"
+    rm -rf "$tmp"
+}
+
+t_baseline_untouched_updates_despite_newer_mtime() {
+    # Content is unchanged since deploy; the old mtime rule asked here.
+    local tmp src dst; tmp=$(mktemp -d); src=$tmp/repo/mods; dst=$tmp/home
+    mk_repo "$tmp/repo"; _deploy_manifested "$src" "$dst"
+    echo "v2" > "$src/a/f.txt"
+    touch -d "2030-01-01" "$dst/a/f.txt"      # metadata only, content untouched
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false
+        deploy_tree "$src" "$dst"
+    ) >/dev/null
+    [[ "$(cat "$dst/a/f.txt")" == "v2" ]] \
+        && ok "untouched file updates despite a newer mtime" \
+        || bad "untouched file updates despite a newer mtime (got: $(cat "$dst/a/f.txt"))"
+    rm -rf "$tmp"
+}
+
+t_baseline_edited_kept_despite_older_mtime() {
+    # The old mtime rule silently overwrote an older edit.
+    local tmp src dst; tmp=$(mktemp -d); src=$tmp/repo/mods; dst=$tmp/home
+    mk_repo "$tmp/repo"; _deploy_manifested "$src" "$dst"
+    echo "mine" >> "$dst/a/f.txt"
+    touch -d "2020-01-01" "$dst/a/f.txt"      # edited, but older than the new repo file
+    echo "v2" > "$src/a/f.txt"
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false
+        deploy_tree "$src" "$dst"
+    ) >/dev/null
+    [[ "$(cat "$dst/a/f.txt")" == *"mine"* ]] \
+        && ok "edited file is kept despite an older mtime" \
+        || bad "edited file is kept despite an older mtime (got: $(cat "$dst/a/f.txt"))"
+    rm -rf "$tmp"
+}
+
+t_baseline_legacy_manifest_uses_recorded_mtime() {
+    # Two-column manifests (pre-hash) carry the deploy-time mtime; a matching
+    # mtime means the user never touched the file, so it updates quietly.
+    local tmp src dst rel mt; tmp=$(mktemp -d); src=$tmp/repo/mods; dst=$tmp/home
+    mk_repo "$tmp/repo"; _deploy_manifested "$src" "$dst"
+    rel="a/f.txt"
+    touch -d "2030-01-01" "$dst/a/f.txt"       # untouched, but newer than the repo file
+    mt=$(stat -c %y "$dst/a/f.txt")
+    printf '%s\t%s\n' "$rel" "$mt" > "$dst/.deploy-manifest"   # drop the hash column
+    echo "v2" > "$src/a/f.txt"
+    (
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false
+        deploy_tree "$src" "$dst"
+    ) >/dev/null
+    [[ "$(cat "$dst/a/f.txt")" == "v2" ]] \
+        && ok "legacy manifest mtime baseline still updates untouched files" \
+        || bad "legacy manifest mtime baseline still updates untouched files (got: $(cat "$dst/a/f.txt"))"
+    rm -rf "$tmp"
+}
+
+t_deploy_summary_counts() {
+    local tmp src dst out; tmp=$(mktemp -d); src=$tmp/repo/mods; dst=$tmp/home
+    mk_repo "$tmp/repo"
+    out=$(
+        source_scripts
+        ON_CONFLICT=keep DRY_RUN=false FORCE=false NO_PRUNE=false
+        manifest_begin "$dst"; deploy_tree "$src" "$dst"; manifest_finish "$dst"
+        report_update_summary
+    )
+    grep -q '2 added' <<<"$out" \
+        && ok "update summary reports added files" \
+        || bad "update summary reports added files (got: ${out:-nothing})"
+    rm -rf "$tmp"
+}
+
 main() {
     t_syntax; t_help; t_check_shape; t_check_exit; t_stub_parity; t_bare_defaults_update
     t_deploy_new_and_update; t_conflict_keep_and_replace; t_dry_run_touches_nothing; t_excludes_respected
@@ -645,6 +790,10 @@ main() {
     t_bare_no_install_routes_install; t_update_build_keeps_update_mode
     t_update_updates_handrolled_files; t_prune_never_blesses_unwritten
     t_update_honours_updateignore_single_files
+    t_conflict_prompt_enter_keeps; t_conflict_prompt_take_backs_up
+    t_conflict_prompt_bulk_keep; t_baseline_untouched_updates_despite_newer_mtime
+    t_baseline_edited_kept_despite_older_mtime; t_baseline_legacy_manifest_uses_recorded_mtime
+    t_deploy_summary_counts
     echo ""; echo "RESULT: $PASS passed, $FAIL failed"
     [[ "$FAIL" -eq 0 ]]
 }
