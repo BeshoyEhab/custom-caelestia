@@ -9,6 +9,8 @@
 custom/
 monitors.lua
 monitors.conf
+workspaces.lua
+workspaces.conf
 
 # ── Caelestia config ─────────────────────────────────────────
 # User-specific theme/shell settings (monitors, theme, etc.)

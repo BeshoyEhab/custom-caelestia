@@ -51,7 +51,9 @@ function pickMain(all, preferred) {
     const monitors = all || [];
     const usable = monitors.filter(m => !m.disabled);
     if (preferred) {
-        const match = usable.find(m => m.name === preferred);
+        // The stored main may be temporarily switched off ("second only");
+        // keep it as the main so the state reads back as second-only.
+        const match = monitors.find(m => m.name === preferred);
         if (match)
             return match.name;
     }
@@ -74,7 +76,10 @@ function detectMode(all, mainName) {
 
     const main = active.find(m => m.name === mainName) || active[0];
     const others = active.filter(m => m.name !== main.name);
-    if (others.every(o => o.mirrorOf === main.name))
+    // hyprctl reports mirrorOf as the target monitor's ID (string), not its
+    // name, so accept both forms.
+    const mirrorsMain = o => o.mirrorOf === main.name || (main.id !== undefined && String(o.mirrorOf) === String(main.id));
+    if (others.every(mirrorsMain))
         return "duplicate";
     return "extend";
 }
@@ -222,12 +227,20 @@ function parseWorkspaceRules(text) {
 function mergeWorkspaceRule(rules, next) {
     const kept = [];
     for (const rule of rules || []) {
+        // Replace the rule for the same workspace, and drop whatever default
+        // workspace this monitor previously owned (otherwise changing the pin
+        // leaves the old workspace glued to the monitor).
         if (rule.workspace === next.workspace)
             continue;
-        if (next.isDefault && rule.monitor === next.monitor)
-            kept.push({ ...rule, isDefault: false });
-        else
+        if (next.isDefault && rule.monitor === next.monitor && rule.isDefault)
+            continue;
+        if (next.isDefault && rule.monitor === next.monitor) {
+            const cleared = Object.assign({}, rule);
+            cleared.isDefault = false;
+            kept.push(cleared);
+        } else {
             kept.push(rule);
+        }
     }
     kept.push(next);
     return kept;

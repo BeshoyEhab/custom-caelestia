@@ -63,6 +63,10 @@ Singleton {
     }
 
     function setMode(next: string): void {
+        if (!preferredMain && mainName) {
+            preferredMain = mainName;
+            saveState();
+        }
         if (!canProject) {
             lastError = "No second display detected";
             return;
@@ -77,13 +81,17 @@ Singleton {
     }
 
     function setMain(name: string): void {
-        if (!monitors.some(m => m.name === name && !m.disabled))
+        // Disabled monitors are valid targets: choosing one is how the user
+        // gets back from "second only".
+        if (!monitors.some(m => m.name === name))
             return;
         if (preferredSecondary === name)
             preferredSecondary = "";
         preferredMain = name;
         saveState();
-        apply();
+        // "Second only" means the new main was switched off; choosing it as
+        // main must turn it back on instead of re-applying second-only.
+        apply(mode === "second" ? "main" : undefined);
     }
 
     function setSecondary(name: string): void {
@@ -116,9 +124,15 @@ Singleton {
         const parsed = DMath.parseModes([mode])[0];
         if (!parsed)
             return;
-        monitors = monitors.map(m => m.name === name
-            ? { ...m, width: parsed.width, height: parsed.height, refresh: parsed.refresh }
-            : m);
+        monitors = monitors.map(m => {
+            if (m.name !== name)
+                return m;
+            const next = Object.assign({}, m);
+            next.width = parsed.width;
+            next.height = parsed.height;
+            next.refresh = parsed.refresh;
+            return next;
+        });
         apply();
     }
 
@@ -173,6 +187,7 @@ Singleton {
                 try {
                     const raw = JSON.parse(text);
                     root.monitors = raw.map(m => ({
+                        id: m.id,
                         name: m.name,
                         description: m.description ?? "",
                         width: m.width ?? 0,

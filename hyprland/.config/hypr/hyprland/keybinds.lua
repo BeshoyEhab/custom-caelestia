@@ -28,6 +28,8 @@ hl.bind("CTRL + ALT + Delete", hl.dsp.global("caelestia:session"), { description
 hl.bind("SHIFT + F7", hl.dsp.exec_cmd(qsIpcCall .. " presentationMode toggle"), { description = "Shell: Toggle presentation mode" })
 -- Bar (toggle via IPC)
 hl.bind("SUPER + J", hl.dsp.exec_cmd("qs -c $qsConfig ipc call drawers toggle bar"), { description = "Shell: Toggle bar" })
+-- Displays (mirror / extend / main screen)
+hl.bind("SUPER + P", hl.dsp.global("caelestia:displays"), { description = "Display: Open display switcher" })
 -- OSD (toggle via IPC)
 hl.bind("SUPER + Slash", hl.dsp.exec_cmd("qs -c $qsConfig ipc call drawers toggle osd"), { description = "Shell: Toggle OSD" })
 -- Restart widgets

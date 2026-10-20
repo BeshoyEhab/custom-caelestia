@@ -77,9 +77,9 @@ hl.bind("XF86AudioMicMute", hl.dsp.exec_cmd(SCRIPTS .. "/mic"), { locked = true 
 -- Webcam toggle
 hl.bind("XF86WebCam", hl.dsp.exec_cmd(SCRIPTS .. "/camera"))
 
--- Screen mirror toggle (SUPER+P, was pin in defaults)
+-- Display switcher (SUPER+P): mirror / extend / main screen + workspace pin
 hl.unbind("SUPER + P")
-hl.bind("SUPER + P", hl.dsp.exec_cmd(SCRIPTS .. "/toggle-mirror.sh"))
+hl.bind("SUPER + P", hl.dsp.global("caelestia:displays"), { description = "Display: Open display switcher" })
 
 -- Reboot shortcut
 hl.unbind("SUPER + SHIFT + CTRL + R")
