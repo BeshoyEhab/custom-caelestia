@@ -139,6 +139,17 @@ for file in "${all_bar_files[@]}"; do
 done
 [[ $missing -eq 0 ]] && pass "All $(( ${#all_bar_files[@]} )) bar component files exist"
 
+# ── 6. Displays service contract ─────────────────────────────────────────────
+SVC="$SHELL_DIR/services/Displays.qml"
+if [[ -f "$SVC" ]]; then
+    for needle in "pragma Singleton" "hyprctl" "monitors.lua" "workspaces.lua" "reload" "DisplayMath"; do
+        grep -q -- "$needle" "$SVC" || fail "Displays.qml missing '$needle'"
+    done
+    pass "Displays service contract"
+else
+    fail "Missing Displays service (shell/services/Displays.qml)"
+fi
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo "qml_test: $PASS passed, $FAIL failed"
