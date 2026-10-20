@@ -69,7 +69,48 @@ The bar uses an `Item` root with a split layout (`topLayout` + `bottomLayout` + 
 5. **BarWrapper has no `implicitHeight`** — it gets its height from parent anchors (top+bottom for vertical, left+right for horizontal).
 6. **`Tokens.sizes.bar.innerWidth`** is the content width; `contentWidth = innerWidth + padding*2`.
 
-### Captive portal / portal Wi-Fi
+### Display switcher (SUPER+P)
+
+Windows-style projection picker: main screen, duplicate, extend (left/right/up/down of the main), second-screen-only, plus a workspace pin.
+
+| File | Purpose |
+|---|---|
+| `shell/services/Displays.qml` | Singleton: refresh from `hyprctl monitors all -j`, apply, heal, persistence |
+| `shell/services/DisplayMath.js` | Pure layout math, Lua generation, `healRules`, `keepsAPhysicalOutput`, `isVirtual` |
+| `shell/modules/displays/DisplaySwitcher.qml` | Layer-shell popup, IPC target `displays` |
+| `tests/display_math_test.js` | Node suite (wrapped by `tests/display_math_test.sh`) |
+| `tests/displays_e2e_test.sh` | Opt-in live test (`DISPLAYS_E2E=1`), creates a headless output |
+
+Writes the same files as nwg-displays 0.4.3 so both tools share state:
+`~/.config/hypr/monitors.lua` (`hl.monitor({...})`), `~/.config/hypr/workspaces.lua` (`hl.workspace_rule({...})`), and `~/.config/caelestia/displays.json` (`{main, secondary, workspace, placement}`).
+
+Rules that must not regress:
+
+1. **Apply with `hyprctl eval`, never `hyprctl reload`.** Reloading while a virtual output was disabled crashed Hyprland 0.56. The files are still written for the next login.
+2. **`keepsAPhysicalOutput()` guard.** Any layout that would leave only HEADLESS/FALLBACK enabled is refused with a visible message. A persisted "second only" on a transient virtual output left the next session with the panel disabled — that was the black-screen incident. `FALLBACK` is Hyprland's automatic output when every real output is off; treat it as virtual.
+3. **Startup `heal()`.** When no physical output is active (or the panel is enabled but 0x0), rewrite a safe layout and `hyprctl reload`. Reload is used only here, and the written file always keeps a physical panel on.
+4. `hyprctl keyword` does not work under the Lua parser; use `eval`/`dispatch`.
+5. `hyprctl monitors all -j` reports `mirrorOf` as the target monitor **ID string**, so mode detection compares both id and name.
+6. `setMode("main")` must work with a single display (it writes the file and prunes workspace pins for missing outputs).
+
+## Cheat sheet (SUPER+/)
+
+Dynamic sheet built from `hyprctl binds -j` (the OSD moved to SUPER+Shift+/).
+
+| File | Purpose |
+|---|---|
+| `shell/services/Keybinds.js` | Pure parser/grouping/filtering (`parseBinds`, `group`, `filterBinds`) |
+| `shell/services/KeybindsModel.qml` | Singleton state: groups, rows, query, `includeUnlabeled`, reload |
+| `shell/modules/cheatsheet/Cheatsheet.qml` | Window, IPC target `cheatsheet`, `configreloaded` refresh |
+| `shell/modules/cheatsheet/Content.qml` | Search field, category headers, keycap rows |
+| `tests/keybinds_parse_test.js` | Node suite (wrapped by `tests/keybinds_parse_test.sh`) |
+
+- Description prefix before `": "` is the category; binds without one go to `Unlabeled` and are **hidden by default** (toggle in the header).
+- Repetitive binds collapse: workspace 1-10 → `<Number>`, left/right/up/down → `<Direction>`, keeping only the first.
+- Hyprland reports `key: ""` for binds written as `code:<n>` (the loop-generated workspace binds); the parser recovers them from a trailing number in the description.
+- Keycaps use Windows-style labels (`⊞ Ctrl Alt Shift`) and must fit five slots in a 310px column. A `Repeater` over a JS array does not render, so the row spells out five `KeyCap` slots.
+
+## Captive portal / portal Wi-Fi
 
 **Symptom:** On cafe/hotel Wi-Fi the sign-in page never loads, NetworkManager never reports `PORTAL`, and the bar/Nexus offer no way to reach the login page.
 
@@ -240,6 +281,9 @@ Defaults: `custom/`, `monitors.lua`, `monitors.conf`, `shell.json`, `shell.json.
 |---|---|
 | `shell/services/Colours.qml` | Colour palette singleton |
 | `shell/services/CaptivePortal.qml` | Captive-portal helper singleton (probe chain, auto-open guard, IPC target `captivePortal`) |
+| `shell/services/Displays.qml` | Display layout service (SUPER+P), IPC target `displays` |
+| `shell/services/Keybinds.js` | Keybind parser used by the SUPER+/ cheat sheet |
+| `shell/modules/cheatsheet/` | Cheat sheet window and UI |
 | `hyprland/.config/hypr/hyprland/scripts/captive_portal_probe.sh` | Portal probe classifier — prints `online\|portal\|unknown <url> <http-status>`, exits `0\|1\|2` |
 | `hyprland/.config/hypr/hyprland/scripts/open_portal_browser.sh` | Portal sign-in launcher — preferred Brave app-window on a throwaway profile, `xdg-open` fallback, refuses non-http(s) URLs (exit 2) |
 | `system/resolved.conf.d/10-captive-portal.conf` | DoT drop-in (`DNSOverTLS=opportunistic`) installed into `/etc` by `deploy_system_config()` |

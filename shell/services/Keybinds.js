@@ -3,12 +3,13 @@
 // Turns `hyprctl binds -j` output into cheat-sheet groups. Pure functions so
 // the parser can be unit-tested with node (tests/keybinds_parse_test.js).
 
-// Hyprland modifier bits, in display order.
+// Hyprland modifier bits: [bit, plain name, keycap label]. Windows-style
+// keycaps: the Windows key glyph plus the labels printed on PC keyboards.
 const MODS = [
-    [64, "SUPER"],
-    [4, "CTRL"],
-    [8, "ALT"],
-    [1, "SHIFT"]
+    [64, "SUPER", "⊞"],
+    [4, "CTRL", "Ctrl"],
+    [8, "ALT", "Alt"],
+    [1, "SHIFT", "Shift"]
 ];
 
 const KEY_NAMES = {
@@ -32,8 +33,34 @@ const KEY_NAMES = {
     Home: "Home",
     End: "End",
     Insert: "Insert",
-    Delete: "Delete"
+    Delete: "Delete",
+    Left: "Left",
+    Right: "Right",
+    Up: "Up",
+    Down: "Down"
 };
+
+// Keycap glyphs: modifiers and navigation keys read faster as symbols.
+const KEY_SYMBOLS = Object.assign({}, KEY_NAMES, {
+    Space: "Space",
+    Return: "Enter",
+    Tab: "Tab",
+    Escape: "Esc",
+    Page_Up: "PgUp",
+    Page_Down: "PgDn",
+    Home: "Home",
+    End: "End",
+    Insert: "Ins",
+    Delete: "Del",
+    Backspace: "Backspace",
+    Left: "←",
+    Right: "→",
+    Up: "↑",
+    Down: "↓",
+    Print: "PrtSc",
+    Caps_Lock: "Caps",
+    Menu: "Menu"
+});
 
 const MOUSE_NAMES = {
     272: "Left Click",
@@ -43,7 +70,7 @@ const MOUSE_NAMES = {
     276: "Extra Click"
 };
 
-function keyLabel(key) {
+function keyLabel(key, symbols) {
     if (!key)
         return "";
     if (key.startsWith("mouse:")) {
@@ -52,18 +79,78 @@ function keyLabel(key) {
     }
     if (key.startsWith("code:"))
         return `Keycode ${key.slice(5)}`;
-    return KEY_NAMES[key] ?? key;
+    const map = symbols ? KEY_SYMBOLS : KEY_NAMES;
+    return map[key] ?? key;
 }
 
-function comboFor(bind) {
+function comboFor(bind, symbols) {
     const parts = [];
     const mask = Number(bind.modmask) || 0;
-    for (const [bit, name] of MODS) {
-        if (mask & bit)
-            parts.push(name);
+    for (const mod of MODS) {
+        if (mask & mod[0])
+            parts.push(symbols ? mod[2] : mod[1]);
     }
-    parts.push(keyLabel(String(bind.key ?? "")));
+    parts.push(keyLabel(String(bind.key ?? ""), symbols));
     return parts.filter(p => p.length > 0).join(" + ");
+}
+
+function keysFor(bind) {
+    const keys = [];
+    const mask = Number(bind.modmask) || 0;
+    for (const mod of MODS) {
+        if (mask & mod[0])
+            keys.push(mod[2]);
+    }
+    keys.push(keyLabel(String(bind.key ?? ""), true));
+    return keys.filter(k => k.length > 0);
+}
+
+// Hyprland reports an empty key for binds written with `code:<n>` (the
+// workspace 1-10 binds in this config are loop-generated that way). When the
+// description ends in a number we can still show the pair, collapsed.
+function numberedFallback(bind) {
+    const description = String(bind.description ?? "").trim();
+    const match = description.match(/\s(\d+)$/);
+    if (!match)
+        return null;
+    return {
+        key: "<Number>",
+        description: description.slice(0, match.index) + " <Number>"
+    };
+}
+
+// A bind that is only a variant of the one before it: workspace 2-0 next to
+// workspace 1, or right/up/down next to left. Showing all of them makes the
+// sheet unreadable; only the first is kept and its key is made generic.
+function isRepetitiveTail(bind) {
+    const key = String(bind.key ?? "");
+    if (/^(mouse|page)/i.test(key))
+        return false;
+    if (key === "<Number>")
+        return false;
+    if (/^[2-9]$/.test(key) || key === "0")
+        return true;
+    return /^(right|up|down)\b/i.test(key);
+}
+
+function isRepetitiveHead(bind) {
+    const key = String(bind.key ?? "");
+    return key === "1" || key === "<Number>" || /^left$/i.test(key);
+}
+
+function genericKey(key) {
+    return String(key ?? "").replace(/^1$/, "<Number>").replace(/^left$/i, "<Direction>");
+}
+
+function genericAction(action) {
+    return String(action ?? "")
+        .replace(/\b1\b/, "<Number>")
+        .replace(/\b(left|right|up|down)\b/i, "<Direction>");
+}
+
+function blankTo(value, fallback) {
+    const text = String(value ?? "");
+    return text.length > 0 ? text : fallback;
 }
 
 function splitDescription(description) {
@@ -77,7 +164,7 @@ function splitDescription(description) {
     };
 }
 
-function parseBinds(json) {
+function parseBinds(json, includeUnlabeled) {
     let raw;
     try {
         raw = JSON.parse(json);
@@ -93,14 +180,25 @@ function parseBinds(json) {
             continue;
         if (bind.submap)
             continue;
-        if (bind.has_description === false)
+
+        let key = String(bind.key ?? "");
+        let description = String(bind.description ?? "").trim();
+        if (!key) {
+            const fallback = description ? numberedFallback(bind) : null;
+            if (!fallback)
+                continue;
+            key = fallback.key;
+            description = fallback.description;
+        }
+        if (!description && !includeUnlabeled)
             continue;
-        const description = String(bind.description ?? "").trim();
-        if (!description)
-            continue;
-        const split = splitDescription(description);
+
+        const split = description ? splitDescription(description) : { category: "Unlabeled", action: "No description in config" };
         binds.push({
-            combo: comboFor(bind),
+            combo: comboFor({ modmask: bind.modmask, key: key }, false),
+            keys: keysFor({ modmask: bind.modmask, key: key }),
+            key: key,
+            modmask: Number(bind.modmask) || 0,
             description: description,
             category: split.category,
             action: split.action,
@@ -122,7 +220,29 @@ function group(binds) {
     for (const category of [...byCategory.keys()].sort((a, b) => a.localeCompare(b))) {
         const items = byCategory.get(category);
         items.sort((a, b) => (a.combo.length - b.combo.length) || a.combo.localeCompare(b.combo));
-        groups.push({ category: category, binds: items });
+
+        const seen = new Set();
+        const kept = [];
+        for (const bind of items) {
+            if (isRepetitiveTail(bind))
+                continue;
+            let combo = bind.combo;
+            let keys = bind.keys;
+            let action = bind.action;
+            if (isRepetitiveHead(bind)) {
+                const generic = { modmask: bind.modmask, key: genericKey(bind.key) };
+                combo = comboFor(generic, false);
+                keys = keysFor(generic);
+                action = genericAction(bind.action);
+            }
+            const signature = `${combo}|${action}`;
+            if (seen.has(signature))
+                continue;
+            seen.add(signature);
+            kept.push(Object.assign({}, bind, { combo: combo, keys: keys, action: action }));
+        }
+        if (kept.length > 0)
+            groups.push({ category: category, binds: kept });
     }
     return groups;
 }

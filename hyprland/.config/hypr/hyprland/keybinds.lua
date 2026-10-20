@@ -30,8 +30,9 @@ hl.bind("SHIFT + F7", hl.dsp.exec_cmd(qsIpcCall .. " presentationMode toggle"), 
 hl.bind("SUPER + J", hl.dsp.exec_cmd("qs -c $qsConfig ipc call drawers toggle bar"), { description = "Shell: Toggle bar" })
 -- Displays (mirror / extend / main screen)
 hl.bind("SUPER + P", hl.dsp.global("caelestia:displays"), { description = "Display: Open display switcher" })
--- OSD (toggle via IPC)
-hl.bind("SUPER + Slash", hl.dsp.exec_cmd("qs -c $qsConfig ipc call drawers toggle osd"), { description = "Shell: Toggle OSD" })
+-- Cheat sheet (SUPER+/) — OSD moved to SUPER+SHIFT+/
+hl.bind("SUPER + Slash", hl.dsp.global("caelestia:cheatsheet"), { description = "Shell: Toggle cheat sheet" })
+hl.bind("SUPER + SHIFT + Slash", hl.dsp.exec_cmd("qs -c $qsConfig ipc call drawers toggle osd"), { description = "Shell: Toggle OSD" })
 -- Restart widgets
 hl.bind("CTRL + SUPER + R", hl.dsp.exec_cmd("killall qs quickshell; qs -c $qsConfig &"),
     { description = "Shell: Restart widgets" })

@@ -30,6 +30,9 @@ const raw = JSON.stringify([
 const binds = ctx.parseBinds(raw);
 assert(binds.length === 6, "drops undescribed, submap and empty binds");
 assert(binds[0].combo === "SUPER + P", "super combo");
+assert(binds[1].keys.join(" ") === "⊞ Shift S", "keycaps use modifier symbols");
+assert(binds[0].keys.join(" ") === "⊞ P", "plain keys stay readable");
+assert(binds[2].keys.join(" ") === "⊞ /", "slash keycap is /");
 assert(binds[1].combo === "SUPER + SHIFT + S", "mod order puts SUPER before SHIFT");
 assert(binds[2].combo === "SUPER + /", "slash is displayed as /");
 assert(binds[3].combo === "Print", "no modifier");
@@ -47,6 +50,32 @@ assert(ctx.filterBinds(groups, "resize")[0].category === "Window", "mouse bind i
 assert(ctx.filterBinds(groups, "").length === groups.length, "empty query keeps everything");
 assert(ctx.filterBinds(groups, "zzz").length === 0, "no matches yields no groups");
 
-assert(ctx.parseBinds("not json") .length === 0, "invalid json yields an empty list");
+assert(ctx.parseBinds("not json").length === 0, "invalid json yields an empty list");
+
+const withUnlabeled = ctx.parseBinds(raw, true);
+assert(withUnlabeled.length === 8, "opt-in keeps undescribed binds");
+assert(withUnlabeled.filter(b => b.category === "Unlabeled").length === 2, "undescribed binds get their own group");
+assert(withUnlabeled.every(b => b.combo.length > 0), "binds without a key are always skipped");
+
+// Workspace 1-10 are bound with `code:<n>` and Hyprland reports an empty key.
+const numeric = JSON.stringify([
+  { modmask: 64, key: "", description: "Workspace: Focus 1" },
+  { modmask: 64, key: "", description: "Workspace: Focus 2" },
+  { modmask: 64, key: "", description: "Workspace: Focus 10" },
+  { modmask: 68, key: "Left", description: "Window: Focus Left" },
+  { modmask: 68, key: "Right", description: "Window: Focus Right" },
+  { modmask: 68, key: "Up", description: "Window: Focus Up" },
+  { modmask: 64, key: "", description: "Unnumbered and keyless" }
+]);
+const collapsed = ctx.group(ctx.parseBinds(numeric));
+const workspace = collapsed.find(g => g.category === "Workspace");
+assert(workspace.binds.length === 1, "workspace 1-10 collapse to one row");
+assert(workspace.binds[0].combo === "SUPER + <Number>", "collapsed workspace keeps the modifier");
+assert(workspace.binds[0].keys.join(" ") === "⊞ <Number>", "collapsed workspace keycaps stay symbolic");
+assert(workspace.binds[0].action === "Focus <Number>", "collapsed workspace action is generic");
+const windowGroup = collapsed.find(g => g.category === "Window");
+assert(windowGroup.binds.length === 1, "left/right/up collapse to one row");
+assert(windowGroup.binds[0].combo === "SUPER + CTRL + <Direction>", "collapsed direction keeps the modifier");
+assert(windowGroup.binds[0].action === "Focus <Direction>", "collapsed direction action is generic");
 
 console.log("keybinds_parse: all assertions passed");
