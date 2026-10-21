@@ -58,5 +58,8 @@ jobs:
       - name: Widget structure tests
         run: bash tests/widget_test.sh
 
+      - name: Keyboard layout popout tests
+        run: bash tests/qml_kblayout_test.sh
+
       - name: End-to-end deploy dry-run
         run: bash tests/e2e_deploy_test.sh

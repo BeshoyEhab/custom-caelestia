@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import Quickshell.Hyprland
 import Quickshell.Io
 import Caelestia
 import Caelestia.Config
@@ -62,7 +63,7 @@ Item {
             }
             layoutsModel.clear();
             tmp.forEach(t => layoutsModel.append(t));
-            fetchActiveLayouts.running = true;
+            fetchDevicesForActive.running = true;
         }
     }
 
@@ -228,6 +229,17 @@ Item {
         id: switchProc
 
         onRunningChanged: if (!running)
-            fetchActiveLayouts.running = true
+            fetchDevicesForActive.running = true
+    }
+
+    // Follow layout changes made outside this popout (keybinds, other
+    // devices) so the active row never lags behind the real keyboard.
+    Connections {
+        function onRawEvent(event: HyprlandEvent): void {
+            if (event.name === "activelayout")
+                fetchDevicesForActive.running = true;
+        }
+
+        target: Hyprland
     }
 }

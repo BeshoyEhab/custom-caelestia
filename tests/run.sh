@@ -30,6 +30,7 @@ test_suite "widget_test"  "tests/widget_test.sh"
 test_suite "least_busy_region_test" "tests/python_least_busy_region_test.sh"
 test_suite "captive_portal_probe_test" "tests/captive_portal_probe_test.sh"
 test_suite "qml_captive_portal_test" "tests/qml_captive_portal_test.sh"
+test_suite "qml_kblayout_test" "tests/qml_kblayout_test.sh"
 test_suite "captive_portal_launch_fallback_test" "tests/captive_portal_launch_fallback_test.sh"
 
 echo ""
