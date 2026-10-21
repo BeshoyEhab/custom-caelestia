@@ -35,6 +35,71 @@ public:
         : ConfigObject(parent) {}
 };
 
+class DesktopClockQuote : public ConfigObject {
+    Q_OBJECT
+    QML_ANONYMOUS
+
+    CONFIG_PROPERTY(bool, enabled, false)
+    CONFIG_PROPERTY(QString, text, QString())
+
+public:
+    explicit DesktopClockQuote(QObject* parent = nullptr)
+        : ConfigObject(parent) {}
+};
+
+class DesktopClockFont : public ConfigObject {
+    Q_OBJECT
+    QML_ANONYMOUS
+
+    CONFIG_PROPERTY(QString, family, QString())
+    CONFIG_PROPERTY(qreal, size, 1.0)
+    CONFIG_PROPERTY(int, weight, 700)
+    CONFIG_PROPERTY(int, width, 100)
+    CONFIG_PROPERTY(int, roundness, 0)
+
+public:
+    explicit DesktopClockFont(QObject* parent = nullptr)
+        : ConfigObject(parent) {}
+};
+
+class DesktopClockDigital : public ConfigObject {
+    Q_OBJECT
+    QML_ANONYMOUS
+
+    CONFIG_PROPERTY(QString, orientation, QStringLiteral("auto"))
+    CONFIG_PROPERTY(bool, showDate, true)
+    CONFIG_PROPERTY(bool, showSeconds, false)
+    CONFIG_PROPERTY(bool, animateChange, true)
+    CONFIG_PROPERTY(bool, adaptiveAlignment, true)
+    CONFIG_SUBOBJECT(DesktopClockFont, font)
+
+public:
+    explicit DesktopClockDigital(QObject* parent = nullptr)
+        : ConfigObject(parent)
+        , m_font(new DesktopClockFont(this)) {}
+};
+
+class DesktopClockCookie : public ConfigObject {
+    Q_OBJECT
+    QML_ANONYMOUS
+
+    CONFIG_PROPERTY(int, sides, 14)
+    CONFIG_PROPERTY(QString, dialNumberStyle, QStringLiteral("full"))
+    CONFIG_PROPERTY(QString, hourHandStyle, QStringLiteral("fill"))
+    CONFIG_PROPERTY(QString, minuteHandStyle, QStringLiteral("medium"))
+    CONFIG_PROPERTY(QString, secondHandStyle, QStringLiteral("dot"))
+    CONFIG_PROPERTY(QString, dateStyle, QStringLiteral("bubble"))
+    CONFIG_PROPERTY(bool, timeIndicators, true)
+    CONFIG_PROPERTY(bool, hourMarks, false)
+    CONFIG_PROPERTY(bool, dateInClock, true)
+    CONFIG_PROPERTY(bool, useSineCookie, false)
+    CONFIG_PROPERTY(bool, constantlyRotate, false)
+
+public:
+    explicit DesktopClockCookie(QObject* parent = nullptr)
+        : ConfigObject(parent) {}
+};
+
 class DesktopClock : public ConfigObject {
     Q_OBJECT
     QML_ANONYMOUS
@@ -48,12 +113,19 @@ class DesktopClock : public ConfigObject {
     CONFIG_PROPERTY(bool, invertColors, false)
     CONFIG_SUBOBJECT(DesktopClockBackground, background)
     CONFIG_SUBOBJECT(DesktopClockShadow, shadow)
+    CONFIG_PROPERTY(bool, animatePosition, true)
+    CONFIG_SUBOBJECT(DesktopClockQuote, quote)
+    CONFIG_SUBOBJECT(DesktopClockDigital, digital)
+    CONFIG_SUBOBJECT(DesktopClockCookie, cookie)
 
 public:
     explicit DesktopClock(QObject* parent = nullptr)
         : ConfigObject(parent)
         , m_background(new DesktopClockBackground(this))
-        , m_shadow(new DesktopClockShadow(this)) {}
+        , m_shadow(new DesktopClockShadow(this))
+        , m_quote(new DesktopClockQuote(this))
+        , m_digital(new DesktopClockDigital(this))
+        , m_cookie(new DesktopClockCookie(this)) {}
 };
 
 class BackgroundVisualiser : public ConfigObject {
