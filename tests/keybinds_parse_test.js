@@ -92,4 +92,30 @@ assert(mute.combo === "SUPER + M", "the first combo is the row default");
 assert(ctx.filterBinds(merged, "xf86audiomute")[0].category === "Media", "search finds secondary combos");
 assert(ctx.filterBinds(merged, "next track")[0].binds[0].combos.length === 1, "single-key rows still work");
 
+// `code:<n>` binds written directly in the config report a keycode. Lua binds
+// written as `hl.bind("... code:82")` report neither key nor keycode (0), so
+// there is nothing to show and the bind is skipped instead of invented.
+const keycodes = JSON.stringify([
+  { modmask: 64, key: "", keycode: 82, description: "Screen: Zoom out" },
+  { modmask: 64, key: "", keycode: 0, description: "Screen: Zoom in" }
+]);
+const byKeycode = ctx.parseBinds(keycodes);
+assert(byKeycode.length === 1, "a reported keycode is displayed");
+assert(byKeycode[0].combo === "SUPER + Keycode 82", "keycode binds keep their number");
+
+// Only numbered series collapse: SUPER+2 bound to an unrelated action is a
+// real shortcut and must not disappear with the workspace keys.
+const digits = JSON.stringify([
+  { modmask: 64, key: "1", description: "Workspace: Focus 1" },
+  { modmask: 64, key: "2", description: "Workspace: Focus 2" },
+  { modmask: 64, key: "2", description: "Media: Volume up" }
+]);
+const digitGroups = ctx.group(ctx.parseBinds(digits));
+const digitWorkspace = digitGroups.find(g => g.category === "Workspace");
+assert(digitWorkspace.binds.length === 1, "an explicit digit series still collapses");
+assert(
+  digitGroups.find(g => g.category === "Media").binds[0].combo === "SUPER + 2",
+  "a digit bound to a different action is kept"
+);
+
 console.log("keybinds_parse: all assertions passed");

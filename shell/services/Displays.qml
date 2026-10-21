@@ -23,6 +23,8 @@ Singleton {
     property string workspaceFileText: ""
     property bool busy: false
     property bool healing: false
+    property double lastHealAt: 0
+    property var pendingWsMove: null
     property string lastError: ""
 
     readonly property var activeMonitors: monitors.filter(m => !m.disabled)
@@ -52,6 +54,7 @@ Singleton {
     // A refresh requested while hyprctl is already running must not be lost:
     // at shell start the singleton's first call and show() can race.
     property bool refreshQueued: false
+    property int emptyRefreshes: 0
 
     function refresh(): void {
         if (monitorProc.running) {
@@ -59,6 +62,16 @@ Singleton {
             return;
         }
         monitorProc.running = true;
+    }
+
+    // The first hyprctl call after login can answer with an empty list, which
+    // would skip the heal() safety net entirely. Retry a few times.
+    Timer {
+        id: retryTimer
+
+        interval: 600
+        repeat: false
+        onTriggered: root.refresh()
     }
 
     function saveState(): void {
@@ -177,10 +190,12 @@ Singleton {
         monitorsFile.setText(`${header}\n\n${rules.map(r => DMath.luaMonitor(r)).join("\n\n")}\n`);
 
         // Workspace pin: only meaningful while a second output is in use.
-        // Drop rules for outputs that are no longer connected so a stale pin
-        // does not come back when the file is re-read.
+        // Drop rules for outputs that are gone or that this layout switches
+        // off, so a pin cannot point at a dark screen.
         const present = monitors.map(m => m.name);
-        let wsRules = DMath.parseWorkspaceRules(workspaceFileText).filter(r => present.indexOf(r.monitor) !== -1);
+        const targets = DMath.enabledOutputs(rules);
+        let wsRules = DMath.parseWorkspaceRules(workspaceFileText).filter(r =>
+            present.indexOf(r.monitor) !== -1 && targets.indexOf(r.monitor) !== -1);
         if (secondaryMonitor && nextMode !== "main") {
             wsRules = DMath.mergeWorkspaceRule(wsRules, {
                 workspace: pinnedWorkspace,
@@ -195,9 +210,11 @@ Singleton {
 
         busy = true;
         lastError = "";
+        // The workspace move needs the monitor rules to be in effect first,
+        // otherwise Hyprland moves the workspace to an output that does not
+        // exist yet. evalProc starts the move when it finishes.
+        pendingWsMove = secondaryMonitor && nextMode !== "main" ? { workspace: pinnedWorkspace, monitor: secondaryMonitor.name } : null;
         runRules(rules);
-        if (secondaryMonitor && nextMode !== "main")
-            wsMoveProc.move(pinnedWorkspace, secondaryMonitor.name);
     }
 
     // Apply at runtime with hyprctl eval instead of `hyprctl reload`: a reload
@@ -211,6 +228,13 @@ Singleton {
     function heal(): void {
         if (healing || monitors.length === 0)
             return;
+        // monitorProc finishes, refresh() runs, the layout is still unhealthy
+        // and heal() is called again. Reloading in a loop would thrash the
+        // session, so a failed heal waits a minute before trying once more.
+        const now = Date.now();
+        if (now - lastHealAt < 60000)
+            return;
+        lastHealAt = now;
         healing = true;
         const rules = DMath.healRules(monitors);
         const header = DMath.fileHeader(new Date());
@@ -253,6 +277,16 @@ Singleton {
                 }
 
                 const usable = root.monitors.filter(m => !m.disabled && m.width > 0 && m.height > 0 && !DMath.isVirtual(m.name));
+                if (root.monitors.length === 0) {
+                    if (root.emptyRefreshes < 20) {
+                        root.emptyRefreshes++;
+                        retryTimer.start();
+                    } else {
+                        root.lastError = "No monitors reported by hyprctl";
+                    }
+                    return;
+                }
+                root.emptyRefreshes = 0;
                 const hasPhysical = root.monitors.some(m => !DMath.isVirtual(m.name));
                 if (hasPhysical && usable.length === 0)
                     root.heal();
@@ -278,6 +312,10 @@ Singleton {
         onExited: { // qmllint disable signal-handler-parameters
             root.busy = false;
             root.healing = false;
+            const move = root.pendingWsMove;
+            root.pendingWsMove = null;
+            if (move)
+                wsMoveProc.move(move.workspace, move.monitor);
             root.refresh();
         }
     }
@@ -320,7 +358,10 @@ Singleton {
                 root.preferredMain = typeof data.main === "string" ? data.main : "";
                 root.preferredSecondary = typeof data.secondary === "string" ? data.secondary : "";
                 root.preferredPlacement = typeof data.placement === "string" ? data.placement : "";
-                root.pinnedWorkspace = typeof data.workspace === "number" ? data.workspace : 2;
+                const workspace = Number(data.workspace);
+                root.pinnedWorkspace = Number.isFinite(workspace) && data.workspace !== null
+                    ? Math.max(1, Math.min(10, Math.round(workspace)))
+                    : 2;
             } catch (e) {}
         }
         onLoadFailed: err => {
@@ -334,6 +375,9 @@ Singleton {
 
         path: root.workspacesPath
         printErrors: false
+        // Another tool (nwg-displays) may rewrite the pins; re-read them
+        // instead of overwriting with the copy loaded at startup.
+        watchChanges: true
         onLoaded: root.workspaceFileText = text()
         onLoadFailed: err => {
             if (err === FileViewError.FileNotFound)

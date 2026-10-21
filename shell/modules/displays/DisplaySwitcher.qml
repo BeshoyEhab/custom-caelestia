@@ -13,6 +13,7 @@ Scope {
     property bool opened: false
 
     function show(): void {
+        root.retries = 0;
         Displays.refresh();
         root.opened = true;
     }
@@ -28,52 +29,61 @@ Scope {
             root.show();
     }
 
+    // One window on the focused screen, not one per screen: this is a
+    // single popup, and a per-screen Variants opened a copy on every monitor.
+    readonly property ShellScreen targetScreen: Screens.screens.find(s => s.name === Hypr.focusedMonitor?.name) ?? Screens.screens[0] ?? null
+
     LazyLoader {
         id: loader
 
-        active: root.opened
+        active: root.opened && root.targetScreen !== null
 
-        Variants {
-            model: Screens.screens
+        FloatingWindow {
+            id: win
 
-            FloatingWindow {
-                id: win
+            screen: root.targetScreen
+            title: "Displays"
+            color: "transparent"
+            surfaceFormat.opaque: false
+            implicitWidth: card.implicitWidth
+            implicitHeight: card.implicitHeight
+            contentItem.Config.screen: screen.name
+            contentItem.Tokens.screen: screen.name
 
-                required property ShellScreen modelData
+            // SUPER+Q closes the focused window; keep our state in sync.
+            onVisibleChanged: {
+                if (!visible && root.opened)
+                    root.opened = false;
+            }
 
-                screen: modelData
-                title: "Displays"
-                color: "transparent"
-                surfaceFormat.opaque: false
-                implicitWidth: card.implicitWidth
-                implicitHeight: card.implicitHeight
-                contentItem.Config.screen: screen.name
-                contentItem.Tokens.screen: screen.name
+            Card {
+                id: card
 
-                // SUPER+Q closes the focused window; keep our state in sync.
-                onVisibleChanged: {
-                    if (!visible && root.opened)
-                        root.opened = false;
-                }
-
-                Card {
-                    id: card
-
-                    anchors.fill: parent
-                    onClose: root.hide()
-                }
+                anchors.fill: parent
+                onClose: root.hide()
             }
         }
     }
 
     // The first hyprctl call can land before Hyprland is ready (e.g. right
-    // after login) and return no monitors. Keep asking until one appears.
+    // after login) and return no monitors. Keep asking for a few seconds, then
+    // stop instead of polling forever; reopening the popup retries.
+    property int retries: 0
+
     Timer {
         interval: 600
         repeat: true
-        running: root.opened && Displays.monitors.length === 0
-        onTriggered: Displays.refresh()
+        running: root.opened && Displays.monitors.length === 0 && root.retries < 20
+        onTriggered: {
+            root.retries++;
+            Displays.refresh();
+        }
     }
+
+    // `Displays` is a lazy singleton: without a reference at shell start its
+    // Component.onCompleted (which runs heal()) never fires, so a broken
+    // persisted layout would not be repaired at login. Touch it here.
+    Component.onCompleted: Displays.refresh()
 
     IpcHandler {
         function open(): void {

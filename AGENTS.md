@@ -87,14 +87,15 @@ Writes the same files as nwg-displays 0.4.3 so both tools share state:
 Rules that must not regress:
 
 1. **Apply with `hyprctl eval`, never `hyprctl reload`.** Reloading while a virtual output was disabled crashed Hyprland 0.56. The files are still written for the next login.
-2. **`keepsAPhysicalOutput()` guard.** Any layout that would leave only HEADLESS/FALLBACK enabled is refused with a visible message. A persisted "second only" on a transient virtual output left the next session with the panel disabled — that was the black-screen incident. `FALLBACK` is Hyprland's automatic output when every real output is off; treat it as virtual.
-3. **Startup `heal()`.** When no physical output is active (or the panel is enabled but 0x0), rewrite a safe layout and `hyprctl reload`. Reload is used only here, and the written file always keeps a physical panel on.
-4. `hyprctl keyword` does not work under the Lua parser; use `eval`/`dispatch`.
-5. `hyprctl monitors all -j` reports `mirrorOf` as the target monitor **ID string**, so mode detection compares both id and name.
-6. `setMode("main")` must work with a single display (it writes the file and prunes workspace pins for missing outputs).
-7. **Never read a derived binding inside its source's change handler.** In `LayoutPreview.rebuild()`, `onMonitorsChanged` fires before QML has invalidated the bindings that depend on `monitors`, so a bound `activeMonitors` still returns the previous (empty) list and the preview stays blank until the next refresh. Filter `monitors` inline there; the same pattern caused the "no screen until I press reload" report.
-8. The main/second monitor button rows are horizontal `ListView`s: size them with `Math.max(46, contentHeight)`, not a fixed 46, or the `ToggleButton` (≈50px) is clipped at the bottom.
-9. `DisplaySwitcher` retries `Displays.refresh()` every 600ms while `monitors` is empty (the first `hyprctl` after login can beat Hyprland), and `Displays.refresh()` queues a run if `hyprctl` is already in flight.
+2. **`hl.monitor` merges into the rule already stored for that output.** An omitted field keeps its old value, so `disabled` and `mirror` are sticky: "main only" then "extend" left the second screen off, and "duplicate" then "extend" left it mirrored. Every enabled rule written by `luaMonitor()` states `disabled = false` and `mirror = ""` (or the mirror target) explicitly — runtime `eval` and the file both, because startup `heal()` reloads that file into the live rules.
+3. **`keepsAPhysicalOutput()` guard.** Any layout that would leave only HEADLESS/FALLBACK enabled is refused with a visible message. A persisted "second only" on a transient virtual output left the next session with the panel disabled — that was the black-screen incident. `FALLBACK` is Hyprland's automatic output when every real output is off; treat it as virtual.
+4. **Startup `heal()`.** When no physical output is active (or the panel is enabled but 0x0), rewrite a safe layout and `hyprctl reload`. Reload is used only here, the written file always keeps a physical panel on, and a failed heal is retried at most once a minute so the monitor poll cannot reload in a loop.
+5. `hyprctl keyword` does not work under the Lua parser; use `eval`/`dispatch`.
+6. `hyprctl monitors all -j` reports `mirrorOf` as the target monitor **ID string**, so mode detection compares both id and name.
+7. `setMode("main")` must work with a single display (it writes the file and prunes workspace pins for missing outputs). Workspace pins are only kept for outputs the new layout leaves enabled.
+8. **Never read a derived binding inside its source's change handler.** In `LayoutPreview.rebuild()`, `onMonitorsChanged` fires before QML has invalidated the bindings that depend on `monitors`, so a bound `activeMonitors` still returns the previous (empty) list and the preview stays blank until the next refresh. Filter `monitors` inline there; the same pattern caused the "no screen until I press reload" report.
+9. The main/second monitor button rows are horizontal `ListView`s: size them with `Math.max(46, contentHeight)`, not a fixed 46, or the `ToggleButton` (≈50px) is clipped at the bottom.
+10. `DisplaySwitcher` retries `Displays.refresh()` every 600ms while `monitors` is empty (the first `hyprctl` after login can beat Hyprland), capped at 20 tries, and `Displays.refresh()` queues a run if `hyprctl` is already in flight.
 
 ## Cheat sheet (SUPER+/)
 

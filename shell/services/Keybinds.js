@@ -119,6 +119,13 @@ function numberedFallback(bind) {
     };
 }
 
+// A bind whose key is a digit is only part of a numbered series (workspace
+// 1-10, profile 1-3) when its action names that same number. SUPER+2 bound to
+// "Volume up" is a normal shortcut and must not be collapsed away.
+function endsWithNumber(action, number) {
+    return new RegExp(`(^|\\D)${number}$`).test(String(action ?? "").trim());
+}
+
 // Workspace numbers are ten near-identical binds: keep the first and show it
 // as <Number>. Directions are NOT merged: "send to workspace left" and
 // "...right" are different actions, and merging them produced rows with eight
@@ -129,12 +136,18 @@ function isRepetitiveTail(bind) {
         return false;
     if (key === "<Number>")
         return false;
-    return /^[2-9]$/.test(key) || key === "0";
+    if (!/^[2-9]$/.test(key) && key !== "0")
+        return false;
+    return endsWithNumber(bind.action, key);
 }
 
 function isRepetitiveHead(bind) {
     const key = String(bind.key ?? "");
-    return key === "1" || key === "<Number>";
+    if (key === "<Number>")
+        return true;
+    if (key !== "1")
+        return false;
+    return endsWithNumber(bind.action, "1");
 }
 
 function genericKey(key) {
@@ -182,10 +195,16 @@ function parseBinds(json, includeUnlabeled) {
         let description = String(bind.description ?? "").trim();
         if (!key) {
             const fallback = description ? numberedFallback(bind) : null;
-            if (!fallback)
+            if (fallback) {
+                key = fallback.key;
+                description = fallback.description;
+            } else if ((Number(bind.keycode) || 0) > 0) {
+                key = `code:${Number(bind.keycode)}`;
+            } else {
+                // Lua binds written as `code:<n>` report key "" and keycode 0,
+                // so there is nothing to display for them.
                 continue;
-            key = fallback.key;
-            description = fallback.description;
+            }
         }
         if (!description && !includeUnlabeled)
             continue;

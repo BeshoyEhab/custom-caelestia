@@ -34,39 +34,37 @@ Scope {
             root.show();
     }
 
+    // One window on the focused screen. A Variants over Screens.screens used
+    // to open one copy of the sheet per monitor.
+    readonly property ShellScreen targetScreen: Screens.screens.find(s => s.name === Hypr.focusedMonitor?.name) ?? Screens.screens[0] ?? null
+
     LazyLoader {
         id: loader
 
-        active: root.opened
+        active: root.opened && root.targetScreen !== null
 
-        Variants {
-            model: Screens.screens
+        FloatingWindow {
+            id: win
 
-            FloatingWindow {
-                id: win
+            screen: root.targetScreen
+            title: "Keyboard shortcuts"
+            color: "transparent"
+            surfaceFormat.opaque: false
+            implicitWidth: Math.min(1240, screen.width * 0.78)
+            implicitHeight: Math.min(880, screen.height * 0.78)
+            contentItem.Config.screen: screen.name
+            contentItem.Tokens.screen: screen.name
 
-                required property ShellScreen modelData
+            // The compositor closes a window with SUPER+Q; mirror that back
+            // into our state so the next toggle reopens it.
+            onVisibleChanged: {
+                if (!visible && root.opened)
+                    root.opened = false;
+            }
 
-                screen: modelData
-                title: "Keyboard shortcuts"
-                color: "transparent"
-                surfaceFormat.opaque: false
-                implicitWidth: Math.min(1240, modelData.width * 0.78)
-                implicitHeight: Math.min(880, modelData.height * 0.78)
-                contentItem.Config.screen: screen.name
-                contentItem.Tokens.screen: screen.name
-
-                // The compositor closes a window with SUPER+Q; mirror that back
-                // into our state so the next toggle reopens it.
-                onVisibleChanged: {
-                    if (!visible && root.opened)
-                        root.opened = false;
-                }
-
-                Content {
-                    anchors.fill: parent
-                    onClose: root.hide()
-                }
+            Content {
+                anchors.fill: parent
+                onClose: root.hide()
             }
         }
     }

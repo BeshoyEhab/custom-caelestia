@@ -130,6 +130,37 @@ else
     fail "state does not report duplicate: $(ipc state)"
 fi
 
+# ── duplicate -> extend clears the sticky mirror ─────────────────────────────
+ipc setMode extend >/dev/null
+sleep 2
+mirror=$(field "$FAKE" mirrorOf)
+if [[ "$mirror" == "none" || -z "$mirror" ]]; then
+    pass "extend after duplicate: $FAKE is no longer mirrored"
+else
+    fail "extend after duplicate: $FAKE still mirrors '$mirror' (sticky monitor rule)"
+fi
+
+# ── main only -> extend re-enables the second output ────────────────────────
+ipc setMode main >/dev/null
+sleep 2
+if [[ "$(field "$FAKE" disabled)" == "True" ]]; then
+    pass "main only: $FAKE disabled (round-trip precondition)"
+else
+    fail "main only: $FAKE still enabled"
+fi
+ipc setMode extend >/dev/null
+sleep 2
+if [[ "$(field "$FAKE" disabled)" == "False" ]]; then
+    pass "extend after main only: $FAKE enabled again"
+else
+    fail "extend after main only: $FAKE stayed disabled (sticky monitor rule)"
+fi
+if grep -q "disabled = false" ~/.config/hypr/monitors.lua && grep -q 'mirror = ""' ~/.config/hypr/monitors.lua; then
+    pass "monitors.lua states enabled and unmirrored explicitly"
+else
+    fail "monitors.lua relies on merge defaults (sticky disabled/mirror)"
+fi
+
 # ── main only + persistence ──────────────────────────────────────────────────
 ipc setMode main >/dev/null
 sleep 2
@@ -187,6 +218,11 @@ if [[ "$(field "$REAL" disabled)" == "False" ]]; then
     pass "restored: $REAL enabled"
 else
     fail "restore failed: $REAL still disabled"
+fi
+if grep -q "monitor = \"$FAKE\"" ~/.config/hypr/workspaces.lua; then
+    fail "workspace pin still points at the disabled output"
+else
+    pass "workspace pin dropped together with the disabled output"
 fi
 
 echo ""

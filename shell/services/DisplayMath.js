@@ -227,10 +227,20 @@ function luaMonitor(rule) {
             fields.push(`    position = "${rule.position}"`);
         if (rule.scale !== undefined)
             fields.push(`    scale = ${fmtNumber(rule.scale)}`);
-        if (rule.mirror)
-            fields.push(`    mirror = "${rule.mirror}"`);
+        // `hl.monitor` merges into the rule already stored for that output, so
+        // an omitted field keeps its old value: a layout that disabled the
+        // output stays disabled, and a mirrored output stays mirrored. State
+        // both flags explicitly on every enabled rule ("" clears a mirror).
+        fields.push("    disabled = false");
+        fields.push(`    mirror = "${rule.mirror || ""}"`);
     }
     return `hl.monitor({\n${fields.join(",\n")}\n})`;
+}
+
+// Outputs a layout leaves switched on. Workspace pins are only meaningful on
+// an enabled output.
+function enabledOutputs(rules) {
+    return (rules || []).filter(r => !r.disabled).map(r => r.output);
 }
 
 function luaWorkspace(rule) {

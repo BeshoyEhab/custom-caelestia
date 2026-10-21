@@ -84,13 +84,30 @@ assert(sole.length === 1 && sole[0].disabled !== true, "one monitor: never disab
 
 assert(
   ctx.luaMonitor({ output: "HDMI-A-1", mode: "1920x1080@60.00", position: "1920x0", scale: 1, mirror: "eDP-1" }) ===
-    'hl.monitor({\n    output = "HDMI-A-1",\n    mode = "1920x1080@60.00",\n    position = "1920x0",\n    scale = 1,\n    mirror = "eDP-1"\n})',
+    'hl.monitor({\n    output = "HDMI-A-1",\n    mode = "1920x1080@60.00",\n    position = "1920x0",\n    scale = 1,\n    disabled = false,\n    mirror = "eDP-1"\n})',
   "lua monitor block"
+);
+// hyprctl eval merges a rule into the previous one for the same output: an
+// omitted `disabled` keeps the old value, so "main only" followed by "extend"
+// left the second screen off. Enabled rules must state both flags.
+assert(
+  ctx.luaMonitor({ output: "HDMI-A-1", mode: "1920x1080@60.00", position: "1920x0", scale: 1 }) ===
+    'hl.monitor({\n    output = "HDMI-A-1",\n    mode = "1920x1080@60.00",\n    position = "1920x0",\n    scale = 1,\n    disabled = false,\n    mirror = ""\n})',
+  "enabled rule clears sticky disabled and mirror flags"
 );
 assert(
   ctx.luaMonitor({ output: "HDMI-A-1", disabled: true }) ===
     'hl.monitor({\n    output = "HDMI-A-1",\n    disabled = true\n})',
   "lua disable block"
+);
+assert(
+  ctx.enabledOutputs(ctx.layout({ main: m(), all: [m(), m({ name: "HDMI-A-1" })], mode: "extend" })).join(",") ===
+    "eDP-1,HDMI-A-1",
+  "enabled outputs lists every target that stays on"
+);
+assert(
+  ctx.enabledOutputs(ctx.layout({ main: m(), all: [m(), m({ name: "HDMI-A-1" })], mode: "main" })).join(",") === "eDP-1",
+  "enabled outputs skips outputs the layout switches off"
 );
 assert(
   ctx.luaWorkspace({ workspace: 2, monitor: "HDMI-A-1", isDefault: true }) ===
