@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Effects
-import QtQuick.Layouts
 import Caelestia.Config
 import qs.components
 import qs.services
@@ -24,18 +23,38 @@ Item {
     readonly property color safeTertiary: useLightSet ? Colours.palette.m3tertiaryContainer : Colours.palette.m3tertiary
     readonly property color colText: useLightSet ? Colours.palette.m3onSecondaryContainer : Colours.palette.m3onPrimary
 
-    // Vertical mode when clock is on left or right edge
+    // Vertical mode: explicit setting, or the left/right edge presets when
+    // orientation is "auto". The preset keys are middle-left, bottom-right,
+    // etc., so compare suffixes.
     readonly property bool isVertical: {
+        const orientation = Config.background.desktopClock.digital.orientation;
+        if (orientation === "vertical")
+            return true;
+        if (orientation === "horizontal")
+            return false;
         const pos = Config.background.desktopClock.position;
-        return pos === "left" || pos === "right";
+        return pos.endsWith("left") || pos.endsWith("right");
+    }
+
+    // The date column aligns to the clock's screen third when adaptive
+    // alignment is on.
+    readonly property int dateAlignment: {
+        if (!root.wallpaper || root.wallpaper.width <= 0)
+            return Text.AlignHCenter;
+        const center = root.absX + root.width / 2;
+        if (center < root.wallpaper.width / 3)
+            return Text.AlignLeft;
+        if (center > root.wallpaper.width * 2 / 3)
+            return Text.AlignRight;
+        return Text.AlignHCenter;
     }
 
     // Classical analog face instead of the digital layouts
     readonly property bool isAnalog: Config.background.desktopClock.clockStyle === "analog"
     readonly property real analogDiameter: 300 * root.clockScale
 
-    implicitWidth: root.isAnalog ? root.analogDiameter + (Tokens.padding.large * 4 * root.clockScale) : layout.implicitWidth + (Tokens.padding.large * 4 * root.clockScale)
-    implicitHeight: root.isAnalog ? root.analogDiameter + (Tokens.padding.extraLargeIncreased * root.clockScale) : layout.implicitHeight + (Tokens.padding.extraLargeIncreased * root.clockScale)
+    implicitWidth: root.isAnalog ? root.analogDiameter + (Tokens.padding.large * 4 * root.clockScale) : digitalClock.contentWidth + (Tokens.padding.large * 4 * root.clockScale)
+    implicitHeight: root.isAnalog ? root.analogDiameter + (Tokens.padding.extraLargeIncreased * root.clockScale) : digitalClock.contentHeight + (Tokens.padding.extraLargeIncreased * root.clockScale)
 
     Item {
         id: clockContainer
@@ -81,150 +100,21 @@ Item {
             layer.enabled: root.blurEnabled
         }
 
-        // Horizontal mode (default)
-        RowLayout {
-            id: layout
-            visible: !root.isVertical && !root.isAnalog
+        DigitalClock {
+            id: digitalClock
 
+            visible: !root.isAnalog
             anchors.centerIn: parent
-            spacing: Tokens.spacing.large * root.clockScale
 
-            RowLayout {
-                spacing: Tokens.spacing.small
-
-                ClockText {
-                    text: Time.hourStr
-                    font: Tokens.font.clock.size(Tokens.font.headline.medium.pointSize * 3 * root.clockScale).weight(Font.Bold).build()
-                    color: root.safePrimary
-                    Layout.fillWidth: false
-                }
-
-                ClockText {
-                    text: ":"
-                    font: Tokens.font.clock.size(Tokens.font.headline.medium.pointSize * 3 * root.clockScale).build()
-                    color: root.safeTertiary
-                    opacity: 0.8
-                    Layout.topMargin: -Tokens.padding.large * 1.5 * root.clockScale
-                    Layout.fillWidth: false
-                }
-
-                ClockText {
-                    text: Time.minuteStr
-                    font: Tokens.font.clock.size(Tokens.font.headline.medium.pointSize * 3 * root.clockScale).weight(Font.Bold).build()
-                    color: root.safeSecondary
-                    Layout.fillWidth: false
-                }
-
-                Loader {
-                    asynchronous: true
-                    Layout.alignment: Qt.AlignTop
-                    Layout.topMargin: Tokens.padding.large * 1.4 * root.clockScale
-
-                    active: GlobalConfig.services.useTwelveHourClock
-                    visible: active
-
-                    sourceComponent: ClockText {
-                        text: Time.amPmStr
-                        font: Tokens.font.clock.size(Tokens.font.title.medium.pointSize * root.clockScale).build()
-                        color: root.safeSecondary
-                        Layout.fillWidth: false
-                    }
-                }
-            }
-
-            StyledRect {
-                Layout.fillHeight: true
-                Layout.preferredWidth: 4 * root.clockScale
-                Layout.topMargin: Tokens.spacing.large * root.clockScale
-                Layout.bottomMargin: Tokens.spacing.large * root.clockScale
-                radius: Tokens.rounding.full
-                color: root.safePrimary
-                opacity: 0.8
-            }
-
-            ColumnLayout {
-                spacing: 0
-
-                ClockText {
-                    text: Time.format("MMMM").toUpperCase()
-                    font: Tokens.font.clock.size(Tokens.font.title.medium.pointSize * root.clockScale).letterSpacing(4).weight(Font.Bold).build()
-                    color: root.safeSecondary
-                }
-
-                ClockText {
-                    text: Time.format("dd")
-                    font: Tokens.font.clock.size(Tokens.font.headline.medium.pointSize * root.clockScale).letterSpacing(2).weight(Font.Medium).build()
-                    color: root.safePrimary
-                }
-
-                ClockText {
-                    text: Time.format("dddd")
-                    font: Tokens.font.clock.size(Tokens.font.body.large.pointSize * root.clockScale).letterSpacing(2).build()
-                    color: root.safeSecondary
-                }
-            }
+            clockScale: root.clockScale
+            primaryColor: root.safePrimary
+            secondaryColor: root.safeSecondary
+            tertiaryColor: root.safeTertiary
+            textColor: root.colText
+            vertical: root.isVertical
+            dateAlignment: root.dateAlignment
         }
 
-        // Vertical mode (for left/right positioned clocks)
-        ColumnLayout {
-            id: verticalLayout
-            visible: root.isVertical && !root.isAnalog
-
-            anchors.centerIn: parent
-            spacing: Tokens.spacing.small * root.clockScale
-
-            ClockText {
-                text: Time.hourStr
-                font: Tokens.font.clock.size(Tokens.font.headline.medium.pointSize * 3 * root.clockScale).weight(Font.Bold).build()
-                color: root.safePrimary
-                horizontalAlignment: Text.AlignHCenter
-            }
-
-            ClockText {
-                text: Time.minuteStr
-                font: Tokens.font.clock.size(Tokens.font.headline.medium.pointSize * 3 * root.clockScale).weight(Font.Bold).build()
-                color: root.safeSecondary
-                horizontalAlignment: Text.AlignHCenter
-                Layout.topMargin: -Tokens.padding.large * root.clockScale
-            }
-
-            Loader {
-                asynchronous: true
-                active: GlobalConfig.services.useTwelveHourClock
-                visible: active
-
-                sourceComponent: ClockText {
-                    text: Time.amPmStr
-                    font: Tokens.font.clock.size(Tokens.font.title.medium.pointSize * root.clockScale).build()
-                    color: root.safeSecondary
-                    horizontalAlignment: Text.AlignHCenter
-                }
-            }
-
-            StyledRect {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 4 * root.clockScale
-                Layout.leftMargin: Tokens.spacing.large * root.clockScale
-                Layout.rightMargin: Tokens.spacing.large * root.clockScale
-                radius: Tokens.rounding.full
-                color: root.safePrimary
-                opacity: 0.8
-            }
-
-            ClockText {
-                text: Time.format("MMM dd").toUpperCase()
-                font: Tokens.font.clock.size(Tokens.font.title.medium.pointSize * root.clockScale).letterSpacing(2).weight(Font.Bold).build()
-                color: root.safeSecondary
-                horizontalAlignment: Text.AlignHCenter
-            }
-
-            ClockText {
-                text: Time.format("dddd")
-                font: Tokens.font.clock.size(Tokens.font.body.large.pointSize * root.clockScale).letterSpacing(1).build()
-                color: root.safeTertiary
-                horizontalAlignment: Text.AlignHCenter
-            }
-        }
         // Classical analog face
         AnalogClock {
             visible: root.isAnalog
@@ -246,6 +136,12 @@ Item {
     }
 
     Behavior on implicitWidth {
+        Anim {
+            type: Anim.StandardSmall
+        }
+    }
+
+    Behavior on implicitHeight {
         Anim {
             type: Anim.StandardSmall
         }
