@@ -35,6 +35,7 @@ test_suite "captive_portal_launch_fallback_test" "tests/captive_portal_launch_fa
 test_suite "display_math_test" "tests/display_math_test.sh"
 test_suite "keybinds_parse_test" "tests/keybinds_parse_test.sh"
 test_suite "clock_position_test" "tests/clock_position_test.sh"
+test_suite "clock_settings_test" "tests/clock_settings_test.sh"
 
 echo ""
 echo "═══════════════════════════════════════════"

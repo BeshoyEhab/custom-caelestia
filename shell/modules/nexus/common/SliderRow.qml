@@ -13,6 +13,7 @@ ConnectedRect {
 
     property alias icon: icon.text
     property alias label: label.text
+    property string subtext
     property alias valueLabel: valueLabel.text
     property real value
     // Wheel step as a fraction of the range. Non-positive falls back to the
@@ -61,6 +62,15 @@ ConnectedRect {
                     color: Colours.palette.m3outline
                     font: Tokens.font.body.small
                 }
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                visible: root.subtext
+                text: root.subtext
+                color: Colours.palette.m3outline
+                font: Tokens.font.label.small
+                elide: Text.ElideRight
             }
 
             CustomMouseArea {
