@@ -8,6 +8,7 @@ import qs.components
 import qs.components.misc
 import qs.services
 import qs.utils
+import "OverviewMath.js" as OMath
 
 Item {
     id: root
@@ -23,11 +24,36 @@ Item {
     signal close
 
     readonly property int workspacesShown: rows * columns
-    readonly property int groupOffset: Math.floor((root.activeWsId - 1) / root.workspacesShown) * root.workspacesShown
 
+    // Which page of workspaces is shown. Starts on the page holding the active
+    // workspace, then follows the wheel or the pager.
+    property int groupOffset: 0
     property var windowDataList: []
+    property string query: ""
+    property string selectedAddr: ""
+    property string hoveredAddr: ""
     property int dragTargetWorkspace: -1
     property int dragSourceWorkspace: -1
+
+    // Page count follows every workspace Hyprland knows about, so the pager can
+    // reach workspaces that are not part of the current page.
+    readonly property int maxWorkspaceId: {
+        let max = Math.max(root.activeWsId, 1);
+        const all = Hypr.workspaces?.values ?? [];
+        for (let i = 0; i < all.length; i++)
+            max = Math.max(max, all[i].id ?? 1);
+        for (let i = 0; i < root.windowDataList.length; i++)
+            max = Math.max(max, root.windowDataList[i].wsId);
+        return max;
+    }
+    readonly property int pages: OMath.pageCount(root.maxWorkspaceId, root.workspacesShown)
+    readonly property int pageIndex: Math.floor(root.groupOffset / root.workspacesShown)
+    readonly property var matchAddresses: OMath.orderedMatches(root.windowDataList, root.query)
+    // What the footer describes: the hovered window, else the selected one.
+    readonly property var detail: {
+        const addr = root.hoveredAddr || root.selectedAddr;
+        return addr ? root.windowDataList.find(w => w.address === addr) ?? null : null;
+    }
 
     implicitWidth: columns * root.wsWidth + (columns - 1) * root.cardSpacing
     implicitHeight: rows * root.wsHeight + (rows - 1) * root.cardSpacing
@@ -49,13 +75,16 @@ Item {
             const h = hyprVals[i];
             const wsId = h.workspace?.id ?? 0;
             const ipc = h.lastIpcObject;
-            if (wsId <= root.groupOffset || wsId > root.groupOffset + root.workspacesShown) continue;
+            // Special workspaces (negative ids) have no cell; keep every
+            // numbered workspace so search can find windows on other pages.
+            if (wsId <= 0) continue;
             if (!ipc) continue;
 
             newList.push({
                 toplevel: h,
                 address: h.address,
                 wsId: wsId,
+                title: ipc.title ?? "",
                 winClass: ipc.class ?? "",
                 sizeX: ipc.size?.[0] ?? 100,
                 sizeY: ipc.size?.[1] ?? 100,
@@ -67,13 +96,132 @@ Item {
     }
 
     onOverviewOpenChanged: {
-        if (!overviewOpen)
+        if (overviewOpen) {
+            root.query = "";
+            root.hoveredAddr = "";
+            root.selectedAddr = "";
+            root.groupOffset = OMath.pageOffsetFor(root.activeWsId, root.workspacesShown);
+        } else {
             verifyTimer.stop();
+        }
         refreshWindows();
     }
-    onActiveWsIdChanged: { if (overviewOpen) refreshWindows(); }
+    onActiveWsIdChanged: {
+        if (!root.overviewOpen)
+            return;
+        if (root.query === "" && root.dragSourceWorkspace === -1)
+            root.groupOffset = OMath.pageOffsetFor(root.activeWsId, root.workspacesShown);
+        refreshWindows();
+    }
     onGroupOffsetChanged: { if (overviewOpen) refreshWindows(); }
+    onQueryChanged: root.applyQuery();
     Component.onCompleted: { if (overviewOpen) refreshWindows(); }
+
+    // ── search, selection and paging ──────────────────────────────────────
+    function syncMatchState(): void {
+        const q = root.query.trim();
+        // A selected/hovered window can close or be moved while the overview
+        // is open; drop stale addresses so Enter cannot target a ghost.
+        if (root.selectedAddr !== "" && !root.windowDataList.some(w => w.address === root.selectedAddr))
+            root.selectedAddr = "";
+        if (root.hoveredAddr !== "" && !root.windowDataList.some(w => w.address === root.hoveredAddr))
+            root.hoveredAddr = "";
+        const matches = {};
+        for (let i = 0; i < root.matchAddresses.length; i++)
+            matches[root.matchAddresses[i]] = true;
+        for (let i = 0; i < previewContainer.children.length; i++) {
+            const item = previewContainer.children[i];
+            if (item.addr === undefined)
+                continue;
+            item.matched = q === "" || matches[item.addr] === true;
+            item.selected = item.addr === root.selectedAddr;
+            if (!item.matched)
+                item.hovered = false;
+        }
+    }
+
+    function selectAddress(addr: string): void {
+        root.selectedAddr = addr ?? "";
+        const d = addr ? root.windowDataList.find(w => w.address === addr) : null;
+        if (d) {
+            const offset = OMath.pageOffsetFor(d.wsId, root.workspacesShown);
+            if (offset !== root.groupOffset)
+                root.groupOffset = offset;
+        }
+        root.syncMatchState();
+    }
+
+    // Up/Down walk the matches in reading order; the page follows the match.
+    function selectNext(delta: int): void {
+        if (root.matchAddresses.length === 0)
+            return;
+        root.selectAddress(OMath.stepAddress(root.matchAddresses, root.selectedAddr, delta));
+    }
+
+    // Typing filters windows by title and app class. The first hit is selected
+    // so Enter works without touching the mouse; clearing the query keeps the
+    // page where the user left it.
+    function applyQuery(): void {
+        root.hoveredAddr = "";
+        if (root.query.trim() === "") {
+            root.selectAddress("");
+            return;
+        }
+        root.selectAddress(root.matchAddresses[0] ?? "");
+    }
+
+    function setPage(index: int): void {
+        const offset = OMath.clampPageOffset(index * root.workspacesShown, root.workspacesShown, root.maxWorkspaceId);
+        if (offset === root.groupOffset)
+            return;
+        root.groupOffset = offset;
+        root.hoveredAddr = "";
+        root.selectedAddr = "";
+        root.syncMatchState();
+    }
+
+    function changePage(delta: int): void {
+        if (root.dragSourceWorkspace !== -1)
+            return;
+        root.setPage(root.pageIndex + delta);
+    }
+
+    function focusSelected(): void {
+        if (root.selectedAddr !== "")
+            root.focusWindow(root.selectedAddr);
+    }
+
+    function focusWindow(addr: string): void {
+        const d = root.windowDataList.find(w => w.address === addr);
+        if (!d || !d.toplevel)
+            return;
+        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ window = "address:0x${addr}" })` : `focuswindow address:0x${addr}`);
+        if (d.wsId !== Hypr.activeWsId)
+            Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ workspace = ${d.wsId} })` : `workspace ${d.wsId}`);
+        if (Hypr.usingLua) {
+            const ipc = d.toplevel?.lastIpcObject;
+            if (ipc) {
+                const mon = Hypr.focusedMonitor?.lastIpcObject;
+                const mx = mon?.x ?? 0;
+                const my = mon?.y ?? 0;
+                const cx = mx + (ipc.at?.[0] ?? 0) + (ipc.size?.[0] ?? 0) / 2;
+                const cy = my + (ipc.at?.[1] ?? 0) + (ipc.size?.[1] ?? 0) / 2;
+                Hypr.dispatch(`hl.dsp.cursor.move({x=${Math.round(cx)},y=${Math.round(cy)}})`);
+            }
+        }
+        root.close();
+    }
+
+    // Wheel pages through workspaces; the search field keeps the keyboard.
+    WheelHandler {
+        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+        onWheel: event => {
+            if (Math.abs(event.angleDelta.y) < 1)
+                return;
+            root.changePage(event.angleDelta.y > 0 ? -1 : 1);
+            event.accepted = true;
+        }
+    }
 
     // Same-workspace moves change geometry without changing the toplevel set,
     // so onValuesChanged may never fire for them, and a single delayed read
@@ -193,11 +341,14 @@ Item {
             const child = previewContainer.children[i];
             existing[child.addr] = child;
         }
-
         const usedAddrs = {};
 
         for (let i = 0; i < windowDataList.length; i++) {
             const d = windowDataList[i];
+            // Only the current page gets previews; matching still runs over
+            // every window, so search can reach other pages.
+            if (d.wsId <= root.groupOffset || d.wsId > root.groupOffset + root.workspacesShown)
+                continue;
             usedAddrs[d.address] = true;
 
             const wsId = d.wsId;
@@ -226,6 +377,7 @@ Item {
                 item.width = scaledW;
                 item.height = scaledH;
                 item.wsId = d.wsId;
+                item.title = d.title;
                 item.winClass = d.winClass;
                 item.visible = true;
                 delete existing[d.address];
@@ -237,6 +389,7 @@ Item {
                     "expectedY": newY,
                     "width": scaledW,
                     "height": scaledH,
+                    "title": d.title,
                     "winClass": d.winClass,
                     "toplevel": d.toplevel,
                     "addr": d.address,
@@ -248,6 +401,7 @@ Item {
         for (const addr in existing) {
             existing[addr].destroy();
         }
+        root.syncMatchState();
     }
 
     Component {
@@ -259,12 +413,15 @@ Item {
             color: Colours.palette.m3surfaceContainerHigh
             clip: true
 
+            property string title: ""
             property string winClass: ""
             property var toplevel: null
             property string addr: ""
             property int wsId: 0
             property bool hovered: false
             property bool pressed: false
+            property bool matched: true
+            property bool selected: false
             property real expectedX: 0
             property real expectedY: 0
             property bool wasDragged: false
@@ -273,6 +430,14 @@ Item {
             Drag.hotSpot.x: width / 2
             Drag.hotSpot.y: height / 2
             scale: pressed ? 1.05 : 1
+            enabled: matched
+            opacity: matched ? 1 : 0.18
+
+            Behavior on opacity {
+                Anim {
+                    type: Anim.DefaultEffects
+                }
+            }
 
             Behavior on scale {
                 Anim {
@@ -360,6 +525,18 @@ Item {
                         root.armVerify(prevItem.addr, -1);
                     }
                 }
+            }
+
+            // Keyboard selection ring, drawn above the hover tint and the
+            // preview so the window Enter will open is always visible.
+            Rectangle {
+                z: 6
+                anchors.fill: parent
+                radius: Tokens.rounding.large
+                color: "transparent"
+                border.width: 3
+                border.color: Colours.palette.m3primary
+                visible: prevItem.selected
             }
 
             Rectangle {
@@ -531,24 +708,17 @@ Item {
                         root.armVerify(prevItem.addr, -1);
                         return;
                     }
-                    Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ window = "address:0x${prevItem.addr}" })` : `focuswindow address:0x${prevItem.addr}`);
-                    if (prevItem.wsId !== Hypr.activeWsId)
-                        Hypr.dispatch(Hypr.usingLua ? `hl.dsp.focus({ workspace = ${prevItem.wsId} })` : `workspace ${prevItem.wsId}`);
-                    if (Hypr.usingLua) {
-                        const ipc = prevItem.toplevel?.lastIpcObject;
-                        if (ipc) {
-                            const mon = Hypr.focusedMonitor?.lastIpcObject;
-                            const mx = mon?.x ?? 0;
-                            const my = mon?.y ?? 0;
-                            const cx = mx + (ipc.at?.[0] ?? 0) + (ipc.size?.[0] ?? 0) / 2;
-                            const cy = my + (ipc.at?.[1] ?? 0) + (ipc.size?.[1] ?? 0) / 2;
-                            Hypr.dispatch(`hl.dsp.cursor.move({x=${Math.round(cx)},y=${Math.round(cy)}})`);
-                        }
-                    }
-                    root.close();
+                    root.focusWindow(prevItem.addr);
                 }
-                onEntered: prevItem.hovered = true
-                onExited: prevItem.hovered = false
+                onEntered: {
+                    prevItem.hovered = true;
+                    root.hoveredAddr = prevItem.addr;
+                }
+                onExited: {
+                    prevItem.hovered = false;
+                    if (root.hoveredAddr === prevItem.addr)
+                        root.hoveredAddr = "";
+                }
             }
 
             Behavior on x { Anim { type: Anim.FastSpatial } }

@@ -34,6 +34,7 @@ test_suite "qml_kblayout_test" "tests/qml_kblayout_test.sh"
 test_suite "captive_portal_launch_fallback_test" "tests/captive_portal_launch_fallback_test.sh"
 test_suite "display_math_test" "tests/display_math_test.sh"
 test_suite "keybinds_parse_test" "tests/keybinds_parse_test.sh"
+test_suite "overview_math_test" "tests/overview_math_test.sh"
 
 echo ""
 echo "═══════════════════════════════════════════"

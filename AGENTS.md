@@ -149,6 +149,16 @@ Dynamic sheet built from `hyprctl binds -j` (the OSD moved to SUPER+Shift+/).
 
 **Solution used:** Dynamic object creation via `Component {}` + `createObject()`. Window data is stored in a JS array (`property var windowDataList`), and preview Items are created/destroyed in `onWindowDataListChanged`.
 
+**Search, keyboard and paging (SUPER+TAB):**
+- `OverviewMath.js` is pure logic (query matching, reading-order matches, page offsets, wraparound stepping) with `tests/overview_math_test.js`. Keep the QML free of matching/order rules; add cases there first.
+- `windowDataList` holds windows from **every numbered workspace** (special/negative workspaces are skipped), so a query can find a window on another page. `refreshWindows` no longer filters by page; only `onWindowDataListChanged` skips previews outside `groupOffset..groupOffset + workspacesShown`. Filtering the list by page would silently shrink the match set and break cross-page Up/Down.
+- Typing filters by title + app class; every whitespace-separated term must appear. Non-matching previews stay in place at `opacity: 0.18` with `enabled: false` (context stays visible, clicks/drags cannot hit them). The first match is auto-selected and the page follows it.
+- Keys live on `Wrapper.qml`'s root and rely on the single-line `StyledTextField` not consuming Up/Down/Escape (it handles Enter via `onAccepted`). Up/Down step through matches with wraparound, Enter focuses the selected window (`focusWindow`, shared with the click path), Esc clears the query first and closes only on the second press.
+- The search field must be cleared in `onShouldBeActiveChanged`, both when opening and closing: `grid.query = ""` alone leaves the field's text behind, so the next open shows a stale filter that dims every preview and makes Enter do nothing.
+- `groupOffset` is mutable state (wheel / pager) rather than a binding on `activeWsId`; `onActiveWsIdChanged` re-pages only while no query is active and no drag is in progress. Pager label clamps to `maxWorkspaceId`; the whole pager hides when there is a single page.
+- The footer shows the hovered (else selected) window's title and workspace (`grid.detail`), or the key hint. Do not add per-preview title strips: the previews are small tiles and the label collides with the close badge and app icon.
+- Selected previews get a 3px `m3primary` ring at `z: 6`. Selection is by window address; `syncMatchState()` re-applies matched/selected flags after every preview rebuild.
+
 **Drag-and-drop (OverviewGrid.qml):**
 - Cross-workspace: `hl.dsp.window.move({ window = "address:0x...", workspace = N, follow = false })` (`movetowsilent` non-Lua). `DropArea.onExited` must NOT reset `dragTargetWorkspace`.
 - Same-workspace: floating windows reposition via `window.move({ x, y })`; tiled windows nudge one layout slot toward the drop point via `window.move({ window, direction })` (single dispatch: no focus change, no cursor warp, stays tiled). Exact positional insert is impossible — Hyprland exposes no such dispatcher. Never dispatch `cursor.move` on drag paths (Hyprland warp + our restore fight; see git log Sep 2026).

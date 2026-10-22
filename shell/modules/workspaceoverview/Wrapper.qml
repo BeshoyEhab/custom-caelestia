@@ -7,6 +7,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Caelestia.Config
 import qs.components
+import qs.components.controls
 import qs.services
 
 Item {
@@ -23,16 +24,32 @@ Item {
 
     readonly property real cardPadding: Tokens.padding.largeIncreased
     readonly property real cardSpacing: 10
+    readonly property real searchHeight: 46
+    readonly property real footerHeight: 30
     readonly property real wsWidth: (QsWindow.window?.width ?? 1920) * overviewScale
     readonly property real wsHeight: (QsWindow.window?.height ?? 1080) * overviewScale
     readonly property real cardWidth: columns * wsWidth + (columns - 1) * cardSpacing + cardPadding * 2
-    readonly property real cardHeight: rows * wsHeight + (rows - 1) * cardSpacing + cardPadding * 2
+    readonly property real cardHeight: rows * wsHeight + (rows - 1) * cardSpacing + cardPadding * 2 + searchHeight + footerHeight + cardSpacing * 2
 
     visible: opacity > 0
     opacity: shouldBeActive ? 1 : 0
     anchors.fill: parent
 
     focus: shouldBeActive
+
+    // The search field owns the keyboard while the overview is open, so typing
+    // filters immediately (GNOME/KDE behaviour) and the pager stays mouse-only.
+    // Both directions reset the field: the grid must never reopen with the
+    // previous session's filter still dimming every window.
+    onShouldBeActiveChanged: {
+        search.text = "";
+        grid.query = "";
+        if (root.shouldBeActive)
+            Qt.callLater(() => {
+                if (root.shouldBeActive)
+                    search.forceActiveFocus();
+            });
+    }
 
     Connections {
         target: root.visibilities
@@ -85,32 +102,154 @@ Item {
             shadowBlur: 0.8
         }
 
-        OverviewGrid {
-            id: overviewGrid
+        // Search + pager live inside the card, above and below the grid, so
+        // the overview reads like one window instead of a floating grid plus
+        // captions.
+        Item {
+            id: cardContent
 
-            anchors.centerIn: parent
-            activeWsId: root.activeWsId
-            overviewOpen: root.shouldBeActive
-            rows: root.rows
-            columns: root.columns
-            wsWidth: root.wsWidth
-            wsHeight: root.wsHeight
-            cardSpacing: root.cardSpacing
-            overviewScale: root.overviewScale
-            onClose: root.visibilities.workspaceOverview = false
+            anchors.fill: parent
+            anchors.margins: root.cardPadding
+
+            StyledRect {
+                id: searchBar
+
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: root.searchHeight
+                radius: Tokens.rounding.medium
+                color: Colours.palette.m3surfaceContainerHighest
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: Tokens.padding.medium
+                    anchors.rightMargin: Tokens.padding.small
+                    spacing: Tokens.spacing.small
+
+                    MaterialIcon {
+                        text: "search"
+                        color: Colours.palette.m3onSurfaceVariant
+                        fontStyle: Tokens.font.icon.small
+                    }
+
+                    StyledTextField {
+                        id: search
+
+                        Layout.fillWidth: true
+                        placeholderText: "Search windows by title or app…"
+                        onTextChanged: grid.query = text
+                        onAccepted: grid.focusSelected()
+                    }
+
+                    IconButton {
+                        icon: "backspace"
+                        type: IconButton.Text
+                        visible: search.text.length > 0
+                        onClicked: {
+                            search.text = "";
+                            search.forceActiveFocus();
+                        }
+                    }
+                }
+            }
+
+            OverviewGrid {
+                id: grid
+
+                anchors.top: searchBar.bottom
+                anchors.topMargin: root.cardSpacing
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: root.rows * root.wsHeight + (root.rows - 1) * root.cardSpacing
+                activeWsId: root.activeWsId
+                overviewOpen: root.shouldBeActive
+                rows: root.rows
+                columns: root.columns
+                wsWidth: root.wsWidth
+                wsHeight: root.wsHeight
+                cardSpacing: root.cardSpacing
+                overviewScale: root.overviewScale
+                onClose: root.visibilities.workspaceOverview = false
+            }
+
+            Item {
+                id: footer
+
+                anchors.top: grid.bottom
+                anchors.topMargin: root.cardSpacing
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: root.footerHeight
+
+                RowLayout {
+                    anchors.fill: parent
+                    spacing: Tokens.spacing.medium
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                        text: {
+                            const d = grid.detail;
+                            if (d)
+                                return `${d.title || d.winClass} · Workspace ${d.wsId}`;
+                            if (grid.query.trim() !== "")
+                                return "No matching windows";
+                            return "Type to search · ↑↓ select · Enter open · Esc close";
+                        }
+                        color: grid.detail ? Colours.palette.m3onSurface : Colours.palette.m3outline
+                        font: Tokens.font.body.small
+                        elide: Text.ElideRight
+                    }
+
+                    RowLayout {
+                        id: pager
+
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: Tokens.spacing.extraSmall
+                        visible: grid.pages > 1
+
+                        IconButton {
+                            icon: "chevron_left"
+                            type: IconButton.Text
+                            Layout.alignment: Qt.AlignVCenter
+                            enabled: grid.pageIndex > 0
+                            onClicked: grid.changePage(-1)
+                        }
+
+                        StyledText {
+                            Layout.alignment: Qt.AlignVCenter
+                            text: `${grid.groupOffset + 1}–${Math.min(grid.groupOffset + grid.workspacesShown, grid.maxWorkspaceId)}`
+                            color: Colours.palette.m3onSurfaceVariant
+                            font: Tokens.font.body.small
+                        }
+
+                        IconButton {
+                            icon: "chevron_right"
+                            type: IconButton.Text
+                            Layout.alignment: Qt.AlignVCenter
+                            enabled: grid.pageIndex < grid.pages - 1
+                            onClicked: grid.changePage(1)
+                        }
+                    }
+                }
+            }
         }
     }
 
-    Keys.onEscapePressed: root.visibilities.workspaceOverview = false
-
-    // Which workspace page is shown (groups of rows*columns), plus hint
-    Text {
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: cardBg.bottom
-        anchors.topMargin: Tokens.spacing.small
-        text: qsTr("Workspaces %1–%2 · Esc to close").arg(root.activeWsId - (root.activeWsId - 1) % (root.rows * root.columns)).arg(root.activeWsId - (root.activeWsId - 1) % (root.rows * root.columns) + root.rows * root.columns - 1)
-        color: Colours.palette.m3onSurfaceVariant
-        font: Tokens.font.body.small
+    // The single-line search field does not handle these, so they bubble up:
+    // arrows walk the matching windows, Enter opens the selected one, Esc
+    // clears the query before closing the overview.
+    Keys.onUpPressed: grid.selectNext(-1)
+    Keys.onDownPressed: grid.selectNext(1)
+    Keys.onReturnPressed: grid.focusSelected()
+    Keys.onEscapePressed: {
+        if (search.text.length > 0) {
+            search.text = "";
+            search.forceActiveFocus();
+        } else {
+            root.visibilities.workspaceOverview = false;
+        }
     }
 
     Behavior on opacity {
