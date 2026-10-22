@@ -1366,7 +1366,7 @@ cmd_build() {
 # Machine-readable output, no side effects (no fetch, no file changes).
 # Exit: 0 = up to date, 1 = updates available, 2 = error.
 cmd_check() {
-    [[ -d "$REPO_DIR/.git" ]] || {
+    git -C "$REPO_DIR" rev-parse --git-dir >/dev/null 2>&1 || {
         echo "REPO_DIR=$REPO_DIR"
         echo "ERROR=not a git repository"
         return 2
