@@ -431,7 +431,7 @@ Any other path → STOP and account for it.
 Record and report: the live config `~/.config/quickshell/caelestia/` currently carries `feat/desktop-clock-controls` WIP. Deploy only after that branch is committed and merged. The plugin must be in place **before** the QML, because `install.sh` deploys QML (`deploy_quickshell`) before rebuilding the plugin, and `--no-install` skips the plugin entirely. The order is:
 
 1. `./install.sh --build` — rebuild and install the plugin (never combine with `--no-install` for this deploy).
-2. **Gate A** — `strings /usr/lib/qt6/qml/Caelestia/Components/libcaelestia-components.so | grep -c RoundedMask` must be `> 0`. Zero → stop, do not deploy QML.
+2. **Gate A** — `strings /usr/lib/qt6/qml/Caelestia/lib/libcaelestia-components.so | grep -c RoundedMask` must be `> 0`, and `/usr/lib/qt6/qml/Caelestia/Components/libcaelestia-components.so` must not exist (the loader's RUNPATH is `$ORIGIN:$ORIGIN/../lib`, so a legacy copy in the module dir shadows the canonical one). Zero hits or a surviving shadow → stop, do not deploy QML.
 3. `./install.sh --update` — deploy QML.
 4. **Gate B** — `grep -rn "StyledClippingRect\|ClippingRectangle" ~/.config/quickshell/caelestia --include=*.qml` must be empty. A non-empty result means a conflict kept an old file (default answer is "keep yours") while the component was deleted; re-deploy that file with `--on-conflict replace` or restore `components/StyledClippingRect.qml`.
 5. Restart the shell.

@@ -1278,6 +1278,29 @@ plugin_cmake_generator() {
     echo "${gen:-Ninja}"
 }
 
+# qml_module installs each C++ backing library into Caelestia/lib and the
+# plugin finds it through RUNPATH "$ORIGIN:$ORIGIN/../lib". Legacy
+# build-plugin.sh copies left duplicates beside the plugins, where $ORIGIN
+# wins, so a stale duplicate silently masks the library just installed (it
+# kept a pre-RoundedMask Components lib alive through an upgrade).
+prune_shadowed_backing_libs() {
+    local install_dir="$1" module_lib name
+    for module_lib in "$install_dir"/Caelestia/*/libcaelestia-*.so; do
+        [[ -e "$module_lib" ]] || continue
+        if [[ "$module_lib" == "$install_dir/Caelestia/lib/"* ]]; then
+            continue
+        fi
+        if [[ "$module_lib" == *plugin.so ]]; then
+            continue
+        fi
+        name=$(basename "$module_lib")
+        if [[ -e "$install_dir/Caelestia/lib/$name" ]]; then
+            log "Removing shadowed backing library: $module_lib"
+            sudo rm -f "$module_lib"
+        fi
+    done
+}
+
 build_plugin() {
     local build_dir="$REPO_DIR/build"
     if [[ "$FORCE_REBUILD" == true && -d "$build_dir" ]]; then
@@ -1323,6 +1346,10 @@ build_plugin() {
             return 1
         fi
     }
+    # The plugin loader searches ../lib, so the tree must stay traversable for
+    # the user running quickshell; cmake --install can leave 750 dirs behind.
+    sudo chmod -R a+rX "$install_dir/Caelestia"
+    prune_shadowed_backing_libs "$install_dir"
     local m3shapes_build="$build_dir/_deps/m3shapes_external-build"
     if [[ -d "$m3shapes_build" ]]; then
         log "Installing M3Shapes module from FetchContent build dir..."

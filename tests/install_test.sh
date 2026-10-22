@@ -181,6 +181,38 @@ test_generator "reuses Unix Makefiles cache" "$GEN_TMP/makefiles" "Unix Makefile
 test_generator "keeps Ninja cache" "$GEN_TMP/ninja" "Ninja"
 test_generator "defaults to Ninja without a cache" "$GEN_TMP/empty" "Ninja"
 
+# ── 6. Shadowed backing libraries are pruned ────────────────────────────────
+# qml_module installs C++ backing libs into Caelestia/lib; the loader resolves
+# them through RUNPATH "$ORIGIN:$ORIGIN/../lib". A legacy build-plugin.sh copy
+# inside the module dir wins over that, so a stale duplicate silently masks the
+# freshly installed library (it hid RoundedMask through a full upgrade).
+SHADOW_TMP="$TMPDIR/shadow_probe"
+mkdir -p "$SHADOW_TMP/Caelestia/lib" \
+         "$SHADOW_TMP/Caelestia/Components" \
+         "$SHADOW_TMP/Caelestia/Models"
+: > "$SHADOW_TMP/Caelestia/lib/libcaelestia-components.so"
+: > "$SHADOW_TMP/Caelestia/lib/libcaelestia-models.so"
+: > "$SHADOW_TMP/Caelestia/Components/libcaelestia-components.so"
+: > "$SHADOW_TMP/Caelestia/Components/libcaelestia-componentsplugin.so"
+: > "$SHADOW_TMP/Caelestia/Models/libcaelestia-orphan.so"
+
+sudo() { "$@"; }   # helper uses sudo rm; keep it local to the test
+
+prune_shadowed_backing_libs "$SHADOW_TMP" >/dev/null 2>&1 || true
+
+[[ ! -e "$SHADOW_TMP/Caelestia/Components/libcaelestia-components.so" ]] \
+    && pass "prune: shadowed module copy removed" \
+    || fail "prune: shadowed module copy removed"
+[[ -e "$SHADOW_TMP/Caelestia/lib/libcaelestia-components.so" ]] \
+    && pass "prune: canonical copy kept" \
+    || fail "prune: canonical copy kept"
+[[ -e "$SHADOW_TMP/Caelestia/Components/libcaelestia-componentsplugin.so" ]] \
+    && pass "prune: plugin loader untouched" \
+    || fail "prune: plugin loader untouched"
+[[ -e "$SHADOW_TMP/Caelestia/Models/libcaelestia-orphan.so" ]] \
+    && pass "prune: library without canonical kept" \
+    || fail "prune: library without canonical kept"
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo "install_test: $PASS passed, $FAIL failed"

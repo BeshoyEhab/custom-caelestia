@@ -246,7 +246,7 @@ PageBase {
 
 - **CMake** builds the C++ plugin (`shell/plugin/`)
 - **Quickshell** loads QML files directly (no build step for QML)
-- **QML that uses `Caelestia.Components` types needs the plugin installed first.** `ClipRect` (custom component) renders through the C++ `RoundedMask`, so deploy the plugin with `./install.sh --build` before `./install.sh --update`; deploying QML alone fails with `RoundedMask is not a type`. `StyledClippingRect`/`ClippingRectangle` were deleted — `tests/qml_cliprect_test.sh` fails if a call site brings them back.
+- **QML that uses `Caelestia.Components` types needs the plugin installed first.** `ClipRect` (custom component) renders through the C++ `RoundedMask`, so deploy the plugin with `./install.sh --build` before `./install.sh --update`; deploying QML alone fails with `RoundedMask is not a type`. Backing libraries live in `/usr/lib/qt6/qml/Caelestia/lib/` (the loader's RUNPATH is `$ORIGIN:$ORIGIN/../lib`), so a leftover copy in a module directory shadows them — `--build` prunes those. `StyledClippingRect`/`ClippingRectangle` were deleted — `tests/qml_cliprect_test.sh` fails if a call site brings them back.
 - **Nix** packages everything (`shell/nix/default.nix`)
 - Run with `qs -c caelestia` from `~/.config/quickshell/caelestia/`
 
