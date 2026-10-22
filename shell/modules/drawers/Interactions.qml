@@ -150,12 +150,15 @@ CustomMouseArea {
             }
 
             if (!popouts.currentName.startsWith("traymenu") || ((popouts.current as StackView)?.depth ?? 0) <= 1) {
-                popouts.hasCurrent = false;
+                bar.cancelPendingPopout();
+                popouts.closeSoon();
                 bar.closeTray();
             }
 
             if (Config.bar.showOnHover)
                 bar.isHovered = false;
+        } else {
+            popouts.cancelClose();
         }
     }
 
@@ -311,13 +314,21 @@ CustomMouseArea {
             utilitiesShortcutActive = false;
         }
 
-        // Show popouts on hover
+        // Show popouts on hover. While the cursor is on the bar or inside the
+        // popout the menu stays put; only leaving both arms the close
+        // countdown, and coming back cancels it.
+        const traySubMenuOpen = popouts.currentName.startsWith("traymenu") && ((popouts.current as StackView)?.depth ?? 0) > 1;
         if (inBarArea(x, y)) {
             const pos = barIsVertical ? y : x;
+            popouts.cancelClose();
             bar.checkPopout(pos);
-        } else if ((!popouts.currentName.startsWith("traymenu") || ((popouts.current as StackView)?.depth ?? 0) <= 1) && !inLeftPanel(panels.popoutsWrapper, x, y)) {
-            popouts.hasCurrent = false;
+        } else if (!inLeftPanel(panels.popoutsWrapper, x, y) && !traySubMenuOpen) {
+            bar.cancelPendingPopout();
+            popouts.closeSoon();
             bar.closeTray();
+        } else {
+            bar.cancelPendingPopout();
+            popouts.cancelClose();
         }
 
         // Close sidebar on mouse move if opened via hover and mouse is outside sidebar and utilities areas

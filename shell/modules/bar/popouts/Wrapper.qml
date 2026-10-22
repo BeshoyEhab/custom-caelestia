@@ -59,9 +59,20 @@ Item {
     }
 
     function close(): void {
+        popoutState.cancelClose();
         hasCurrent = false;
         detachedMode = "";
     }
+
+    function closeSoon(): void {
+        popoutState.closeSoon();
+    }
+
+    function cancelClose(): void {
+        popoutState.cancelClose();
+    }
+
+    readonly property alias hoverDelay: popoutState.hoverDelay
 
     implicitWidth: nonAnimWidth
     implicitHeight: nonAnimHeight

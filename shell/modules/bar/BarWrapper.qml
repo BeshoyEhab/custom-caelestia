@@ -46,6 +46,10 @@ Item {
         (content.item as Bar)?.checkPopout(pos);
     }
 
+    function cancelPendingPopout(): void {
+        (content.item as Bar)?.cancelPendingPopout();
+    }
+
     function handleWheel(pos: real, angleDelta: point): void {
         (content.item as Bar)?.handleWheel(pos, angleDelta);
     }

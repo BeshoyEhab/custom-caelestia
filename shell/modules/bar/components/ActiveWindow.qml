@@ -59,6 +59,7 @@ Item {
                 if (popouts.hasCurrent) {
                     popouts.hasCurrent = false;
                 } else {
+                    popouts.cancelClose();
                     popouts.currentName = "activewindow";
                     popouts.currentCenter = root.mapToItem(root.bar, 0, root.implicitHeight / 2).y;
                     popouts.hasCurrent = true;

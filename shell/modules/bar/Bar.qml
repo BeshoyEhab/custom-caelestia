@@ -56,6 +56,50 @@ Item {
         return bottomEntry;
     }
 
+    // Hovering an entry waits popouts.hoverDelay before its popout opens, so
+    // sweeping the cursor across the bar neither opens every menu it crosses
+    // nor replaces the open one on the way.
+    property string pendingPopoutName
+    property var pendingPopoutCenter
+
+    function requestPopout(name: string, centerFn: var): void {
+        if (popouts.hasCurrent && popouts.currentName === name) {
+            cancelPendingPopout();
+            popouts.cancelClose();
+            return;
+        }
+        if (pendingPopoutName === name)
+            return;
+        pendingPopoutName = name;
+        pendingPopoutCenter = centerFn;
+        popoutOpenTimer.restart();
+    }
+
+    function cancelPendingPopout(): void {
+        pendingPopoutName = "";
+        pendingPopoutCenter = null;
+        popoutOpenTimer.stop();
+    }
+
+    function commitPendingPopout(): void {
+        if (pendingPopoutName === "")
+            return;
+        const name = pendingPopoutName;
+        const centerFn = pendingPopoutCenter;
+        cancelPendingPopout();
+        popouts.cancelClose();
+        popouts.currentName = name;
+        popouts.currentCenter = Qt.binding(centerFn);
+        popouts.hasCurrent = true;
+    }
+
+    Timer {
+        id: popoutOpenTimer
+
+        interval: popouts.hoverDelay
+        onTriggered: root.commitPendingPopout()
+    }
+
     function checkPopout(pos: real): void {
         const ch = findEntry(pos);
 
@@ -63,7 +107,8 @@ Item {
             closeTray();
 
         if (!ch) {
-            popouts.hasCurrent = false;
+            cancelPendingPopout();
+            popouts.closeSoon();
             return;
         }
 
@@ -73,9 +118,10 @@ Item {
             const items = (ch.statusIconsItem).items;
             const icon = items.childAt(items.width / 2, mapToItem(items, 0, pos).y);
             if (icon) {
-                popouts.currentName = icon.name;
-                popouts.currentCenter = Qt.binding(() => icon.mapToItem(root, 0, icon.implicitHeight / 2).y);
-                popouts.hasCurrent = true;
+                requestPopout(icon.name, () => icon.mapToItem(root, 0, icon.implicitHeight / 2).y);
+            } else {
+                cancelPendingPopout();
+                popouts.closeSoon();
             }
         } else if (id === "tray" && Config.bar.popouts.tray) {
             const tray = ch.trayItem;
@@ -84,20 +130,20 @@ Item {
                 const index = Math.floor(((trayPos - tray.padding * 2 + tray.spacing) / tray.layout.implicitHeight) * tray.items.count);
                 const trayItem = tray.items.itemAt(index);
                 if (trayItem) {
-                    popouts.currentName = `traymenu${index}`;
-                    popouts.currentCenter = Qt.binding(() => trayItem.mapToItem(root, 0, trayItem.implicitHeight / 2).y);
-                    popouts.hasCurrent = true;
+                    requestPopout(`traymenu${index}`, () => trayItem.mapToItem(root, 0, trayItem.implicitHeight / 2).y);
                 } else {
-                    popouts.hasCurrent = false;
+                    cancelPendingPopout();
+                    popouts.closeSoon();
                 }
             } else {
-                popouts.hasCurrent = false;
+                cancelPendingPopout();
+                popouts.closeSoon();
                 tray.expanded = true;
             }
         } else if (id === "activeWindow" && Config.bar.popouts.activeWindow && Config.bar.activeWindow.showOnHover) {
-            popouts.currentName = id.toLowerCase();
-            popouts.currentCenter = ch.activeWindowItem.mapToItem(root, 0, ch.activeWindowItem.implicitHeight / 2).y ?? 0;
-            popouts.hasCurrent = true;
+            requestPopout(id.toLowerCase(), () => ch.activeWindowItem.mapToItem(root, 0, ch.activeWindowItem.implicitHeight / 2).y ?? 0);
+        } else {
+            cancelPendingPopout();
         }
     }
 
