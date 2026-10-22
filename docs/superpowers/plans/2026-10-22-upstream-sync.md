@@ -55,7 +55,7 @@
 ## Review Focus
 
 1. A call site still using `StyledClippingRect`/`ClippingRectangle` after the swap → `StyledClippingRect is not a type` at boot. Pinned by Task 3's grep (must be 0).
-2. The plugin `.so` not rebuilt/installed before QML loads → `RoundedMask is not a type`. Pinned by Task 2's build + `RoundedMask` in the generated `.qmltypes`, and Task 5's boot-log grep.
+2. The plugin `.so` not rebuilt/installed before QML loads → `RoundedMask is not a type`. Pinned by Task 2's build + `RoundedMask` in the generated `.qmltypes`, and by Gate A/Gate C in Task 5's deploy steps.
 3. `qt_add_shaders` rejects the GLSL profile or the Qt ShaderTools component is missing → plugin build fails. Pinned by Task 2's build and the two `.qsb` outputs.
 4. A partial or premature deploy over the clock WIP → reverted clock UI, or live QML referencing a deleted type. Pinned by Task 5's deploy gate (this plan contains no deploy command).
 5. The session-gif `Loader` collapses to zero height or overlaps the buttons → invisible gif. Pinned by Task 4's byte-level comparison against upstream's `588562ea` file.
@@ -422,22 +422,21 @@ shell/services/Hypr.qml
 
 Any other path → STOP and account for it.
 
-- [ ] **Step 3 (optional, needs the human's OK): boot the branch's QML for 8 seconds**
+- [ ] **Step 3: Runtime proof is deferred — do not boot `qs -p` here**
 
-This starts a second shell instance, so a duplicate bar appears during the window. Skip it if the desktop is in active use.
+`qs -p "$PWD/shell"` resolves `Caelestia.Components` through the *installed* plugin, which predates `RoundedMask`, so a boot smoke before the deploy fails for the wrong reason (`RoundedMask is not a type`) even though the branch is correct. Do not record it as a pass or a fail. The runtime proof is Gate C in Step 4.
 
-```bash
-cd /home/Bisho/.local/share/opencode/worktree/0ccf01/displays-cheatsheet
-SIG=$(ls -t /run/user/1000/hypr/ | head -1)
-timeout 8 env HYPRLAND_INSTANCE_SIGNATURE="$SIG" qs -p "$PWD/shell" > /tmp/opencode/sync-boot.log 2>&1 || true
-grep -E "RoundedMask|ClipRect|StyledClippingRect|is not a type|ReferenceError|TypeError" /tmp/opencode/sync-boot.log | head
-```
+- [ ] **Step 4: Deploy gate — do not deploy in this plan**
 
-Expected: no matching lines. Matching `RoundedMask`/`ClipRect` errors → the plugin install or a swap is wrong.
+Record and report: the live config `~/.config/quickshell/caelestia/` currently carries `feat/desktop-clock-controls` WIP. Deploy only after that branch is committed and merged. The plugin must be in place **before** the QML, because `install.sh` deploys QML (`deploy_quickshell`) before rebuilding the plugin, and `--no-install` skips the plugin entirely. The order is:
 
-- [ ] **Step 4: Deploy gate — do not deploy**
-
-Record and report: the live config `~/.config/quickshell/caelestia/` currently carries `feat/desktop-clock-controls` WIP. Deploy only after that branch is committed and merged, then run `./install.sh --update` and restart the shell. The post-deploy smoke must cover: notifications (sidebar + lock), bar workspace pills, launcher wallpaper grid, Nexus wallpaper page, and the session menu gif with an empty `sessionGif` path.
+1. `./install.sh --build` — rebuild and install the plugin (never combine with `--no-install` for this deploy).
+2. **Gate A** — `strings /usr/lib/qt6/qml/Caelestia/Components/libcaelestia-components.so | grep -c RoundedMask` must be `> 0`. Zero → stop, do not deploy QML.
+3. `./install.sh --update` — deploy QML.
+4. **Gate B** — `grep -rn "StyledClippingRect\|ClippingRectangle" ~/.config/quickshell/caelestia --include=*.qml` must be empty. A non-empty result means a conflict kept an old file (default answer is "keep yours") while the component was deleted; re-deploy that file with `--on-conflict replace` or restore `components/StyledClippingRect.qml`.
+5. Restart the shell.
+6. **Gate C** — `grep -E "RoundedMask|ClipRect|StyledClippingRect|is not a type|Failed to build graphics pipeline|roundedmask" <shell log>` must be empty. This is the shader-link proof the build cannot give.
+7. Visual smoke: notifications (sidebar + lock), bar workspace pills, launcher wallpaper grid, Nexus wallpaper page, and the session menu with an empty `sessionGif` path.
 
 - [ ] **Step 5: No commit.**
 
