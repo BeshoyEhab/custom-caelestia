@@ -52,6 +52,15 @@ for key in "${keys[@]}"; do
     fi
 done
 
+# Guard against a botched search/replace producing an undefined singleton name.
+# `GlobalGlobalConfig` parses fine but every handler throws at runtime, which is
+# exactly how the whole page went inert.
+if grep -q 'GlobalGlobalConfig' "$PAGE"; then
+    echo "FAIL: ClockSettings.qml references undefined GlobalGlobalConfig"
+    grep -n 'GlobalGlobalConfig' "$PAGE" | head -5
+    fail=1
+fi
+
 if [[ $fail -ne 0 ]]; then
     echo "clock_settings: ${#keys[@]} keys checked, missing bindings found"
     exit 1

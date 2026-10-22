@@ -443,7 +443,6 @@ PageBase {
             label: qsTr("Rounding")
             valueLabel: `×${Config.background.visualiser.rounding.toFixed(1)}`
             value: Config.background.visualiser.rounding / 2
-            wheelStep: 0.05
             enabled: Config.background.visualiser.enabled
             onMoved: v => GlobalConfig.background.visualiser.rounding = v * 2
         }
@@ -455,7 +454,6 @@ PageBase {
             label: qsTr("Spacing")
             valueLabel: `×${Config.background.visualiser.spacing.toFixed(1)}`
             value: Config.background.visualiser.spacing / 2
-            wheelStep: 0.05
             enabled: Config.background.visualiser.enabled
             onMoved: v => GlobalConfig.background.visualiser.spacing = v * 2
         }

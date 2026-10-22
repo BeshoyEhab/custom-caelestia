@@ -62,8 +62,6 @@ PageBase {
             valueLabel: Strings.percent(value)
             value: Audio.sourceVolume
             enabled: !Audio.sourceMuted
-            // Custom: finer wheel step than the global audio increment.
-            wheelStep: 0.05
             onMoved: v => Audio.setSourceVolume(v)
         }
 
