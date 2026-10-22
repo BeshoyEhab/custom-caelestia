@@ -16,6 +16,15 @@ PageBase {
     // Values of background.desktopClock.position, in menu order.
     readonly property list<string> positionKeys: ["top-left", "top-center", "top-right", "middle-left", "middle-center", "middle-right", "bottom-left", "bottom-center", "bottom-right", "auto-empty", "auto-full"]
 
+    readonly property string clockStyleLabel: {
+        const style = Config.background.desktopClock.clockStyle;
+        if (style === "cookie")
+            return qsTr("Cookie (Android)");
+        if (style === "analog")
+            return qsTr("Analog");
+        return qsTr("Digital");
+    }
+
     title: qsTr("Wallpaper & style")
 
     ColumnLayout {
@@ -434,7 +443,6 @@ PageBase {
             label: qsTr("Rounding")
             valueLabel: `×${Config.background.visualiser.rounding.toFixed(1)}`
             value: Config.background.visualiser.rounding / 2
-            wheelStep: 0.05
             enabled: Config.background.visualiser.enabled
             onMoved: v => GlobalConfig.background.visualiser.rounding = v * 2
         }
@@ -446,7 +454,6 @@ PageBase {
             label: qsTr("Spacing")
             valueLabel: `×${Config.background.visualiser.spacing.toFixed(1)}`
             value: Config.background.visualiser.spacing / 2
-            wheelStep: 0.05
             enabled: Config.background.visualiser.enabled
             onMoved: v => GlobalConfig.background.visualiser.spacing = v * 2
         }
@@ -456,34 +463,17 @@ PageBase {
             text: qsTr("Clock")
         }
 
-        SelectRow {
+        ToggleRow {
             first: true
-            label: qsTr("Clock style")
-            subtext: qsTr("Digital text or classical analog face")
-            menuOnTop: true
-            menuItems: [
-                MenuItem {
-                    text: qsTr("Digital")
-                    icon: GlobalConfig.background.desktopClock.clockStyle !== "analog" ? "check" : ""
-                    activeIcon: "schedule"
-                },
-                MenuItem {
-                    text: qsTr("Analog")
-                    icon: GlobalConfig.background.desktopClock.clockStyle === "analog" ? "check" : ""
-                    activeIcon: "schedule"
-                }
-            ]
-            active: GlobalConfig.background.desktopClock.clockStyle === "analog" ? menuItems[1] : menuItems[0]
-            onSelected: {
-                const idx = menuItems.indexOf(item);
-                GlobalConfig.background.desktopClock.clockStyle = idx === 1 ? "analog" : "digital";
-            }
+            text: qsTr("Desktop clock")
+            subtext: qsTr("Show a clock on the wallpaper")
+            checked: Config.background.desktopClock.enabled
+            onToggled: GlobalConfig.background.desktopClock.enabled = checked
         }
 
         SelectRow {
             Layout.topMargin: Tokens.spacing.extraSmall / 2 - parent.spacing
 
-            last: true
             label: qsTr("Clock position")
             subtext: qsTr("Preset corner, or the wallpaper's empty/busiest area")
             menuOnTop: true
@@ -553,6 +543,14 @@ PageBase {
                 if (idx >= 0)
                     GlobalConfig.background.desktopClock.position = root.positionKeys[idx];
             }
+        }
+
+        NavRow {
+            last: true
+            icon: "schedule"
+            label: qsTr("Clock appearance")
+            status: root.clockStyleLabel
+            onClicked: root.nState.openSubPage(4)
         }
     }
 }

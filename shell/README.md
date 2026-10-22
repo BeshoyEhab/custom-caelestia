@@ -425,6 +425,7 @@ For example, to disable the bar on DP-1:
             "enabled": false,
             "scale": 1.0,
             "position": "bottom-right",
+            "clockStyle": "digital",
             "invertColors": false,
             "background": {
                 "enabled": false,
@@ -435,6 +436,38 @@ For example, to disable the bar on DP-1:
                 "enabled": true,
                 "opacity": 0.7,
                 "blur": 0.4
+            },
+            "animatePosition": true,
+            "quote": {
+                "enabled": false,
+                "text": ""
+            },
+            "digital": {
+                "orientation": "auto",
+                "showDate": true,
+                "showSeconds": false,
+                "animateChange": true,
+                "adaptiveAlignment": true,
+                "font": {
+                    "family": "",
+                    "size": 1.0,
+                    "weight": 700,
+                    "width": 100,
+                    "roundness": 0
+                }
+            },
+            "cookie": {
+                "sides": 14,
+                "dialNumberStyle": "full",
+                "hourHandStyle": "fill",
+                "minuteHandStyle": "medium",
+                "secondHandStyle": "dot",
+                "dateStyle": "bubble",
+                "timeIndicators": true,
+                "hourMarks": false,
+                "dateInClock": true,
+                "useSineCookie": false,
+                "constantlyRotate": false
             }
         },
         "visualiser": {

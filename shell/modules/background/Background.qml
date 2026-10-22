@@ -9,6 +9,7 @@ import qs.components
 import qs.components.containers
 import qs.services
 import qs.utils
+import "ClockPosition.js" as ClockPosition
 
 Variants {
     model: Screens.screens.filter(s => GlobalConfig.forScreen(s.name).background.enabled)
@@ -55,6 +56,10 @@ Variants {
             ];
         }
 
+        property bool analysisPending: false
+        property var deferredAnalysis: null
+        property string analysisRunKey: ""
+
         screen: modelData
         name: "background"
         WlrLayershell.exclusionMode: ExclusionMode.Ignore
@@ -71,7 +76,27 @@ Variants {
 
         onClockAnalysisCmdChanged: {
             if (clockAnalysisCmd.length > 0)
+                analysisTimer.restart();
+            else
+                analysisTimer.stop();
+        }
+
+        Timer {
+            id: analysisTimer
+
+            interval: 300
+            repeat: false
+
+            onTriggered: {
+                if (clockAnalysisCmd.length === 0)
+                    return;
+                if (analysisProc.running) {
+                    win.analysisPending = true;
+                    return;
+                }
+                win.analysisRunKey = JSON.stringify(clockAnalysisCmd);
                 analysisProc.exec(clockAnalysisCmd);
+            }
         }
 
         Item {
@@ -101,8 +126,9 @@ Variants {
         }
 
         // Free-drag offset for the desktop clock, remembered per screen.
-        // The clock keeps its preset anchors; dragging just translates it,
-        // so picking a new preset in settings re-snaps cleanly.
+        // The clock gets a base x/y from the preset or the analyser; dragging
+        // only translates it, so a preset change or wallpaper reset re-snaps
+        // cleanly.
         // NOTE: deliberately not PersistentProperties — that only flushes on
         // graceful exit (states.json stale since Sep 2; this shell usually
         // exits via crash/kill), so offsets were lost every session.
@@ -146,6 +172,24 @@ Variants {
                 clockPos.custom = false;
                 clockPos.dx = 0;
                 clockPos.dy = 0;
+                win.deferredAnalysis = null;
+                win.analysisPending = false;
+                analysisTimer.stop();
+                if (!win.autoClockPlacement)
+                    Qt.callLater(() => clockLoader.placementSettled = true);
+                saveClockPos();
+            }
+        }
+
+        Connections {
+            target: Wallpapers
+            function onActualCurrentChanged(): void {
+                if (!win.autoClockPlacement)
+                    return;
+                clockPos.custom = false;
+                clockPos.dx = 0;
+                clockPos.dy = 0;
+                win.deferredAnalysis = null;
                 saveClockPos();
             }
         }
@@ -162,19 +206,37 @@ Variants {
         Process {
             id: analysisProc
 
+            onExited: {
+                if (win.analysisPending) {
+                    win.analysisPending = false;
+                    analysisTimer.restart();
+                }
+            }
+
             stdout: StdioCollector {
                 onStreamFinished: {
+                    if (JSON.stringify(clockAnalysisCmd) !== win.analysisRunKey)
+                        return;
+
+                    let result;
                     try {
                         const d = JSON.parse(text);
                         if (typeof d.center_x !== "number" || typeof d.center_y !== "number")
                             throw new Error("bad payload");
-                        autoPos.cx = d.center_x;
-                        autoPos.cy = d.center_y;
+                        result = { cx: d.center_x, cy: d.center_y };
                     } catch (e) {
                         console.warn(`[Background] wallpaper region analysis failed: ${e}`);
-                        autoPos.cx = win.width / 2;
-                        autoPos.cy = win.height / 2;
+                        result = { cx: win.width / 2, cy: win.height / 2 };
                     }
+
+                    if (dragArea.dragging) {
+                        win.deferredAnalysis = result;
+                        return;
+                    }
+
+                    autoPos.cx = result.cx;
+                    autoPos.cy = result.cy;
+                    clockLoader.placementSettled = true;
                 }
             }
         }
@@ -182,120 +244,56 @@ Variants {
         Loader {
             id: clockLoader
 
+            readonly property var insets: ({ left: win.clockInsetL, right: win.clockInsetR, top: win.clockInsetT, bottom: win.clockInsetB })
+            readonly property var presetPos: win.autoClockPlacement ? ({ x: 0, y: 0 }) : ClockPosition.preset(Config.background.desktopClock.position, win.width, win.height, width, height, insets)
+            readonly property var autoPosResult: ClockPosition.fromCenter(autoPos.cx, autoPos.cy, win.width, win.height, width, height, insets)
+            readonly property real baseX: win.autoClockPlacement ? autoPosResult.x : presetPos.x
+            readonly property real baseY: win.autoClockPlacement ? autoPosResult.y : presetPos.y
+            property bool placementSettled: false
+
             asynchronous: true
             active: Config.background.desktopClock.enabled
+            x: baseX
+            y: baseY
+
+            Behavior on x {
+                enabled: Config.background.desktopClock.animatePosition && clockLoader.placementSettled && !dragArea.dragging
+                Anim {
+                    type: Anim.DefaultSpatial
+                }
+            }
+
+            Behavior on y {
+                enabled: Config.background.desktopClock.animatePosition && clockLoader.placementSettled && !dragArea.dragging
+                Anim {
+                    type: Anim.DefaultSpatial
+                }
+            }
+
+            Component.onCompleted: {
+                if (!win.autoClockPlacement)
+                    Qt.callLater(() => placementSettled = true);
+            }
 
             transform: Translate {
                 id: clockTrans
 
-                x: !win.autoClockPlacement && clockPos.custom ? clockPos.dx : 0
-                y: !win.autoClockPlacement && clockPos.custom ? clockPos.dy : 0
-            }
+                x: clockPos.custom ? clockPos.dx : 0
+                y: clockPos.custom ? clockPos.dy : 0
 
-            anchors.margins: Tokens.padding.extraLargeIncreased
-            anchors.leftMargin: Tokens.padding.extraLargeIncreased + (GlobalConfig.bar.positioningEdge === 0 ? Tokens.sizes.bar.innerWidth + Math.max(Tokens.padding.small, Config.border.thickness) : Math.max(Tokens.padding.small, Config.border.thickness))
-            anchors.topMargin: Tokens.padding.extraLargeIncreased + (GlobalConfig.bar.positioningEdge === 2 ? Tokens.sizes.bar.innerWidth + Math.max(Tokens.padding.small, Config.border.thickness) : Math.max(Tokens.padding.small, Config.border.thickness))
-
-            state: win.autoClockPlacement ? "auto" : Config.background.desktopClock.position
-            states: [
-                State {
-                    name: "top-left"
-
-                    AnchorChanges {
-                        target: clockLoader
-                        anchors.top: parent.top
-                        anchors.left: parent.left
-                    }
-                },
-                State {
-                    name: "top-center"
-
-                    AnchorChanges {
-                        target: clockLoader
-                        anchors.top: parent.top
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                },
-                State {
-                    name: "top-right"
-
-                    AnchorChanges {
-                        target: clockLoader
-                        anchors.top: parent.top
-                        anchors.right: parent.right
-                    }
-                },
-                State {
-                    name: "middle-left"
-
-                    AnchorChanges {
-                        target: clockLoader
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                    }
-                },
-                State {
-                    name: "middle-center"
-
-                    AnchorChanges {
-                        target: clockLoader
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                },
-                State {
-                    name: "middle-right"
-
-                    AnchorChanges {
-                        target: clockLoader
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.right: parent.right
-                    }
-                },
-                State {
-                    name: "bottom-left"
-
-                    AnchorChanges {
-                        target: clockLoader
-                        anchors.bottom: parent.bottom
-                        anchors.left: parent.left
-                    }
-                },
-                State {
-                    name: "bottom-center"
-
-                    AnchorChanges {
-                        target: clockLoader
-                        anchors.bottom: parent.bottom
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                },
-                State {
-                    name: "bottom-right"
-
-                    AnchorChanges {
-                        target: clockLoader
-                        anchors.bottom: parent.bottom
-                        anchors.right: parent.right
-                    }
-                },
-                // Auto-placement: leaving a preset state reverts its anchors,
-                // so the clock is unanchored here and driven purely by x/y
-                // centred on the analysed region (clamped to the insets).
-                State {
-                    name: "auto"
-
-                    PropertyChanges {
-                        target: clockLoader
-
-                        x: Math.max(win.clockInsetL, Math.min(autoPos.cx - clockLoader.width / 2, win.width - win.clockInsetR - clockLoader.width))
-                        y: Math.max(win.clockInsetT, Math.min(autoPos.cy - clockLoader.height / 2, win.height - win.clockInsetB - clockLoader.height))
+                Behavior on x {
+                    enabled: Config.background.desktopClock.animatePosition && clockLoader.placementSettled && !dragArea.dragging
+                    Anim {
+                        type: Anim.DefaultSpatial
                     }
                 }
-            ]
 
-            transitions: Transition {
-                AnchorAnim {}
+                Behavior on y {
+                    enabled: Config.background.desktopClock.animatePosition && clockLoader.placementSettled && !dragArea.dragging
+                    Anim {
+                        type: Anim.DefaultSpatial
+                    }
+                }
             }
 
             sourceComponent: DesktopClock {
@@ -305,12 +303,13 @@ Variants {
             }
         }
 
-        // Drag handle: when nothing covers the desktop, grabbing the clock
-        // nudges it anywhere. Disabled during auto-placement (the analysis
-        // owns the position); only covers the clock rect, so wallpaper
-        // clicks everywhere else are unaffected.
+        // Drag handle: grabbing the clock nudges it anywhere, in every mode.
+        // Only covers the clock rect, so wallpaper clicks elsewhere are
+        // unaffected.
         MouseArea {
-            visible: clockLoader.active && clockLoader.status === Loader.Ready && !win.autoClockPlacement
+            id: dragArea
+
+            visible: clockLoader.active && clockLoader.status === Loader.Ready
             x: clockLoader.x + clockTrans.x
             y: clockLoader.y + clockTrans.y
             width: clockLoader.width
@@ -321,9 +320,10 @@ Variants {
 
             property real grabDX: 0
             property real grabDY: 0
+            property bool dragging: false
 
             onPressed: mouse => {
-                clockPos.custom = true;
+                dragging = true;
                 const p = mapToItem(clockLoader.parent, mouse.x, mouse.y);
                 grabDX = p.x - (clockLoader.x + clockTrans.x);
                 grabDY = p.y - (clockLoader.y + clockTrans.y);
@@ -331,13 +331,28 @@ Variants {
             onPositionChanged: mouse => {
                 if (!pressed)
                     return;
+                clockPos.custom = true;
                 const p = mapToItem(clockLoader.parent, mouse.x, mouse.y);
-                const maxX = clockLoader.parent.width - clockLoader.width;
-                const maxY = clockLoader.parent.height - clockLoader.height;
-                clockPos.dx = Math.min(Math.max(p.x - clockLoader.x - grabDX, -clockLoader.x), maxX - clockLoader.x);
-                clockPos.dy = Math.min(Math.max(p.y - clockLoader.y - grabDY, -clockLoader.y), maxY - clockLoader.y);
+                const clamped = ClockPosition.clampOffset(p.x - clockLoader.x - grabDX, p.y - clockLoader.y - grabDY, clockLoader.baseX, clockLoader.baseY, clockLoader.width, clockLoader.height, win.width, win.height, clockLoader.insets);
+                clockPos.dx = clamped.dx;
+                clockPos.dy = clamped.dy;
             }
-            onReleased: saveClockPos()
+            onReleased: {
+                dragging = false;
+                if (win.deferredAnalysis) {
+                    autoPos.cx = win.deferredAnalysis.cx;
+                    autoPos.cy = win.deferredAnalysis.cy;
+                    clockLoader.placementSettled = true;
+                    win.deferredAnalysis = null;
+                }
+                saveClockPos();
+            }
+            onDoubleClicked: {
+                clockPos.custom = false;
+                clockPos.dx = 0;
+                clockPos.dy = 0;
+                saveClockPos();
+            }
         }
     }
 }
