@@ -18,7 +18,7 @@ Item {
     Layout.preferredWidth: preview.implicitWidth + Tokens.padding.extraLargeIncreased
     Layout.fillHeight: true
 
-    StyledClippingRect {
+    ClipRect {
         id: preview
 
         anchors.horizontalCenter: parent.horizontalCenter

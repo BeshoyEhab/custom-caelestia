@@ -24,7 +24,7 @@ PageBase {
         width: root.cappedWidth
         spacing: Tokens.spacing.large
 
-        StyledClippingRect {
+        ClipRect {
             id: wallWrapper
 
             Layout.alignment: Qt.AlignHCenter

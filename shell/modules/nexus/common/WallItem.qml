@@ -49,7 +49,7 @@ Item {
         anchors.fill: parent
         spacing: Tokens.spacing.small
 
-        StyledClippingRect {
+        ClipRect {
             id: imgWrapper
 
             Layout.fillWidth: true

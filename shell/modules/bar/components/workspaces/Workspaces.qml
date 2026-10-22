@@ -9,7 +9,7 @@ import Caelestia.Config
 import qs.components
 import qs.services
 
-StyledClippingRect {
+ClipRect {
     id: root
 
     required property ShellScreen screen
