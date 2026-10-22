@@ -19,6 +19,9 @@ set_source_files_properties(animatedrepeater.cpp PROPERTIES COMPILE_OPTIONS -Wno
 # Pre-existing GCC false positive of the same kind in lazylistview.cpp:1081
 # (guarded constBegin().key()); silence per-file, do not touch logic.
 set_source_files_properties(lazylistview.cpp PROPERTIES COMPILE_OPTIONS -Wno-null-dereference)
+# Upstream roundedmask.cpp:133 trip the same GCC false positive (a null check
+# the optimizer cannot see through); vendored verbatim, so silence it here.
+set_source_files_properties(roundedmask.cpp PROPERTIES COMPILE_OPTIONS -Wno-null-dereference)
 
 qt_add_shaders(caelestia-components "components_shaders"
     BATCHABLE OPTIMIZED NOHLSL NOMSL

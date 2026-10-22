@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Hyprland
-import Quickshell.Widgets
 import Caelestia
 import Caelestia.Components
 import Caelestia.Config
