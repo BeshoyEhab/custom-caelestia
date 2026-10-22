@@ -120,6 +120,45 @@ else
     fail "deploy_quickshell: could not create test symlink"
 fi
 
+# ── 5. Plugin rebuild trigger covers shader sources ──────────────────────────
+# A .frag/.vert edit used to be invisible to both `--update`'s skip-rebuild
+# check and `--check`'s PLUGINS_STALE, so a shader change reached the live
+# shell only after a manual --build.
+PROBE="$TMPDIR/plugin_probe"
+PROBE_SRC="$PROBE/shell/plugin/src"
+mkdir -p "$PROBE_SRC/components/shaders" "$PROBE/build"
+STAMP="$PROBE/build/.plugin_build_stamp"
+touch -d '2020-01-01 00:00:00' "$STAMP"
+
+triggered() { plugin_sources_newer_than "$STAMP" "$PROBE_SRC"; }
+
+if declare -F plugin_sources_newer_than >/dev/null; then
+    pass "plugin trigger: helper exists"
+else
+    fail "plugin trigger: helper exists"
+fi
+
+if triggered; then fail "plugin trigger: unchanged tree does not rebuild"; else pass "plugin trigger: unchanged tree does not rebuild"; fi
+
+touch -d '2030-01-01 00:00:00' "$PROBE_SRC/components/demo.cpp"
+if triggered; then pass "plugin trigger: newer .cpp rebuilds"; else fail "plugin trigger: newer .cpp rebuilds"; fi
+rm -f "$PROBE_SRC/components/demo.cpp"
+
+touch -d '2030-01-01 00:00:00' "$PROBE_SRC/components/shaders/mask.frag"
+if triggered; then pass "plugin trigger: newer .frag rebuilds"; else fail "plugin trigger: newer .frag rebuilds"; fi
+rm -f "$PROBE_SRC/components/shaders/mask.frag"
+
+touch -d '2030-01-01 00:00:00' "$PROBE_SRC/components/shaders/mask.vert"
+if triggered; then pass "plugin trigger: newer .vert rebuilds"; else fail "plugin trigger: newer .vert rebuilds"; fi
+rm -f "$PROBE_SRC/components/shaders/mask.vert"
+
+touch -d '2030-01-01 00:00:00' "$PROBE_SRC/components/Thing.qml"
+if triggered; then fail "plugin trigger: QML-only change does not rebuild"; else pass "plugin trigger: QML-only change does not rebuild"; fi
+rm -f "$PROBE_SRC/components/Thing.qml"
+
+rm -f "$STAMP"
+if triggered; then pass "plugin trigger: missing stamp rebuilds"; else fail "plugin trigger: missing stamp rebuilds"; fi
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo "install_test: $PASS passed, $FAIL failed"

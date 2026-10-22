@@ -1326,15 +1326,23 @@ build_plugin() {
     log "Plugin installed."
 }
 
+# Plugin rebuild trigger: sources, headers, shaders and CMake changes all count.
+# $1 = stamp file, $2 = plugin source root (defaults to this repo's).
+plugin_sources_newer_than() {
+    local stamp="$1" root="${2:-$REPO_DIR/shell/plugin/src}"
+    [[ -f "$stamp" ]] || return 0
+    # -print -quit: exit after the first newer file so grep -q can't close
+    # the pipe early and SIGPIPE find into a false "unchanged" under pipefail.
+    find "$root" -type f \
+        \( -name "*.hpp" -o -name "*.cpp" -o -name "*.frag" -o -name "*.vert" -o -name "CMakeLists.txt" \) \
+        -newer "$stamp" -print -quit 2>/dev/null | grep -q .
+}
+
 build_plugin_if_changed() {
     if [[ "$BUILD_CMD" != true && "$FORCE" != true ]]; then
         # update without --build: only rebuild when sources are newer than stamp.
-        # -print -quit: exit after the first newer file so grep -q can't close
-        # the pipe early and SIGPIPE find into a false "unchanged" under pipefail.
         local stamp="$REPO_DIR/build/.plugin_build_stamp"
-        if [[ -f "$stamp" ]] && ! find "$REPO_DIR/shell/plugin/src" -type f \
-            \( -name "*.hpp" -o -name "*.cpp" -o -name "CMakeLists.txt" \) -newer "$stamp" \
-            -print -quit 2>/dev/null | grep -q .; then
+        if [[ -f "$stamp" ]] && ! plugin_sources_newer_than "$stamp"; then
             log "Plugin source unchanged — skipping rebuild (use --build to force)."
             return 0
         fi
@@ -1385,9 +1393,7 @@ cmd_check() {
     fi
 
     local stamp_file="$REPO_DIR/build/.plugin_build_stamp"
-    if [[ ! -f "$stamp_file" ]]; then
-        stale=true
-    elif [[ -n "$(find "$REPO_DIR/shell/plugin/src" -type f \( -name "*.hpp" -o -name "*.cpp" -o -name "CMakeLists.txt" \) -newer "$stamp_file" 2>/dev/null)" ]]; then
+    if plugin_sources_newer_than "$stamp_file"; then
         stale=true
     else
         stale=false
