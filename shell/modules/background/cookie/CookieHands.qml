@@ -20,6 +20,9 @@ Item {
     required property color faceColor
 
     readonly property real k: size / 230
+    // Hoisted out of the Behavior below: QQuickBehavior is not a QQuickItem and
+    // cannot inherit a screen, so per-monitor Config reads there warn.
+    readonly property bool constantRotate: Config.background.desktopClock.cookie.constantlyRotate
     readonly property real hourWidth: 20 * k
     readonly property real minuteWidth: root.minuteStyle === "bold" ? 20 * k : root.minuteStyle === "medium" ? 12 * k : 5 * k
 
@@ -86,7 +89,7 @@ Item {
         rotation: -90 + 6 * root.second
 
         Behavior on rotation {
-            enabled: Config.background.desktopClock.cookie.constantlyRotate
+            enabled: root.constantRotate
 
             RotationAnimation {
                 direction: RotationAnimation.Clockwise

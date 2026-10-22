@@ -71,7 +71,7 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 text: Time.hourStr.padStart(2, "0")
                 color: root.onFaceColor
-                font.family: Tokens.font.clock.family
+                font.family: Tokens.font.clock.build().family
                 font.pixelSize: (root.hourMarks ? 40 : 68) * root.k
                 font.weight: Font.Bold
             }
@@ -80,7 +80,7 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 text: Time.minuteStr.padStart(2, "0")
                 color: root.onFaceColor
-                font.family: Tokens.font.clock.family
+                font.family: Tokens.font.clock.build().family
                 font.pixelSize: (root.hourMarks ? 40 : 68) * root.k
                 font.weight: Font.Bold
             }
@@ -93,7 +93,7 @@ Item {
                 sourceComponent: StyledText {
                     text: Time.amPmStr
                     color: root.onFaceColor
-                    font.family: Tokens.font.clock.family
+                    font.family: Tokens.font.clock.build().family
                     font.pixelSize: (root.hourMarks ? 20 : 26) * root.k
                     font.weight: Font.Bold
                 }

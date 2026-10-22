@@ -34,6 +34,12 @@ Variants {
             return p === "auto-empty" || p === "auto-full";
         }
 
+        // Hoisted out of the Behavior/Connections below: those are raw QObjects
+        // and cannot inherit a screen, so a per-monitor Config read there warns
+        // and silently falls back to GlobalConfig.
+        readonly property var desktopClockConfig: contentItem.Config.background.desktopClock
+        readonly property bool animateClockPosition: desktopClockConfig.animatePosition && clockLoader.placementSettled && !dragArea.dragging
+
         // Rebuilt whenever anything that affects the analysis changes
         // (placement mode, wallpaper, screen, box size, fill mode, insets).
         // Empty means "don't analyse"; a non-empty value change kicks the run.
@@ -167,7 +173,7 @@ Variants {
         }
 
         Connections {
-            target: Config.background.desktopClock
+            target: win.desktopClockConfig
             function onPositionChanged(): void {
                 clockPos.custom = false;
                 clockPos.dx = 0;
@@ -257,14 +263,14 @@ Variants {
             y: baseY
 
             Behavior on x {
-                enabled: Config.background.desktopClock.animatePosition && clockLoader.placementSettled && !dragArea.dragging
+                enabled: win.animateClockPosition
                 Anim {
                     type: Anim.DefaultSpatial
                 }
             }
 
             Behavior on y {
-                enabled: Config.background.desktopClock.animatePosition && clockLoader.placementSettled && !dragArea.dragging
+                enabled: win.animateClockPosition
                 Anim {
                     type: Anim.DefaultSpatial
                 }
@@ -282,14 +288,14 @@ Variants {
                 y: clockPos.custom ? clockPos.dy : 0
 
                 Behavior on x {
-                    enabled: Config.background.desktopClock.animatePosition && clockLoader.placementSettled && !dragArea.dragging
+                    enabled: win.animateClockPosition
                     Anim {
                         type: Anim.DefaultSpatial
                     }
                 }
 
                 Behavior on y {
-                    enabled: Config.background.desktopClock.animatePosition && clockLoader.placementSettled && !dragArea.dragging
+                    enabled: win.animateClockPosition
                     Anim {
                         type: Anim.DefaultSpatial
                     }

@@ -4,7 +4,7 @@ import qs.services
 
 StyledText {
     font {
-        family: Tokens.font.clock.family ?? Tokens.font.regular.family
+        family: Tokens.font.clock.build().family
         pixelSize: 20
         weight: 350
         styleName: ""

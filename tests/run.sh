@@ -38,6 +38,7 @@ test_suite "keybinds_parse_test" "tests/keybinds_parse_test.sh"
 test_suite "overview_math_test" "tests/overview_math_test.sh"
 test_suite "clock_position_test" "tests/clock_position_test.sh"
 test_suite "clock_settings_test" "tests/clock_settings_test.sh"
+test_suite "qml_clock_bindings_test" "tests/qml_clock_bindings_test.sh"
 
 echo ""
 echo "═══════════════════════════════════════════"

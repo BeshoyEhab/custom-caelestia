@@ -41,7 +41,7 @@ Item {
         anchors.centerIn: dayBubble
         text: Time.format("d")
         color: root.textColor
-        font.family: Tokens.font.clock.family
+        font.family: Tokens.font.clock.build().family
         font.pixelSize: 30 * root.k
         font.weight: Font.Black
     }
@@ -62,7 +62,7 @@ Item {
         anchors.centerIn: monthBubble
         text: Time.format("MM")
         color: root.textColor
-        font.family: Tokens.font.clock.family
+        font.family: Tokens.font.clock.build().family
         font.pixelSize: 20 * root.k
         font.weight: Font.Black
     }
@@ -83,7 +83,7 @@ Item {
             anchors.centerIn: parent
             text: Time.format("dd")
             color: root.textColor
-            font.family: Tokens.font.clock.family
+            font.family: Tokens.font.clock.build().family
             font.pixelSize: 20 * root.k
             font.weight: 1000
         }
@@ -125,7 +125,7 @@ Item {
 
                     text: borderDate.dateText.charAt(borderChar.index)
                     color: root.textColor
-                    font.family: Tokens.font.clock.family
+                    font.family: Tokens.font.clock.build().family
                     font.pixelSize: 30 * root.k
                 }
             }
