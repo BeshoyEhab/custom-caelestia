@@ -326,6 +326,7 @@ StyledClippingRect {
                     if (!Config.bar.workspaces.workspacePreviewEnabled)
                         return;
                     if (root.bar?.popouts) {
+                        root.bar.popouts.cancelClose();
                         root.bar.popouts.workspacePreviewId = ws;
                         const wsObj = Hypr.workspaces.values.find(w => w.id === ws);
                         root.bar.popouts.workspacePreviewName = wsObj?.name || ws.toString();
