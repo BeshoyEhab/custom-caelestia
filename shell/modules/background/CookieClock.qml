@@ -27,81 +27,107 @@ Item {
     readonly property real k: root.faceSize / 230
     readonly property string dialStyle: Config.background.desktopClock.cookie.dialNumberStyle
     readonly property bool hourMarks: Config.background.desktopClock.cookie.hourMarks && (dialStyle === "dots" || dialStyle === "full")
+    readonly property bool dateInClock: Config.background.desktopClock.cookie.dateInClock
+    readonly property real dateSpacing: Tokens.spacing.large * root.clockScale
 
-    readonly property real contentWidth: faceSize
-    readonly property real contentHeight: faceSize
+    readonly property real dateWidth: date.implicitWidth
+    readonly property real contentWidth: Math.max(root.faceSize, root.dateWidth)
+    readonly property real contentHeight: root.faceSize + (root.dateInClock ? 0 : (date.dateHeight > 0 ? date.dateHeight + root.dateSpacing : 0))
 
     implicitWidth: contentWidth
     implicitHeight: contentHeight
 
-    CookieFace {
-        anchors.fill: parent
-        size: root.faceSize
-        sides: Config.background.desktopClock.cookie.sides
-        sine: Config.background.desktopClock.cookie.useSineCookie
-        constantlyRotate: Config.background.desktopClock.cookie.constantlyRotate
-        color: root.faceColor
-    }
+    Item {
+        id: body
 
-    CookieDial {
-        anchors.fill: parent
-        size: root.faceSize
-        dialStyle: root.dialStyle
-        hourMarks: root.hourMarks
-        color: root.onFaceColor
-    }
+        width: root.faceSize
+        height: root.faceSize
+        anchors.horizontalCenter: parent.horizontalCenter
 
-    ColumnLayout {
-        anchors.centerIn: parent
-        spacing: -16 * root.k
-        visible: Config.background.desktopClock.cookie.timeIndicators && root.dialStyle !== "numbers"
-
-        StyledText {
-            Layout.alignment: Qt.AlignHCenter
-            text: Time.hourStr.padStart(2, "0")
-            color: root.onFaceColor
-            font.family: Tokens.font.clock.family ?? Tokens.font.regular.family
-            font.pixelSize: (root.hourMarks ? 40 : 68) * root.k
-            font.weight: Font.Bold
+        CookieFace {
+            anchors.fill: parent
+            size: root.faceSize
+            sides: Config.background.desktopClock.cookie.sides
+            sine: Config.background.desktopClock.cookie.useSineCookie
+            constantlyRotate: Config.background.desktopClock.cookie.constantlyRotate
+            color: root.faceColor
         }
 
-        StyledText {
-            Layout.alignment: Qt.AlignHCenter
-            text: Time.minuteStr.padStart(2, "0")
+        CookieDial {
+            anchors.fill: parent
+            size: root.faceSize
+            dialStyle: root.dialStyle
+            hourMarks: root.hourMarks
             color: root.onFaceColor
-            font.family: Tokens.font.clock.family ?? Tokens.font.regular.family
-            font.pixelSize: (root.hourMarks ? 40 : 68) * root.k
-            font.weight: Font.Bold
         }
 
-        Loader {
-            Layout.alignment: Qt.AlignHCenter
-            active: GlobalConfig.services.useTwelveHourClock
-            visible: active
+        ColumnLayout {
+            anchors.centerIn: parent
+            spacing: -16 * root.k
+            visible: Config.background.desktopClock.cookie.timeIndicators && root.dialStyle !== "numbers"
 
-            sourceComponent: StyledText {
-                text: Time.amPmStr
+            StyledText {
+                Layout.alignment: Qt.AlignHCenter
+                text: Time.hourStr.padStart(2, "0")
                 color: root.onFaceColor
-                font.family: Tokens.font.clock.family ?? Tokens.font.regular.family
-                font.pixelSize: (root.hourMarks ? 20 : 26) * root.k
+                font.family: Tokens.font.clock.family
+                font.pixelSize: (root.hourMarks ? 40 : 68) * root.k
                 font.weight: Font.Bold
             }
+
+            StyledText {
+                Layout.alignment: Qt.AlignHCenter
+                text: Time.minuteStr.padStart(2, "0")
+                color: root.onFaceColor
+                font.family: Tokens.font.clock.family
+                font.pixelSize: (root.hourMarks ? 40 : 68) * root.k
+                font.weight: Font.Bold
+            }
+
+            Loader {
+                Layout.alignment: Qt.AlignHCenter
+                active: GlobalConfig.services.useTwelveHourClock
+                visible: active
+
+                sourceComponent: StyledText {
+                    text: Time.amPmStr
+                    color: root.onFaceColor
+                    font.family: Tokens.font.clock.family
+                    font.pixelSize: (root.hourMarks ? 20 : 26) * root.k
+                    font.weight: Font.Bold
+                }
+            }
+        }
+
+        CookieHands {
+            anchors.fill: parent
+            size: root.faceSize
+            hour: Time.hours % 12
+            minute: Time.minutes
+            second: Time.seconds
+            hourStyle: Config.background.desktopClock.cookie.hourHandStyle
+            minuteStyle: Config.background.desktopClock.cookie.minuteHandStyle
+            secondStyle: Config.background.desktopClock.cookie.secondHandStyle
+            hourColor: root.hourColor
+            minuteColor: root.minuteColor
+            secondColor: root.secondColor
+            faceColor: root.faceColor
         }
     }
 
-    CookieHands {
-        anchors.fill: parent
+    CookieDate {
+        id: date
+
+        x: (root.contentWidth - root.dateWidth) / 2
+        y: root.dateInClock ? 0 : root.faceSize + root.dateSpacing
+        width: root.dateWidth
+        height: root.dateInClock ? root.faceSize : date.dateHeight
         size: root.faceSize
-        hour: Time.hours % 12
-        minute: Time.minutes
-        second: Time.seconds
-        hourStyle: Config.background.desktopClock.cookie.hourHandStyle
-        minuteStyle: Config.background.desktopClock.cookie.minuteHandStyle
-        secondStyle: Config.background.desktopClock.cookie.secondHandStyle
-        hourColor: root.hourColor
-        minuteColor: root.minuteColor
-        secondColor: root.secondColor
-        faceColor: root.faceColor
+        style: Config.background.desktopClock.cookie.dateStyle
+        inClock: root.dateInClock
+        primaryColor: root.tertiaryColor
+        secondaryColor: root.secondaryColor
+        textColor: root.onFaceColor
     }
 
     Behavior on clockScale {

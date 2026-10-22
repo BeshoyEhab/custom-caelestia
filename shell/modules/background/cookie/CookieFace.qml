@@ -28,6 +28,16 @@ Item {
         shadowBlur: Config.background.desktopClock.shadow.blur
     }
 
+    // `star()` is an instance method on MaterialShape, not a static one.
+    // Keep a hidden instance to build the custom polygon.
+    MaterialShape {
+        id: shapeBuilder
+
+        visible: false
+        width: 0
+        height: 0
+    }
+
     Item {
         id: face
 
@@ -46,7 +56,7 @@ Item {
             visible: !root.sine
             anchors.fill: parent
             shape: MaterialShape.Custom
-            customShape: MaterialShape.star(Math.max(3, root.sides), 0.8, Math.min(0.08, 1.5 / Math.max(root.sides, 4)), 0)
+            customShape: shapeBuilder.star(Math.max(3, root.sides), 0.8, Math.min(0.08, 1.5 / Math.max(root.sides, 4)), 0)
             color: root.color
         }
 
