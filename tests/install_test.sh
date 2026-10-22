@@ -159,6 +159,28 @@ rm -f "$PROBE_SRC/components/Thing.qml"
 rm -f "$STAMP"
 if triggered; then pass "plugin trigger: missing stamp rebuilds"; else fail "plugin trigger: missing stamp rebuilds"; fi
 
+# ── 6. build_plugin honours an existing cmake generator ─────────────────────
+# A build dir configured by hand (or another tool) carries its generator in
+# CMAKE_GENERATOR; forcing -G Ninja on it fails with "generator does not match".
+GEN_TMP="$TMPDIR/gen_probe"
+mkdir -p "$GEN_TMP/makefiles" "$GEN_TMP/ninja" "$GEN_TMP/empty"
+printf 'CMAKE_GENERATOR:INTERNAL=Unix Makefiles\n' > "$GEN_TMP/makefiles/CMakeCache.txt"
+printf 'CMAKE_GENERATOR:INTERNAL=Ninja\n' > "$GEN_TMP/ninja/CMakeCache.txt"
+
+test_generator() {
+    local desc="$1" dir="$2" expected="$3" got
+    got=$(plugin_cmake_generator "$dir" 2>/dev/null || echo "<error>")
+    if [[ "$got" == "$expected" ]]; then
+        pass "generator: $desc"
+    else
+        fail "generator: $desc (expected '$expected', got '$got')"
+    fi
+}
+
+test_generator "reuses Unix Makefiles cache" "$GEN_TMP/makefiles" "Unix Makefiles"
+test_generator "keeps Ninja cache" "$GEN_TMP/ninja" "Ninja"
+test_generator "defaults to Ninja without a cache" "$GEN_TMP/empty" "Ninja"
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo "install_test: $PASS passed, $FAIL failed"

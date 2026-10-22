@@ -1267,6 +1267,17 @@ rebuild_quickshell() {
 # ── C++ plugin build (one flow for install/update/build) ─────────────────────
 # Incremental by default; --force-rebuild wipes build/ first. No unconditional
 # sudo rm -rf. M3Shapes FetchContent install kept from the old dual paths.
+# Which generator to configure the plugin build with. An existing build dir
+# already pins one in its cache, and cmake refuses to mix generators, so reuse
+# it; a fresh build uses Ninja.
+plugin_cmake_generator() {
+    local build_dir="$1" gen=""
+    if [[ -f "$build_dir/CMakeCache.txt" ]]; then
+        gen=$(sed -n 's/^CMAKE_GENERATOR:INTERNAL=//p' "$build_dir/CMakeCache.txt")
+    fi
+    echo "${gen:-Ninja}"
+}
+
 build_plugin() {
     local build_dir="$REPO_DIR/build"
     if [[ "$FORCE_REBUILD" == true && -d "$build_dir" ]]; then
@@ -1283,7 +1294,12 @@ build_plugin() {
     fi
     log "Building C++ plugin..."
     mkdir -p "$build_dir"
-    cmake -B "$build_dir" -S "$REPO_DIR" -G Ninja \
+    local generator
+    generator=$(plugin_cmake_generator "$build_dir")
+    if [[ "$generator" != "Ninja" ]]; then
+        log "Reusing existing build generator: $generator"
+    fi
+    cmake -B "$build_dir" -S "$REPO_DIR" -G "$generator" \
         -DCMAKE_BUILD_TYPE=Release \
         -DENABLE_MODULES="plugin;m3shapes" || {
         warn "cmake configuration failed. Check that cmake and ninja are installed."
