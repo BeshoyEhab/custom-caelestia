@@ -442,6 +442,7 @@ PageBase {
             visible: root.isCookie
             Layout.topMargin: -root.rowGap
             label: qsTr("Hour hand")
+            menuOnTop: true
             menuItems: [
                 MenuItem {
                     text: qsTr("Classic")
@@ -476,6 +477,7 @@ PageBase {
             visible: root.isCookie
             Layout.topMargin: -root.rowGap
             label: qsTr("Minute hand")
+            menuOnTop: true
             menuItems: [
                 MenuItem {
                     text: qsTr("Classic")
@@ -515,6 +517,7 @@ PageBase {
             visible: root.isCookie
             Layout.topMargin: -root.rowGap
             label: qsTr("Second hand")
+            menuOnTop: true
             menuItems: [
                 MenuItem {
                     text: qsTr("Classic")
@@ -550,6 +553,7 @@ PageBase {
             Layout.topMargin: -root.rowGap
             last: true
             label: qsTr("Date style")
+            menuOnTop: true
             menuItems: [
                 MenuItem {
                     text: qsTr("Bubble")
