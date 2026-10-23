@@ -5,6 +5,7 @@ import QtQuick.Effects
 import Caelestia.Config
 import qs.components
 import qs.services
+import "ClockColours.js" as ClockColours
 
 Item {
     id: root
@@ -21,11 +22,39 @@ Item {
     readonly property bool bgEnabled: Config.background.desktopClock.background.enabled
     readonly property bool blurEnabled: bgEnabled && Config.background.desktopClock.background.blur && !GameMode.enabled
     readonly property bool invertColors: Config.background.desktopClock.invertColors
-    readonly property bool useLightSet: Colours.light ? !invertColors : invertColors
-    readonly property color safePrimary: useLightSet ? Colours.palette.m3primaryContainer : Colours.palette.m3primary
-    readonly property color safeSecondary: useLightSet ? Colours.palette.m3secondaryContainer : Colours.palette.m3secondary
-    readonly property color safeTertiary: useLightSet ? Colours.palette.m3tertiaryContainer : Colours.palette.m3tertiary
-    readonly property color colText: useLightSet ? Colours.palette.m3onSecondaryContainer : Colours.palette.m3onPrimary
+    readonly property bool containerSet: Colours.light ? !invertColors : invertColors
+    readonly property color safePrimary: containerSet ? Colours.palette.m3primaryContainer : Colours.palette.m3primary
+    readonly property color safeSecondary: containerSet ? Colours.palette.m3secondaryContainer : Colours.palette.m3secondary
+    readonly property color safeTertiary: containerSet ? Colours.palette.m3tertiaryContainer : Colours.palette.m3tertiary
+
+    // Cookie face and the marks drawn on it. The face role and its matching
+    // `on` role are always used as a pair: mixing a face with an accent
+    // container produced hands that vanished (m3tertiary on m3primary is
+    // ~1.1:1 in this dark scheme).
+    readonly property color faceColor: containerSet ? Colours.palette.m3primaryContainer : Colours.palette.m3primary
+    readonly property color onFaceColor: containerSet ? Colours.palette.m3onPrimaryContainer : Colours.palette.m3onPrimary
+    readonly property color captionColor: Colours.palette.m3onSurface
+
+    // Date badges choose themselves: the first pair that reads against the
+    // face, avoiding the other badge's background. Falls back to an inverted
+    // chip when the scheme has no legible container pair.
+    readonly property var dayBadge: ClockColours.pickBadge(faceColor, onFaceColor, [
+        { background: Colours.palette.m3tertiaryContainer, foreground: Colours.palette.m3onTertiaryContainer },
+        { background: Colours.palette.m3secondaryContainer, foreground: Colours.palette.m3onSecondaryContainer },
+        { background: Colours.palette.m3tertiary, foreground: Colours.palette.m3onTertiary },
+        { background: Colours.palette.m3secondary, foreground: Colours.palette.m3onSecondary },
+        { background: Colours.palette.m3primaryContainer, foreground: Colours.palette.m3onPrimaryContainer },
+        { background: Colours.palette.m3surfaceContainerHigh, foreground: Colours.palette.m3onSurface }
+    ], [], 3, 4.5)
+    readonly property var monthBadge: ClockColours.pickBadge(faceColor, onFaceColor, [
+        { background: Colours.palette.m3secondaryContainer, foreground: Colours.palette.m3onSecondaryContainer },
+        { background: Colours.palette.m3tertiaryContainer, foreground: Colours.palette.m3onTertiaryContainer },
+        { background: Colours.palette.m3secondary, foreground: Colours.palette.m3onSecondary },
+        { background: Colours.palette.m3tertiary, foreground: Colours.palette.m3onTertiary },
+        { background: Colours.palette.m3primaryContainer, foreground: Colours.palette.m3onPrimaryContainer },
+        { background: Colours.palette.m3surfaceContainerHigh, foreground: Colours.palette.m3onSurface }
+    ], [dayBadge.background], 3, 4.5)
+
     readonly property string quoteText: Config.background.desktopClock.quote.text
     readonly property bool quoteVisible: Config.background.desktopClock.quote.enabled && quoteText.length > 0
 
@@ -61,8 +90,20 @@ Item {
     readonly property real bodyWidth: root.bodyContentWidth + (Tokens.padding.large * 4 * root.clockScale)
     readonly property real bodyHeight: root.bodyContentHeight + (Tokens.padding.extraLargeIncreased * root.clockScale)
 
+    // Quote plate: when the backdrop is on, the quote gets the same surface as
+    // the clock plate instead of floating on the wallpaper. The padding only
+    // exists when the plate is visible, so the no-plate layout is unchanged.
+    readonly property real quoteGap: Tokens.spacing.small * root.clockScale
+    readonly property real quotePad: root.bgEnabled ? Tokens.padding.large * root.clockScale : 0
+    readonly property real quotePlateY: root.bodyHeight + (root.quoteVisible ? root.quoteGap : 0)
+    readonly property real quotePlateWidth: Math.min(root.bodyWidth, quote.implicitWidth + root.quotePad * 2)
+    readonly property real quotePlateHeight: quote.implicitHeight + root.quotePad * 2
+    readonly property real quoteY: root.quotePlateY + root.quotePad
+    readonly property bool quotePlateVisible: root.quoteVisible && root.bgEnabled
+    readonly property bool quoteBlurActive: root.quotePlateVisible && Config.background.desktopClock.background.blur && !GameMode.enabled
+
     implicitWidth: root.bodyWidth
-    implicitHeight: root.bodyHeight + (root.quoteVisible ? Tokens.spacing.small * root.clockScale + quote.implicitHeight : 0)
+    implicitHeight: root.bodyHeight + (root.quoteVisible ? root.quoteGap + quote.implicitHeight + root.quotePad * 2 : 0)
 
     Item {
         id: clockContainer
@@ -120,15 +161,54 @@ Item {
         }
     }
 
+    Loader {
+        id: quoteBlurLoader
+
+        asynchronous: true
+        x: quotePlate.x
+        y: quotePlate.y
+        width: quotePlate.width
+        height: quotePlate.height
+        active: root.quoteBlurActive
+
+        sourceComponent: MultiEffect {
+            source: ShaderEffectSource {
+                sourceItem: root.wallpaper
+                sourceRect: Qt.rect(root.absX + quotePlate.x, root.absY + quotePlate.y, quotePlate.width, quotePlate.height)
+            }
+            maskSource: quotePlate
+            maskEnabled: true
+            blurEnabled: true
+            blur: 1
+            blurMax: 64
+            autoPaddingEnabled: false
+        }
+    }
+
+    StyledRect {
+        id: quotePlate
+
+        visible: root.quotePlateVisible
+        x: (root.bodyWidth - root.quotePlateWidth) / 2
+        y: root.quotePlateY
+        width: root.quotePlateWidth
+        height: root.quotePlateHeight
+        radius: Tokens.rounding.extraLarge * root.clockScale
+        opacity: Config.background.desktopClock.background.opacity
+        color: Colours.palette.m3surface
+
+        layer.enabled: root.quoteBlurActive
+    }
+
     StyledText {
         id: quote
 
         visible: root.quoteVisible
         anchors.horizontalCenter: parent.horizontalCenter
-        y: root.bodyHeight + (root.quoteVisible ? Tokens.spacing.small * root.clockScale : 0)
+        y: root.quoteY
         width: root.bodyWidth
         text: root.quoteText
-        color: root.safeSecondary
+        color: root.captionColor
         font: Tokens.font.body.medium
         wrapMode: Text.WrapAtWordBoundaryOrAnywhere
         horizontalAlignment: Text.AlignHCenter
@@ -142,7 +222,7 @@ Item {
             primaryColor: root.safePrimary
             secondaryColor: root.safeSecondary
             tertiaryColor: root.safeTertiary
-            textColor: root.colText
+            textColor: root.onFaceColor
             vertical: root.isVertical
             dateAlignment: root.dateAlignment
         }
@@ -153,10 +233,13 @@ Item {
 
         CookieClock {
             clockScale: root.clockScale
-            primaryColor: root.safePrimary
-            secondaryColor: root.safeSecondary
-            tertiaryColor: root.safeTertiary
-            textColor: root.colText
+            faceColor: root.faceColor
+            onFaceColor: root.onFaceColor
+            dayBadgeColor: root.dayBadge.background
+            onDayBadgeColor: root.dayBadge.foreground
+            monthBadgeColor: root.monthBadge.background
+            onMonthBadgeColor: root.monthBadge.foreground
+            captionColor: root.captionColor
         }
     }
 

@@ -22,6 +22,10 @@ PageBase {
     readonly property bool isDigital: GlobalConfig.background.desktopClock.clockStyle === "digital"
     readonly property bool isCookie: GlobalConfig.background.desktopClock.clockStyle === "cookie"
     readonly property bool isAnalog: GlobalConfig.background.desktopClock.clockStyle === "analog"
+    readonly property bool quoteEnabled: GlobalConfig.background.desktopClock.quote.enabled
+    // The plate is a clock card for digital, and a caption plate behind the
+    // quote for every other style (the cookie face is already opaque).
+    readonly property bool plateAvailable: root.isDigital || root.quoteEnabled
     readonly property real rowGap: Tokens.spacing.extraSmall / 2
 
     function valueIndex(values, value, fallback) {
@@ -148,21 +152,21 @@ PageBase {
 
         // Backdrop
         SectionHeader {
-            visible: root.isDigital || root.isCookie
+            visible: root.isDigital || root.isCookie || root.quoteEnabled
             text: qsTr("Backdrop")
         }
 
         ToggleRow {
-            visible: root.isDigital
+            visible: root.plateAvailable
             first: true
             text: qsTr("Plate")
-            subtext: qsTr("Surface behind the clock")
+            subtext: root.isDigital ? qsTr("Surface behind the clock and quote") : qsTr("Surface behind the quote")
             checked: GlobalConfig.background.desktopClock.background.enabled
             onToggled: GlobalConfig.background.desktopClock.background.enabled = checked
         }
 
         SliderRow {
-            visible: root.isDigital
+            visible: root.plateAvailable
             Layout.topMargin: -root.rowGap
             label: qsTr("Plate opacity")
             valueLabel: `${Math.round(GlobalConfig.background.desktopClock.background.opacity * 100)}%`
@@ -172,8 +176,9 @@ PageBase {
         }
 
         ToggleRow {
-            visible: root.isDigital
+            visible: root.plateAvailable
             Layout.topMargin: -root.rowGap
+            last: !(root.isDigital || root.isCookie)
             text: qsTr("Blur wallpaper behind plate")
             subtext: qsTr("Frosted glass effect")
             checked: GlobalConfig.background.desktopClock.background.blur
@@ -183,8 +188,8 @@ PageBase {
 
         ToggleRow {
             visible: root.isDigital || root.isCookie
-            first: !root.isDigital
-            Layout.topMargin: root.isDigital ? -root.rowGap : 0
+            first: !root.plateAvailable
+            Layout.topMargin: root.plateAvailable ? -root.rowGap : 0
             text: qsTr("Shadow")
             subtext: qsTr("Drop shadow behind the clock")
             checked: GlobalConfig.background.desktopClock.shadow.enabled

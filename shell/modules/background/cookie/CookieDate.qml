@@ -14,9 +14,12 @@ Item {
     required property real size
     required property string style
     required property bool inClock
-    required property color primaryColor
-    required property color secondaryColor
+    required property color dayBubbleColor
+    required property color onDayBubbleColor
+    required property color monthBubbleColor
+    required property color onMonthBubbleColor
     required property color textColor
+    required property color captionColor
 
     readonly property real k: size / 230
     readonly property bool showInside: root.inClock && root.style !== "hide"
@@ -34,7 +37,7 @@ Item {
         anchors.top: parent.top
         implicitSize: 64 * root.k
         shape: MaterialShape.Cookie4Sided
-        color: root.primaryColor
+        color: root.dayBubbleColor
     }
 
     ClockText {
@@ -44,7 +47,7 @@ Item {
         pointSize: 30
         scale: root.k
         weight: Font.Black
-        color: root.textColor
+        color: root.onDayBubbleColor
         raised: false
     }
 
@@ -56,7 +59,7 @@ Item {
         anchors.bottom: parent.bottom
         implicitSize: 40 * root.k
         shape: MaterialShape.Pill
-        color: root.secondaryColor
+        color: root.monthBubbleColor
     }
 
     ClockText {
@@ -66,7 +69,7 @@ Item {
         pointSize: 20
         scale: root.k
         weight: Font.Black
-        color: root.textColor
+        color: root.onMonthBubbleColor
         raised: false
     }
 
@@ -80,7 +83,7 @@ Item {
         width: 45 * root.k
         height: 30 * root.k
         radius: Tokens.rounding.small * root.k
-        color: root.secondaryColor
+        color: root.monthBubbleColor
 
         ClockText {
             anchors.centerIn: parent
@@ -88,7 +91,7 @@ Item {
             pointSize: 20
             scale: root.k
             weight: 1000
-            color: root.textColor
+            color: root.onMonthBubbleColor
             raised: false
         }
     }
@@ -153,7 +156,7 @@ Item {
             scale: root.k
             weight: Font.Bold
             letterSpacing: 4
-            color: root.textColor
+            color: root.captionColor
             raised: false
         }
 
@@ -164,7 +167,7 @@ Item {
             scale: root.k
             weight: Font.Medium
             letterSpacing: 2
-            color: root.textColor
+            color: root.captionColor
             raised: false
         }
 
@@ -174,7 +177,7 @@ Item {
             pointSize: Tokens.font.body.large.pointSize
             scale: root.k
             letterSpacing: 2
-            color: root.textColor
+            color: root.captionColor
             raised: false
         }
     }

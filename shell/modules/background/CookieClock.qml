@@ -11,18 +11,19 @@ Item {
     id: root
 
     required property real clockScale
-    required property color primaryColor
-    required property color secondaryColor
-    required property color tertiaryColor
-    required property color textColor
+    required property color faceColor
+    required property color onFaceColor
+    required property color dayBadgeColor
+    required property color onDayBadgeColor
+    required property color monthBadgeColor
+    required property color onMonthBadgeColor
+    required property color captionColor
 
-    readonly property bool invertColors: Config.background.desktopClock.invertColors
-    readonly property bool useLightSet: Colours.light ? !invertColors : invertColors
-    readonly property color faceColor: root.primaryColor
-    readonly property color onFaceColor: useLightSet ? Colours.palette.m3onPrimaryContainer : Colours.palette.m3onPrimary
-    readonly property color hourColor: useLightSet ? Colours.palette.m3primary : Colours.palette.m3primaryContainer
-    readonly property color minuteColor: useLightSet ? Colours.palette.m3tertiary : Colours.palette.m3tertiaryContainer
-    readonly property color secondColor: root.hourColor
+    // Every mark on the face uses the face's matching `on` role. Mixing in the
+    // opposite accent set is what made hands disappear on a bright face.
+    readonly property color hourColor: root.onFaceColor
+    readonly property color minuteColor: root.onFaceColor
+    readonly property color secondColor: root.onFaceColor
 
     readonly property real faceSize: 230 * root.clockScale
     readonly property real k: root.faceSize / 230
@@ -129,9 +130,12 @@ Item {
         size: root.faceSize
         style: Config.background.desktopClock.cookie.dateStyle
         inClock: root.dateInClock
-        primaryColor: root.tertiaryColor
-        secondaryColor: root.secondaryColor
+        dayBubbleColor: root.dayBadgeColor
+        onDayBubbleColor: root.onDayBadgeColor
+        monthBubbleColor: root.monthBadgeColor
+        onMonthBubbleColor: root.onMonthBadgeColor
         textColor: root.onFaceColor
+        captionColor: root.captionColor
     }
 
     Behavior on clockScale {
