@@ -1,8 +1,7 @@
 #include "configattached.hpp"
 #include "config.hpp"
 #include "monitorconfigmanager.hpp"
-
-#include <qquickitem.h>
+#include "screenresolver.hpp"
 
 namespace caelestia::config {
 
@@ -14,7 +13,7 @@ Config::Config(QObject* parent)
 void Config::classBegin() {}
 
 void Config::componentComplete() {
-    m_complete = true;
+    ensureScreen();
 }
 
 QString Config::screen() const {
@@ -36,6 +35,15 @@ void Config::inheritScreen(const QString& screen) {
     emit sourceChanged();
 }
 
+void Config::ensureScreen() {
+    if (!m_screen.isEmpty())
+        return;
+
+    const auto screen = screenNameForObject<Config>(parent());
+    if (!screen.isEmpty())
+        inheritScreen(screen);
+}
+
 void Config::propagateScreen() {
     const auto children = attachedChildren();
     for (auto* const child : children) {
@@ -51,17 +59,15 @@ void Config::attachedParentChange(
     auto* const config = qobject_cast<Config*>(newParent);
     if (config)
         inheritScreen(config->screen());
+    if (m_screen.isEmpty())
+        ensureScreen();
 }
 
 #define CONFIG_ATTACHED_GETTER(Type, name)                                                                             \
     const Type* Config::name() const {                                                                                 \
+        const_cast<Config*>(this)->ensureScreen();                                                                     \
         if (m_config)                                                                                                  \
             return m_config->name();                                                                                   \
-        /* Suppress warnings before component is complete if attached to a QQuickItem. */                              \
-        /* Raw QObjects are unable to inherit the screen (only QQuickItems can). */                                    \
-        if ((m_complete || !qobject_cast<QQuickItem*>(parent())) && parent())                                          \
-            qCWarning(lcConfig, "Config.%s accessed without a screen set on %s", #name,                                \
-                parent()->metaObject()->className());                                                                  \
         return GlobalConfig::instance()->name();                                                                       \
     }
 
@@ -90,7 +96,9 @@ GlobalConfig* Config::forScreen(const QString& screen) {
 }
 
 Config* Config::qmlAttachedProperties(QObject* object) {
-    return new Config(object);
+    auto* const config = new Config(object);
+    config->ensureScreen();
+    return config;
 }
 
 } // namespace caelestia::config

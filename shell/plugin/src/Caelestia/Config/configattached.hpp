@@ -88,9 +88,9 @@ private:
     void classBegin() override;
     void componentComplete() override;
 
+    void ensureScreen();
     void propagateScreen();
 
-    bool m_complete = false;
     QString m_screen;
     GlobalConfig* m_config = nullptr;
 };

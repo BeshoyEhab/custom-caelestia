@@ -12,6 +12,7 @@ qml_module(caelestia-config
         tokensattached.cpp
         anim.cpp
         monitorconfigmanager.cpp
+        screenresolver.hpp
         enums.hpp
         backgroundconfig.hpp
         barconfig.hpp

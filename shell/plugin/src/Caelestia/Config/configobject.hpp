@@ -52,19 +52,20 @@ public:                                                                         
 private:                                                                                                               \
     Type* m_##name = nullptr;
 
-// Like CONFIG_PROPERTY but warns on read/write when accessed on a per-monitor overlay.
+// Like CONFIG_PROPERTY. Per-monitor overlays mirror global-only values for reads;
+// reading them is normal, but writing one through an overlay is a configuration error.
 #define CONFIG_GLOBAL_PROPERTY(Type, name, ...)                                                                        \
     Q_PROPERTY(Type name READ name WRITE set_##name NOTIFY name##Changed)                                              \
                                                                                                                        \
 public:                                                                                                                \
     [[nodiscard]] Type name() const {                                                                                  \
         if (isOverlay())                                                                                               \
-            qCWarning(caelestia::config::lcConfig, "Reading global-only option '%s' on per-monitor overlay",           \
+            qCDebug(caelestia::config::lcConfig, "Reading global-only option '%s' on per-monitor overlay",            \
                 qUtf8Printable(propertyPath(QStringLiteral(#name))));                                                  \
         return m_##name;                                                                                               \
     }                                                                                                                  \
     void set_##name(const Type& val) {                                                                                 \
-        if (isOverlay())                                                                                               \
+        if (isOverlay() && !isSyncing())                                                                               \
             qCWarning(caelestia::config::lcConfig, "Writing global-only option '%s' on per-monitor overlay",           \
                 qUtf8Printable(propertyPath(QStringLiteral(#name))));                                                  \
         if (caelestia::config::ConfigObject::updateMember(m_##name, val)) {                                            \
@@ -134,6 +135,10 @@ protected:
     void markGlobalOnly(const QString& name);
     void notifyPropertyChanged(const QString& name, const QVariant& value);
 
+    [[nodiscard]] bool isSyncing() const {
+        return m_syncing;
+    }
+
 private:
     void onGlobalPropertiesChanged(const QMap<QString, QVariant>& changed);
     void emitBatchedChanges();
@@ -144,6 +149,7 @@ private:
     QSet<QString> m_globalOnlyKeys;
     QMap<QString, QVariant> m_pendingChanges;
     QTimer* m_batchTimer = nullptr;
+    bool m_syncing = false;
 };
 
 } // namespace caelestia::config

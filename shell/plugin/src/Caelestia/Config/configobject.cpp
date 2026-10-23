@@ -4,6 +4,7 @@
 #include <qjsonvalue.h>
 #include <qloggingcategory.h>
 #include <qmetaobject.h>
+#include <qscopedvaluerollback.h>
 #include <qstringlist.h>
 #include <qvariant.h>
 
@@ -139,6 +140,7 @@ void ConfigObject::clearLoadedKeys() {
 }
 
 void ConfigObject::syncFromGlobal(ConfigObject* global) {
+    QScopedValueRollback<bool> syncing(m_syncing, true);
     m_global = global;
 
     const auto* meta = metaObject();
@@ -183,6 +185,8 @@ void ConfigObject::syncFromGlobal(ConfigObject* global) {
 void ConfigObject::resyncFromGlobal() {
     if (!m_global)
         return;
+
+    QScopedValueRollback<bool> syncing(m_syncing, true);
 
     const auto* meta = metaObject();
     for (int i = basePropertyOffset(); i < meta->propertyCount(); ++i) {
@@ -274,6 +278,7 @@ void ConfigObject::resetOption(const QString& name) {
 }
 
 void ConfigObject::onGlobalPropertiesChanged(const QMap<QString, QVariant>& changed) {
+    QScopedValueRollback<bool> syncing(m_syncing, true);
     for (auto it = changed.begin(); it != changed.end(); ++it) {
         if (m_loadedKeys.contains(it.key()))
             continue;

@@ -66,11 +66,11 @@ private:
     void classBegin() override;
     void componentComplete() override;
 
+    void ensureScreen();
     void propagateScreen();
     void bindAnim();
     void bindFont();
 
-    bool m_complete = false;
     QString m_screen;
     GlobalConfig* m_config = nullptr;
     TokenConfig* m_tokens = nullptr;

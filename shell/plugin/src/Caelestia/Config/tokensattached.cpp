@@ -4,19 +4,16 @@
 #include "config.hpp"
 #include "font.hpp"
 #include "monitorconfigmanager.hpp"
+#include "screenresolver.hpp"
 #include "tokens.hpp"
-
-#include <qquickitem.h>
 
 namespace caelestia::config {
 
 namespace {
 
-const AppearanceConfig* resolveAppearance(GlobalConfig* config, bool complete, const char* prop, QObject* parent) {
+const AppearanceConfig* resolveAppearance(GlobalConfig* config) {
     if (config)
         return config->appearance();
-    if ((complete || !qobject_cast<QQuickItem*>(parent)) && parent)
-        qCWarning(lcConfig, "Tokens.%s accessed without a screen set on %s", prop, parent->metaObject()->className());
     return GlobalConfig::instance()->appearance();
 }
 
@@ -34,7 +31,7 @@ Tokens::Tokens(QObject* parent)
 void Tokens::classBegin() {}
 
 void Tokens::componentComplete() {
-    m_complete = true;
+    ensureScreen();
 }
 
 QString Tokens::screen() const {
@@ -60,6 +57,15 @@ void Tokens::inheritScreen(const QString& screen) {
     emit sourceChanged();
 }
 
+void Tokens::ensureScreen() {
+    if (!m_screen.isEmpty())
+        return;
+
+    const auto screen = screenNameForObject<Tokens>(parent());
+    if (!screen.isEmpty())
+        inheritScreen(screen);
+}
+
 void Tokens::propagateScreen() {
     const auto children = attachedChildren();
     for (auto* const child : children) {
@@ -75,6 +81,8 @@ void Tokens::attachedParentChange(
     auto* const tokens = qobject_cast<Tokens*>(newParent);
     if (tokens)
         inheritScreen(tokens->screen());
+    if (m_screen.isEmpty())
+        ensureScreen();
 }
 
 void Tokens::bindAnim() {
@@ -89,7 +97,8 @@ void Tokens::bindFont() {
 
 #define TOKENS_ATTACHED_GETTER(Type, name)                                                                             \
     const Type* Tokens::name() const {                                                                                 \
-        auto* a = resolveAppearance(m_config, m_complete, #name, parent());                                            \
+        const_cast<Tokens*>(this)->ensureScreen();                                                                     \
+        auto* a = resolveAppearance(m_config);                                                                         \
         return a ? a->name() : nullptr;                                                                                \
     }
 
@@ -104,10 +113,9 @@ const AppearanceTransparency* Tokens::transparency() const {
 }
 
 const SizeTokens* Tokens::sizes() const {
+    const_cast<Tokens*>(this)->ensureScreen();
     if (m_tokens)
         return m_tokens->sizes();
-    if ((m_complete || !qobject_cast<QQuickItem*>(parent())) && parent())
-        qCWarning(lcConfig, "Tokens.sizes accessed without a screen set on %s", parent()->metaObject()->className());
     return TokenConfig::instance()->sizes();
 }
 
@@ -124,7 +132,9 @@ TokenConfig* Tokens::forScreen(const QString& screen) {
 }
 
 Tokens* Tokens::qmlAttachedProperties(QObject* object) {
-    return new Tokens(object);
+    auto* const tokens = new Tokens(object);
+    tokens->ensureScreen();
+    return tokens;
 }
 
 } // namespace caelestia::config
