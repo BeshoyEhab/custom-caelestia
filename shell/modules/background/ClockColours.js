@@ -47,6 +47,17 @@ function colorKey(color) {
     return [c.r, c.g, c.b].map(v => Math.round(v * 255)).join(",");
 }
 
+// Linearly mix two colours. `weight` is the share of the first colour, matching
+// end-4's ColorUtils.mix (1 = all a, 0 = all b). Returns an opaque #rrggbb so
+// QML and node both consume the same value.
+function mix(a, b, weight) {
+    const ca = toRgb(a);
+    const cb = toRgb(b);
+    const w = weight === undefined ? 0.5 : weight;
+    const hex = value => Math.round(Math.min(1, Math.max(0, value)) * 255).toString(16).padStart(2, "0");
+    return "#" + hex(w * ca.r + (1 - w) * cb.r) + hex(w * ca.g + (1 - w) * cb.g) + hex(w * ca.b + (1 - w) * cb.b);
+}
+
 // Pick a badge pair (background + matching foreground) that reads against the
 // clock face. Candidates are ordered by preference; each is
 // `{ background, foreground }`. A pair is accepted when it clears `minBackground`

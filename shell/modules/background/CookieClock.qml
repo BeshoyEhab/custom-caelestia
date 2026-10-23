@@ -13,17 +13,18 @@ Item {
     required property real clockScale
     required property color faceColor
     required property color onFaceColor
+    // Layered roles, chosen by DesktopClock: the dial is a subtle container
+    // tint, the digits a mid-tone mix, and the hands carry the vivid accents.
+    required property color dialColor
+    required property color digitColor
+    required property color hourColor
+    required property color minuteColor
+    required property color secondColor
     required property color dayBadgeColor
     required property color onDayBadgeColor
     required property color monthBadgeColor
     required property color onMonthBadgeColor
     required property color captionColor
-
-    // Every mark on the face uses the face's matching `on` role. Mixing in the
-    // opposite accent set is what made hands disappear on a bright face.
-    readonly property color hourColor: root.onFaceColor
-    readonly property color minuteColor: root.onFaceColor
-    readonly property color secondColor: root.onFaceColor
 
     readonly property real faceSize: 230 * root.clockScale
     readonly property real k: root.faceSize / 230
@@ -60,7 +61,7 @@ Item {
             size: root.faceSize
             dialStyle: root.dialStyle
             hourMarks: root.hourMarks
-            color: root.onFaceColor
+            color: root.dialColor
         }
 
         ColumnLayout {
@@ -74,7 +75,7 @@ Item {
                 pointSize: root.hourMarks ? 40 : 68
                 scale: root.k
                 weight: Font.Bold
-                color: root.onFaceColor
+                color: root.digitColor
                 raised: false
             }
 
@@ -84,7 +85,7 @@ Item {
                 pointSize: root.hourMarks ? 40 : 68
                 scale: root.k
                 weight: Font.Bold
-                color: root.onFaceColor
+                color: root.digitColor
                 raised: false
             }
 
@@ -98,7 +99,7 @@ Item {
                     pointSize: root.hourMarks ? 20 : 26
                     scale: root.k
                     weight: Font.Bold
-                    color: root.onFaceColor
+                    color: root.digitColor
                     raised: false
                 }
             }

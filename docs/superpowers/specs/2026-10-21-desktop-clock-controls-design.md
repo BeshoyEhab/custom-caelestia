@@ -248,8 +248,13 @@ The new knobs map onto it:
   sizes, per-field weights (Bold/Medium/default), and letter spacing. `width`
   and `roundness` only affect fonts with `wdth`/`ROND` axes; the UI says so in
   the subtext.
-- `quote`: one line of body text under the clock, wrapped, using the secondary
-  colour. Hidden when empty.
+- `quote`: one line of body text under the clock, wrapped, at `body.large`.
+  With the backdrop plate on it sits on a `m3surfaceContainerHigh` plate with
+  `m3onSurface` text; with the plate off it is `m3onSurface` over the wallpaper.
+  `m3onSecondaryContainer` was dropped: at the default 0.7 plate opacity over a
+  light wallpaper the muted on-container ink fell to ~3:1, while the surface
+  pair holds ~5.5:1 on the same backdrop. The plate follows the opacity/blur
+  settings like the digital plate. Hidden when empty.
 
 ### Cookie (Android)
 
@@ -280,13 +285,20 @@ A face of `230 * scale` logical pixels, using M3Shapes for the outline.
   `rect` = a compact date plate on the right; `border` = date text around the
   rim; `hide` = none. With `dateInClock` false, the date moves below the face
   instead of inside it, using the current `MMMM / dd / dddd` stack.
-- **Colours**: face `m3primaryContainer`, on-face `m3onPrimaryContainer`,
-  hour/minute/second hands `m3primary`/`m3tertiary`/`m3primary`, bubbles
-  `m3tertiaryContainer`/`m3secondaryContainer`. `invertColors` selects the
-  light-container set exactly as the existing digital clock does.
+- **Colours**: the face is a large surface, so it takes the container role —
+  `m3primaryContainer` with `m3onPrimaryContainer` for the centre digits' base.
+  The vivid accents go to the hands: hour/second `m3primary`, minute
+  `m3tertiary`. The dial is `m3primaryContainer` tinted 15% with `m3secondary`
+  (subtle marks), and the centre digits are a 55/45 `m3primary`/container mix
+  (mid-tone), mirroring end-4's `CookieClock`. Date badges are contrast-picked by
+  `ClockColours.pickBadge` (tertiary container for the day, secondary for the
+  month in the current dark scheme) so a pale container never lands on the face.
+  `invertColors` swaps the face to `m3primary`/`m3onPrimary` and uses on-accent
+  marks. This is what keeps the clock distinct from the shell's main accent.
 - **Shadow**: apply the configured `MultiEffect` shadow to the face outline,
-  not to the whole item, so hands stay crisp. The plate/blur background is not
-  drawn for Cookie or Analog; the face is already opaque.
+  not to the whole item, so hands stay crisp. The body plate/blur background is
+  not drawn for Cookie or Analog (the face is already opaque); the quote gets
+  its own plate when the backdrop is on.
 
 ### Analog
 
@@ -334,7 +346,8 @@ Sections, in order:
 - A short hint line: "Drag the clock to move it. Double-click it to reset."
 
 **Backdrop**
-- Plate toggle; opacity slider; blur toggle (digital only).
+- Plate toggle; opacity slider; blur toggle (digital, or any style when the quote
+  is enabled — the plate then wraps the quote).
 - Shadow toggle; opacity slider; blur slider (digital and cookie).
 
 **Digital** (visible when style is digital)

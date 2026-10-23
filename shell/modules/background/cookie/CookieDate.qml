@@ -44,7 +44,7 @@ Item {
         visible: dayBubble.visible
         anchors.centerIn: dayBubble
         dateFormat: "d"
-        pointSize: 30
+        pointSize: 22
         scale: root.k
         weight: Font.Black
         color: root.onDayBubbleColor
@@ -66,7 +66,7 @@ Item {
         visible: monthBubble.visible
         anchors.centerIn: monthBubble
         dateFormat: "MM"
-        pointSize: 20
+        pointSize: 15
         scale: root.k
         weight: Font.Black
         color: root.onMonthBubbleColor

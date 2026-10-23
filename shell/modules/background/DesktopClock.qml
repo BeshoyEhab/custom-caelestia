@@ -22,18 +22,34 @@ Item {
     readonly property bool bgEnabled: Config.background.desktopClock.background.enabled
     readonly property bool blurEnabled: bgEnabled && Config.background.desktopClock.background.blur && !GameMode.enabled
     readonly property bool invertColors: Config.background.desktopClock.invertColors
-    readonly property bool containerSet: Colours.light ? !invertColors : invertColors
-    readonly property color safePrimary: containerSet ? Colours.palette.m3primaryContainer : Colours.palette.m3primary
-    readonly property color safeSecondary: containerSet ? Colours.palette.m3secondaryContainer : Colours.palette.m3secondary
-    readonly property color safeTertiary: containerSet ? Colours.palette.m3tertiaryContainer : Colours.palette.m3tertiary
+    // Digital clock: text sits directly on the wallpaper, so light themes need
+    // the container tones to stay readable. This keeps the existing behaviour.
+    readonly property bool useLightSet: Colours.light ? !invertColors : invertColors
+    readonly property color safePrimary: useLightSet ? Colours.palette.m3primaryContainer : Colours.palette.m3primary
+    readonly property color safeSecondary: useLightSet ? Colours.palette.m3secondaryContainer : Colours.palette.m3secondary
+    readonly property color safeTertiary: useLightSet ? Colours.palette.m3tertiaryContainer : Colours.palette.m3tertiary
 
-    // Cookie face and the marks drawn on it. The face role and its matching
-    // `on` role are always used as a pair: mixing a face with an accent
-    // container produced hands that vanished (m3tertiary on m3primary is
-    // ~1.1:1 in this dark scheme).
-    readonly property color faceColor: containerSet ? Colours.palette.m3primaryContainer : Colours.palette.m3primary
-    readonly property color onFaceColor: containerSet ? Colours.palette.m3onPrimaryContainer : Colours.palette.m3onPrimary
+    // Cookie clock: the face is a large surface, so Material 3 gives it the
+    // container role (a muted tonal version of the accent). The vivid accent is
+    // reserved for the hands, and a mid-tone mix for the digits. Using m3primary
+    // itself for the face made the clock a giant copy of the shell accent, which
+    // is exactly what it should differ from. Mirrors end-4's CookieClock:
+    // face = primaryContainer, hands = primary/tertiary, dial = container tinted
+    // with secondary, digits = primary/container mix.
+    readonly property bool containerFace: !invertColors
+    readonly property color faceColor: containerFace ? Colours.palette.m3primaryContainer : Colours.palette.m3primary
+    readonly property color onFaceColor: containerFace ? Colours.palette.m3onPrimaryContainer : Colours.palette.m3onPrimary
+    readonly property color dialColor: containerFace ? ClockColours.mix(Colours.palette.m3secondary, Colours.palette.m3primaryContainer, 0.15) : Colours.palette.m3onPrimary
+    readonly property color digitColor: containerFace ? ClockColours.mix(Colours.palette.m3primary, Colours.palette.m3primaryContainer, 0.55) : Colours.palette.m3onPrimary
+    readonly property color hourColor: containerFace ? Colours.palette.m3primary : Colours.palette.m3onPrimary
+    readonly property color minuteColor: containerFace ? Colours.palette.m3tertiary : Colours.palette.m3onPrimary
+    readonly property color secondColor: containerFace ? Colours.palette.m3primary : Colours.palette.m3onPrimary
     readonly property color captionColor: Colours.palette.m3onSurface
+    // The quote sits on a surface plate, like the reference widget; without the
+    // plate it is plain onSurface text over the wallpaper. onSecondaryContainer
+    // is too muted once the 70% plate blends with a light wallpaper, so use the
+    // onSurface pair for legibility at any opacity.
+    readonly property color quoteColor: Colours.palette.m3onSurface
 
     // Date badges choose themselves: the first pair that reads against the
     // face, avoiding the other badge's background. Falls back to an inverted
@@ -88,7 +104,9 @@ Item {
     readonly property real bodyContentWidth: root.isAnalog ? root.analogDiameter : (clockLoader.item?.contentWidth ?? 0)
     readonly property real bodyContentHeight: root.isAnalog ? root.analogDiameter : (clockLoader.item?.contentHeight ?? 0)
     readonly property real bodyWidth: root.bodyContentWidth + (Tokens.padding.large * 4 * root.clockScale)
-    readonly property real bodyHeight: root.bodyContentHeight + (Tokens.padding.extraLargeIncreased * root.clockScale)
+    // The cookie face is already the whole body, so it needs no body padding;
+    // the extra bottom padding pushed the quote plate away from it.
+    readonly property real bodyHeight: root.bodyContentHeight + (root.isCookie ? 0 : Tokens.padding.extraLargeIncreased * root.clockScale)
 
     // Quote plate: when the backdrop is on, the quote gets the same surface as
     // the clock plate instead of floating on the wallpaper. The padding only
@@ -195,7 +213,7 @@ Item {
         height: root.quotePlateHeight
         radius: Tokens.rounding.extraLarge * root.clockScale
         opacity: Config.background.desktopClock.background.opacity
-        color: Colours.palette.m3surface
+        color: Colours.palette.m3surfaceContainerHigh
 
         layer.enabled: root.quoteBlurActive
     }
@@ -208,8 +226,8 @@ Item {
         y: root.quoteY
         width: root.bodyWidth
         text: root.quoteText
-        color: root.captionColor
-        font: Tokens.font.body.medium
+        color: root.quoteColor
+        font: Tokens.font.body.large
         wrapMode: Text.WrapAtWordBoundaryOrAnywhere
         horizontalAlignment: Text.AlignHCenter
     }
@@ -222,7 +240,7 @@ Item {
             primaryColor: root.safePrimary
             secondaryColor: root.safeSecondary
             tertiaryColor: root.safeTertiary
-            textColor: root.onFaceColor
+            textColor: root.captionColor
             vertical: root.isVertical
             dateAlignment: root.dateAlignment
         }
@@ -235,6 +253,11 @@ Item {
             clockScale: root.clockScale
             faceColor: root.faceColor
             onFaceColor: root.onFaceColor
+            dialColor: root.dialColor
+            digitColor: root.digitColor
+            hourColor: root.hourColor
+            minuteColor: root.minuteColor
+            secondColor: root.secondColor
             dayBadgeColor: root.dayBadge.background
             onDayBadgeColor: root.dayBadge.foreground
             monthBadgeColor: root.monthBadge.background
