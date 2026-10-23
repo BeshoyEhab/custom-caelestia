@@ -53,7 +53,7 @@ else
 fi
 
 # 4. One spelling for explicit other-screen config.
-FORSCREEN=$(grep -rn 'Config\.forScreen' "$SHELL_DIR" --include='*.qml' --exclude-dir=upstream | wc -l)
+FORSCREEN=$(grep -rnE '(^|[^A-Za-z0-9_.])Config\.forScreen' "$SHELL_DIR" --include='*.qml' --exclude-dir=upstream | wc -l)
 if [[ "$FORSCREEN" -eq 0 ]]; then
     pass "no Config.forScreen in QML"
 else

@@ -119,7 +119,7 @@ PageBase {
                 GlobalConfig.dashboard.hoverHeight = 20;
                 GlobalConfig.dashboard.showHoverIndicator = true;
                 if (root.nState.screen && root.nState.screen.name) {
-                    const monitorConfig = Config.forScreen(root.nState.screen.name);
+                    const monitorConfig = GlobalConfig.forScreen(root.nState.screen.name);
                     if (monitorConfig && monitorConfig.dashboard) {
                         monitorConfig.dashboard.resetOption("hoverEdge");
                         monitorConfig.dashboard.resetOption("hoverWidth");

@@ -114,7 +114,7 @@ PageBase {
                 GlobalConfig.sidebar.hoverHeight = 60;
                 GlobalConfig.sidebar.showHoverIndicator = true;
                 if (root.nState.screen && root.nState.screen.name) {
-                    const monitorConfig = Config.forScreen(root.nState.screen.name);
+                    const monitorConfig = GlobalConfig.forScreen(root.nState.screen.name);
                     if (monitorConfig && monitorConfig.sidebar) {
                         monitorConfig.sidebar.resetOption("hoverEdge");
                         monitorConfig.sidebar.resetOption("hoverWidth");

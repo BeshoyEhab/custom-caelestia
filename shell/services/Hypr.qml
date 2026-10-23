@@ -84,7 +84,7 @@ Singleton {
     // enabled, and — on the focused workspace — the explicit opt-in to
     // show the icon there instead of the label.
     function circleShowsIcon(displayType: int, showAppIcon: bool, focused: bool): bool {
-        return displayType === BarWorkspaceDisplay.Icons && showAppIcon && (!focused || (Config.bar.workspaces.showAppIconOnActive ?? false));
+        return displayType === BarWorkspaceDisplay.Icons && showAppIcon && (!focused || (GlobalConfig.bar.workspaces.showAppIconOnActive ?? false));
     }
 
     function wsKeyForToplevel(t: var): var {

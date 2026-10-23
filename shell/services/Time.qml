@@ -69,7 +69,7 @@ Singleton {
     // bar/components/Clock.qml:102; desktop clocks only exist when enabled.
     // Dashboard seconds (dash/DateTime.qml:67) render whenever the dashboard
     // is open, so keep ticking while it is visible to avoid frozen seconds.
-    readonly property bool secondsNeeded: Config.bar.clock.showSeconds || Config.background.desktopClock.enabled || (Visibilities.getForActive()?.dashboard ?? false)
+    readonly property bool secondsNeeded: GlobalConfig.bar.clock.showSeconds || GlobalConfig.background.desktopClock.enabled || (Visibilities.getForActive()?.dashboard ?? false)
 
     SystemClock {
         id: secClock
