@@ -67,22 +67,24 @@ Item {
             spacing: -16 * root.k
             visible: Config.background.desktopClock.cookie.timeIndicators && root.dialStyle !== "numbers"
 
-            StyledText {
+            ClockText {
                 Layout.alignment: Qt.AlignHCenter
                 text: Time.hourStr.padStart(2, "0")
+                pointSize: root.hourMarks ? 40 : 68
+                scale: root.k
+                weight: Font.Bold
                 color: root.onFaceColor
-                font.family: Tokens.font.clock.build().family
-                font.pixelSize: (root.hourMarks ? 40 : 68) * root.k
-                font.weight: Font.Bold
+                raised: false
             }
 
-            StyledText {
+            ClockText {
                 Layout.alignment: Qt.AlignHCenter
                 text: Time.minuteStr.padStart(2, "0")
+                pointSize: root.hourMarks ? 40 : 68
+                scale: root.k
+                weight: Font.Bold
                 color: root.onFaceColor
-                font.family: Tokens.font.clock.build().family
-                font.pixelSize: (root.hourMarks ? 40 : 68) * root.k
-                font.weight: Font.Bold
+                raised: false
             }
 
             Loader {
@@ -90,12 +92,13 @@ Item {
                 active: GlobalConfig.services.useTwelveHourClock
                 visible: active
 
-                sourceComponent: StyledText {
+                sourceComponent: ClockText {
                     text: Time.amPmStr
+                    pointSize: root.hourMarks ? 20 : 26
+                    scale: root.k
+                    weight: Font.Bold
                     color: root.onFaceColor
-                    font.family: Tokens.font.clock.build().family
-                    font.pixelSize: (root.hourMarks ? 20 : 26) * root.k
-                    font.weight: Font.Bold
+                    raised: false
                 }
             }
         }

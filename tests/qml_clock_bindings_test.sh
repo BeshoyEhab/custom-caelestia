@@ -70,4 +70,9 @@ DIGITAL_DATES=$(grep -n 'Time\.format(' "$SHELL_DIR/modules/background/DigitalCl
     && pass "DigitalClock uses ClockText date formatting" \
     || fail "$DIGITAL_DATES Time.format call(s) remain in DigitalClock.qml"
 
+# 8. ClockText uses the Tokens attached type, so it must import its module.
+grep -q 'import Caelestia.Config' "$SHELL_DIR/modules/background/ClockText.qml" \
+    && pass "ClockText imports Caelestia.Config for Tokens" \
+    || fail "ClockText uses Tokens without importing Caelestia.Config"
+
 exit $FAIL

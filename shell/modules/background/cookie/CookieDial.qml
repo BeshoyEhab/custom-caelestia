@@ -1,8 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Caelestia.Config
-import qs.components
+import ".."
 
 Item {
     id: root
@@ -95,14 +94,15 @@ Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.topMargin: 20 * root.k
 
-                    StyledText {
+                    ClockText {
                         anchors.centerIn: numberBox
                         text: 12 / 4 * (numberItem.index + 1)
                         rotation: -360 / 4 * (numberItem.index + 1)
+                        pointSize: 80
+                        scale: root.k
+                        weight: Font.Black
                         color: root.color
-                        font.family: Tokens.font.clock.build().family
-                        font.pixelSize: 80 * root.k
-                        font.weight: Font.Black
+                        raised: false
                     }
                 }
             }

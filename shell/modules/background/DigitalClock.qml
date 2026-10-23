@@ -17,6 +17,7 @@ Item {
     required property bool vertical
     required property int dateAlignment
 
+    readonly property var digitalFont: Config.background.desktopClock.digital.font
     readonly property bool showDate: Config.background.desktopClock.digital.showDate
     readonly property bool showSeconds: Config.background.desktopClock.digital.showSeconds
     readonly property bool animateChange: Config.background.desktopClock.digital.animateChange
@@ -26,16 +27,6 @@ Item {
 
     implicitWidth: contentWidth
     implicitHeight: contentHeight
-
-    function clockFont(pointSize, weight, spacing) {
-        const f = Config.background.desktopClock.digital.font;
-        let b = Tokens.font.clock.size(pointSize * root.clockScale * f.size);
-        if (weight > 0)
-            b = b.weight(weight);
-        if (f.family.length > 0)
-            b = b.family(f.family);
-        return b.vaxes({ "wdth": f.width, "ROND": f.roundness }).letterSpacing(spacing).build();
-    }
 
     RowLayout {
         id: horizontalLayout
@@ -51,7 +42,10 @@ Item {
 
             ClockText {
                 text: Time.hourStr
-                font: root.clockFont(Tokens.font.headline.medium.pointSize * 3, Config.background.desktopClock.digital.font.weight, 0)
+                pointSize: Tokens.font.headline.medium.pointSize * 3
+                scale: root.clockScale
+                fontSettings: root.digitalFont
+                weight: root.digitalFont.weight
                 color: root.primaryColor
                 animate: root.animateChange
                 Layout.fillWidth: false
@@ -59,7 +53,9 @@ Item {
 
             ClockText {
                 text: ":"
-                font: root.clockFont(Tokens.font.headline.medium.pointSize * 3, 0, 0)
+                pointSize: Tokens.font.headline.medium.pointSize * 3
+                scale: root.clockScale
+                fontSettings: root.digitalFont
                 color: root.tertiaryColor
                 opacity: 0.8
                 animate: root.animateChange
@@ -69,7 +65,10 @@ Item {
 
             ClockText {
                 text: Time.minuteStr
-                font: root.clockFont(Tokens.font.headline.medium.pointSize * 3, Config.background.desktopClock.digital.font.weight, 0)
+                pointSize: Tokens.font.headline.medium.pointSize * 3
+                scale: root.clockScale
+                fontSettings: root.digitalFont
+                weight: root.digitalFont.weight
                 color: root.secondaryColor
                 animate: root.animateChange
                 Layout.fillWidth: false
@@ -78,7 +77,9 @@ Item {
             ClockText {
                 visible: root.showSeconds
                 text: Time.secondsStr
-                font: root.clockFont(Tokens.font.headline.medium.pointSize * 3 * 0.35, 0, 0)
+                pointSize: Tokens.font.headline.medium.pointSize * 3 * 0.35
+                scale: root.clockScale
+                fontSettings: root.digitalFont
                 color: root.secondaryColor
                 animate: root.animateChange
                 Layout.alignment: Qt.AlignBottom
@@ -96,7 +97,9 @@ Item {
 
                 sourceComponent: ClockText {
                     text: Time.amPmStr
-                    font: root.clockFont(Tokens.font.title.medium.pointSize, 0, 0)
+                    pointSize: Tokens.font.title.medium.pointSize
+                    scale: root.clockScale
+                    fontSettings: root.digitalFont
                     color: root.secondaryColor
                     animate: root.animateChange
                     Layout.fillWidth: false
@@ -122,8 +125,12 @@ Item {
             spacing: 0
 
             ClockText {
-                text: Time.format("MMMM").toUpperCase()
-                font: Tokens.font.clock.size(Tokens.font.title.medium.pointSize * root.clockScale).letterSpacing(4).weight(Font.Bold).build()
+                dateFormat: "MMMM"
+                uppercaseDate: true
+                pointSize: Tokens.font.title.medium.pointSize
+                scale: root.clockScale
+                weight: Font.Bold
+                letterSpacing: 4
                 color: root.secondaryColor
                 animate: root.animateChange
                 horizontalAlignment: root.adaptive ? root.dateAlignment : Text.AlignLeft
@@ -131,8 +138,11 @@ Item {
             }
 
             ClockText {
-                text: Time.format("dd")
-                font: Tokens.font.clock.size(Tokens.font.headline.medium.pointSize * root.clockScale).letterSpacing(2).weight(Font.Medium).build()
+                dateFormat: "dd"
+                pointSize: Tokens.font.headline.medium.pointSize
+                scale: root.clockScale
+                weight: Font.Medium
+                letterSpacing: 2
                 color: root.primaryColor
                 animate: root.animateChange
                 horizontalAlignment: root.adaptive ? root.dateAlignment : Text.AlignLeft
@@ -140,8 +150,10 @@ Item {
             }
 
             ClockText {
-                text: Time.format("dddd")
-                font: Tokens.font.clock.size(Tokens.font.body.large.pointSize * root.clockScale).letterSpacing(2).build()
+                dateFormat: "dddd"
+                pointSize: Tokens.font.body.large.pointSize
+                scale: root.clockScale
+                letterSpacing: 2
                 color: root.secondaryColor
                 animate: root.animateChange
                 horizontalAlignment: root.adaptive ? root.dateAlignment : Text.AlignLeft
@@ -159,7 +171,10 @@ Item {
 
         ClockText {
             text: Time.hourStr
-            font: root.clockFont(Tokens.font.headline.medium.pointSize * 3, Config.background.desktopClock.digital.font.weight, 0)
+            pointSize: Tokens.font.headline.medium.pointSize * 3
+            scale: root.clockScale
+            fontSettings: root.digitalFont
+            weight: root.digitalFont.weight
             color: root.primaryColor
             animate: root.animateChange
             horizontalAlignment: root.adaptive ? root.dateAlignment : Text.AlignHCenter
@@ -168,7 +183,10 @@ Item {
 
         ClockText {
             text: Time.minuteStr
-            font: root.clockFont(Tokens.font.headline.medium.pointSize * 3, Config.background.desktopClock.digital.font.weight, 0)
+            pointSize: Tokens.font.headline.medium.pointSize * 3
+            scale: root.clockScale
+            fontSettings: root.digitalFont
+            weight: root.digitalFont.weight
             color: root.secondaryColor
             animate: root.animateChange
             horizontalAlignment: root.adaptive ? root.dateAlignment : Text.AlignHCenter
@@ -179,7 +197,9 @@ Item {
         ClockText {
             visible: root.showSeconds
             text: Time.secondsStr
-            font: root.clockFont(Tokens.font.headline.medium.pointSize * 3 * 0.35, 0, 0)
+            pointSize: Tokens.font.headline.medium.pointSize * 3 * 0.35
+            scale: root.clockScale
+            fontSettings: root.digitalFont
             color: root.secondaryColor
             animate: root.animateChange
             horizontalAlignment: Text.AlignHCenter
@@ -194,7 +214,9 @@ Item {
 
             sourceComponent: ClockText {
                 text: Time.amPmStr
-                font: root.clockFont(Tokens.font.title.medium.pointSize, 0, 0)
+                pointSize: Tokens.font.title.medium.pointSize
+                scale: root.clockScale
+                fontSettings: root.digitalFont
                 color: root.secondaryColor
                 animate: root.animateChange
                 horizontalAlignment: Text.AlignHCenter
@@ -213,8 +235,12 @@ Item {
 
         ClockText {
             visible: root.showDate
-            text: Time.format("MMM dd").toUpperCase()
-            font: Tokens.font.clock.size(Tokens.font.title.medium.pointSize * root.clockScale).letterSpacing(2).weight(Font.Bold).build()
+            dateFormat: "MMM dd"
+            uppercaseDate: true
+            pointSize: Tokens.font.title.medium.pointSize
+            scale: root.clockScale
+            weight: Font.Bold
+            letterSpacing: 2
             color: root.secondaryColor
             animate: root.animateChange
             horizontalAlignment: root.adaptive ? root.dateAlignment : Text.AlignHCenter
@@ -223,8 +249,10 @@ Item {
 
         ClockText {
             visible: root.showDate
-            text: Time.format("dddd")
-            font: Tokens.font.clock.size(Tokens.font.body.large.pointSize * root.clockScale).letterSpacing(1).build()
+            dateFormat: "dddd"
+            pointSize: Tokens.font.body.large.pointSize
+            scale: root.clockScale
+            letterSpacing: 1
             color: root.tertiaryColor
             animate: root.animateChange
             horizontalAlignment: root.adaptive ? root.dateAlignment : Text.AlignHCenter

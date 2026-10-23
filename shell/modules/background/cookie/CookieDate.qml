@@ -6,6 +6,7 @@ import M3Shapes
 import Caelestia.Config
 import qs.components
 import qs.services
+import ".."
 
 Item {
     id: root
@@ -36,14 +37,15 @@ Item {
         color: root.primaryColor
     }
 
-    StyledText {
+    ClockText {
         visible: dayBubble.visible
         anchors.centerIn: dayBubble
-        text: Time.format("d")
+        dateFormat: "d"
+        pointSize: 30
+        scale: root.k
+        weight: Font.Black
         color: root.textColor
-        font.family: Tokens.font.clock.build().family
-        font.pixelSize: 30 * root.k
-        font.weight: Font.Black
+        raised: false
     }
 
     MaterialShape {
@@ -57,14 +59,15 @@ Item {
         color: root.secondaryColor
     }
 
-    StyledText {
+    ClockText {
         visible: monthBubble.visible
         anchors.centerIn: monthBubble
-        text: Time.format("MM")
+        dateFormat: "MM"
+        pointSize: 20
+        scale: root.k
+        weight: Font.Black
         color: root.textColor
-        font.family: Tokens.font.clock.build().family
-        font.pixelSize: 20 * root.k
-        font.weight: Font.Black
+        raised: false
     }
 
     Rectangle {
@@ -79,13 +82,14 @@ Item {
         radius: Tokens.rounding.small * root.k
         color: root.secondaryColor
 
-        StyledText {
+        ClockText {
             anchors.centerIn: parent
-            text: Time.format("dd")
+            dateFormat: "dd"
+            pointSize: 20
+            scale: root.k
+            weight: 1000
             color: root.textColor
-            font.family: Tokens.font.clock.build().family
-            font.pixelSize: 20 * root.k
-            font.weight: 1000
+            raised: false
         }
     }
 
@@ -120,13 +124,14 @@ Item {
                 y: borderDate.height / 2 + borderDate.radius * Math.sin(borderChar.angle) - height / 2
                 rotation: borderChar.angle * 180 / Math.PI + 90
 
-                StyledText {
+                ClockText {
                     id: borderCharText
 
                     text: borderDate.dateText.charAt(borderChar.index)
+                    pointSize: 30
+                    scale: root.k
                     color: root.textColor
-                    font.family: Tokens.font.clock.build().family
-                    font.pixelSize: 30 * root.k
+                    raised: false
                 }
             }
         }
@@ -140,25 +145,37 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         spacing: 0
 
-        StyledText {
+        ClockText {
             Layout.alignment: Qt.AlignHCenter
-            text: Time.format("MMMM").toUpperCase()
+            dateFormat: "MMMM"
+            uppercaseDate: true
+            pointSize: Tokens.font.title.medium.pointSize
+            scale: root.k
+            weight: Font.Bold
+            letterSpacing: 4
             color: root.textColor
-            font: Tokens.font.clock.size(Tokens.font.title.medium.pointSize * root.k).letterSpacing(4).weight(Font.Bold).build()
+            raised: false
         }
 
-        StyledText {
+        ClockText {
             Layout.alignment: Qt.AlignHCenter
-            text: Time.format("dd")
+            dateFormat: "dd"
+            pointSize: Tokens.font.headline.medium.pointSize
+            scale: root.k
+            weight: Font.Medium
+            letterSpacing: 2
             color: root.textColor
-            font: Tokens.font.clock.size(Tokens.font.headline.medium.pointSize * root.k).letterSpacing(2).weight(Font.Medium).build()
+            raised: false
         }
 
-        StyledText {
+        ClockText {
             Layout.alignment: Qt.AlignHCenter
-            text: Time.format("dddd")
+            dateFormat: "dddd"
+            pointSize: Tokens.font.body.large.pointSize
+            scale: root.k
+            letterSpacing: 2
             color: root.textColor
-            font: Tokens.font.clock.size(Tokens.font.body.large.pointSize * root.k).letterSpacing(2).build()
+            raised: false
         }
     }
 }
