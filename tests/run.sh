@@ -39,6 +39,7 @@ test_suite "overview_math_test" "tests/overview_math_test.sh"
 test_suite "clock_position_test" "tests/clock_position_test.sh"
 test_suite "clock_settings_test" "tests/clock_settings_test.sh"
 test_suite "qml_clock_bindings_test" "tests/qml_clock_bindings_test.sh"
+test_suite "qml_config_scope_test" "tests/qml_config_scope_test.sh"
 
 echo ""
 echo "═══════════════════════════════════════════"

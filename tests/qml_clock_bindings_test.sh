@@ -57,4 +57,17 @@ CONNECTIONS=$(grep -rn 'target:[[:space:]]*Config\.' "$SHELL_DIR" --include=*.qm
     && pass "no Config.* as a Connections target" \
     || fail "$CONNECTIONS Connections target(s) read Config.* (screenless QQmlConnections)"
 
+# 6. The clock font builder is centralized in ClockText.qml.
+CENTRAL=$(grep -rn 'Tokens\.font\.clock\.build()\.family' "$SHELL_DIR" \
+    --include=*.qml --exclude-dir=upstream | grep -v 'modules/background/ClockText.qml' | wc -l)
+[[ "$CENTRAL" -eq 0 ]] \
+    && pass "clock family builder is centralized in ClockText.qml" \
+    || fail "$CENTRAL clock family builder(s) outside ClockText.qml"
+
+# 7. Digital-specific date formatting is centralized in ClockText.qml.
+DIGITAL_DATES=$(grep -n 'Time\.format(' "$SHELL_DIR/modules/background/DigitalClock.qml" | wc -l)
+[[ "$DIGITAL_DATES" -eq 0 ]] \
+    && pass "DigitalClock uses ClockText date formatting" \
+    || fail "$DIGITAL_DATES Time.format call(s) remain in DigitalClock.qml"
+
 exit $FAIL
