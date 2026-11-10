@@ -1,6 +1,7 @@
 pragma Singleton
 
 import Quickshell
+import QtQuick
 import Caelestia
 import Caelestia.Config
 import qs.utils
@@ -89,6 +90,42 @@ Searcher {
 
     list: appDb.apps
     useFuzzy: GlobalConfig.launcher.useFuzzy.apps
+
+    // AppDb fills in asynchronously: DesktopEntries streams entries in, AppDb
+    // batches them (300ms), and the favourite/hidden filters from the config
+    // can land after that. Every batch re-sorts the list, so a first open that
+    // happens while loading makes the visible rows jump around two or three
+    // times. The launcher waits for a quiet period after the last batch; this
+    // flips once and stays set.
+    property bool settled: false
+    property bool sawAppBatch: false
+    property bool sawEntries: false
+
+    Timer {
+        id: settleTimer
+
+        // The long value is a fallback for systems with no desktop entries at
+        // all; entries restart it with a longer grace period than the batches,
+        // because AppDb only fills its list 300ms after the entries go quiet.
+        interval: root.sawAppBatch ? 400 : root.sawEntries ? 800 : 1500
+        onTriggered: root.settled = true
+
+        Component.onCompleted: start()
+    }
+
+    Connections {
+        target: appDb
+
+        function onEntriesChanged(): void {
+            root.sawEntries = true;
+            settleTimer.restart();
+        }
+
+        function onAppsChanged(): void {
+            root.sawAppBatch = true;
+            settleTimer.restart();
+        }
+    }
 
     // Learned alias memory: boost apps you habitually pick for a given query.
     useLearnedAliases: true

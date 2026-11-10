@@ -117,6 +117,18 @@ Dynamic sheet built from `hyprctl binds -j` (the OSD moved to SUPER+Shift+/).
 - **Both this popup and the display switcher are real `FloatingWindow` toplevels**, not layer-shell surfaces, so SUPER+Q closes them instead of the app behind. They get `float` + `center` window rules matched by title (`^(Keyboard shortcuts)$`, `^(Displays)$`) in `hyprland/.config/hypr/hyprland/rules.lua`; keep the titles and rules in sync. `onVisibleChanged` mirrors a compositor close back into `opened`, otherwise the next toggle would be a no-op.
 - Use the attached form `StyledScrollBar.vertical: StyledScrollBar { flickable: list }`. Putting it as a plain child of a `ListView` makes the list scroll itself to the end instead of drawing a bar.
 
+## Launcher first open (SUPER+SUPER_L)
+
+Opening the launcher during the startup app-DB load used to show a partial list that grew and re-sorted two or three times (rows jumped, panel height steady).
+
+| File | Change |
+|---|---|
+| `shell/modules/launcher/services/Apps.qml` | `Apps.settled` + `settleTimer`: flips once `AppDb.appsChanged` has been quiet 400 ms (800 ms after the last `entriesChanged`, 1.5 s fallback with no entries). |
+| `shell/modules/launcher/Wrapper.qml` | `shouldBeActive` also requires `Apps.settled`, so a first open requested mid-load waits ~0.3–0.4 s and then appears complete. Later opens are immediate. |
+| `shell/modules/launcher/AppList.qml` | `openResults` snapshots `Apps.search("")` in `Component.onCompleted`; the unfiltered list is served from the snapshot, so later DB re-sorts cannot move rows under the cursor. Typed queries still call `Apps.search()` live. |
+
+`Loader.active` in `Wrapper.qml` is `shouldBeActive || visible`, so the content (and the snapshot) is destroyed when the drawer closes and re-taken on the next open — apps installed while the launcher is open appear from the following open, which is the intended trade.
+
 ## Captive portal / portal Wi-Fi
 
 **Symptom:** On cafe/hotel Wi-Fi the sign-in page never loads, NetworkManager never reports `PORTAL`, and the bar/Nexus offer no way to reach the login page.

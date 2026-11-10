@@ -20,6 +20,19 @@ StyledListView {
     // re-sorts hundreds of entries per evaluation.
     property string debouncedText: ""
 
+    // Snapshot of the unfiltered list, taken when the launcher opens. AppDb
+    // keeps inserting and re-sorting as desktop entries arrive and config
+    // favourites load; re-applying that to an open list shuffles the visible
+    // rows while the user is looking at it. Typed queries stay live; the
+    // default list is rebuilt on the next open.
+    property var openResults: []
+
+    function appValues(text: string): var {
+        return text ? Apps.search(text) : root.openResults;
+    }
+
+    Component.onCompleted: root.openResults = Apps.search("")
+
     Timer {
         id: debounceTimer
         interval: 120
@@ -96,7 +109,7 @@ StyledListView {
             name: "apps"
 
             PropertyChanges {
-                model.values: Apps.search(debouncedText)
+                model.values: root.appValues(debouncedText)
                 root.delegate: appItem
             }
         },
