@@ -129,6 +129,15 @@ Opening the launcher during the startup app-DB load used to show a partial list 
 
 `Loader.active` in `Wrapper.qml` is `shouldBeActive || visible`, so the content (and the snapshot) is destroyed when the drawer closes and re-taken on the next open — apps installed while the launcher is open appear from the following open, which is the intended trade.
 
+**The default order itself is cached** in `~/.local/state/caelestia/launcher-order.json` (`Apps.orderPath`; `Paths.state` follows `XDG_STATE_HOME`). AppDb sorts favourites → frequency → name and re-sorts on every launch, so without the file the first screen changed between sessions. `OrderCache.js` (pure, `tests/launcher_order_test.js`, registered in `tests/run.sh`) merges the cached ids with the live DB — unknown ids are skipped, newly installed apps are appended — and decides when to rewrite:
+
+- no cache, or `orderRefreshMs` (24 h) elapsed → rewrite;
+- the app set changed (install, uninstall, newly hidden) → rewrite;
+- the favourites changed → rewrite;
+- **a pure frequency reorder does not rewrite.** Following it would defeat the cache.
+
+`search("")` returns the merged order, so typed queries stay live while the empty query is stable. The file is also refreshed while the shell runs (15 min tick), which is safe because an open list is a snapshot.
+
 ## Captive portal / portal Wi-Fi
 
 **Symptom:** On cafe/hotel Wi-Fi the sign-in page never loads, NetworkManager never reports `PORTAL`, and the bar/Nexus offer no way to reach the login page.

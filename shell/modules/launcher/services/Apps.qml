@@ -1,10 +1,12 @@
 pragma Singleton
 
 import Quickshell
+import Quickshell.Io
 import QtQuick
 import Caelestia
 import Caelestia.Config
 import qs.utils
+import "OrderCache.js" as OrderCache
 
 Searcher {
     id: root
@@ -46,6 +48,11 @@ Searcher {
 
     function search(search: string): list<var> {
         root.lastQuery = activeQuery(search);
+
+        // Empty query: the cached default order instead of AppDb's live sort,
+        // which reorders whenever an app is launched. See the cache below.
+        if (!search.trim())
+            return OrderCache.merge(appDb.apps, root.orderIds).map(app => app.entry);
 
         const prefix = GlobalConfig.launcher.specialPrefix;
 
@@ -124,6 +131,87 @@ Searcher {
         function onAppsChanged(): void {
             root.sawAppBatch = true;
             settleTimer.restart();
+            if (root.settled)
+                root.refreshOrder();
+        }
+    }
+
+    onSettledChanged: {
+        if (settled)
+            refreshOrder();
+    }
+
+    // ── Cached default order ─────────────────────────────────────────────────
+    // AppDb orders the unfiltered list by favourites, then use frequency, then
+    // name, and re-sorts on every launch. Persisting that order keeps the
+    // launcher's first screen identical across sessions; it is rewritten when
+    // the app set changes (install, uninstall, hidden app), when the
+    // favourites change, or once it is a day old. See OrderCache.js.
+    readonly property string orderPath: `${Paths.state}/launcher-order.json`
+    readonly property int orderRefreshMs: 24 * 60 * 60 * 1000
+
+    property var orderIds: []
+    property var orderFavourites: []
+    property real orderSavedAt: 0
+    property bool orderLoaded: false
+
+    function refreshOrder(): void {
+        if (!root.settled || !root.orderLoaded)
+            return;
+
+        const apps = appDb.apps;
+        const favourites = GlobalConfig.launcher.favouriteApps;
+        const now = Date.now();
+        const cached = {
+            ids: root.orderIds,
+            favourites: root.orderFavourites,
+            savedAt: root.orderSavedAt
+        };
+
+        if (!OrderCache.needsRefresh(cached, apps, favourites, now, root.orderRefreshMs))
+            return;
+
+        root.orderIds = apps.map(app => app.id);
+        root.orderFavourites = favourites.slice();
+        root.orderSavedAt = now;
+        orderFile.setText(OrderCache.serialize(root.orderIds, root.orderFavourites, now));
+    }
+
+    FileView {
+        id: orderFile
+
+        path: root.orderPath
+        printErrors: false
+
+        onLoaded: {
+            const state = OrderCache.parse(text());
+            root.orderIds = state.ids;
+            root.orderFavourites = state.favourites;
+            root.orderSavedAt = state.savedAt;
+            root.orderLoaded = true;
+            root.refreshOrder();
+        }
+
+        onLoadFailed: {
+            root.orderLoaded = true;
+            root.refreshOrder();
+        }
+    }
+
+    // A session that stays up for days still refreshes an expired order. The
+    // launcher list is a snapshot per open, so this cannot move visible rows.
+    Timer {
+        interval: 15 * 60 * 1000
+        repeat: true
+        running: root.settled
+        onTriggered: root.refreshOrder()
+    }
+
+    Connections {
+        target: GlobalConfig.launcher
+
+        function onFavouriteAppsChanged(): void {
+            root.refreshOrder();
         }
     }
 
