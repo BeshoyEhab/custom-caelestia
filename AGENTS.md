@@ -124,19 +124,20 @@ Opening the launcher during the startup app-DB load used to show a partial list 
 | File | Change |
 |---|---|
 | `shell/modules/launcher/services/Apps.qml` | `Apps.settled` + `settleTimer`: flips once `AppDb.appsChanged` has been quiet 400 ms (800 ms after the last `entriesChanged`, 1.5 s fallback with no entries). |
-| `shell/modules/launcher/Wrapper.qml` | `shouldBeActive` also requires `Apps.settled`, so a first open requested mid-load waits ~0.3–0.4 s and then appears complete. Later opens are immediate. |
-| `shell/modules/launcher/AppList.qml` | `openResults` snapshots `Apps.search("")` in `Component.onCompleted`; the unfiltered list is served from the snapshot, so later DB re-sorts cannot move rows under the cursor. Typed queries still call `Apps.search()` live. |
+| `shell/modules/launcher/Wrapper.qml` | `shouldBeActive` requires `Apps.settled || Apps.previewReady`, so an early open paints the cached rows immediately; only a first run with no cache waits ~0.3–0.4 s. |
+| `shell/modules/launcher/AppList.qml` | `openResults` snapshots the list at open: the preview rows pre-settle, `Apps.search("")` afterwards. Later DB re-sorts cannot move rows under the cursor. Typed queries still call `Apps.search()` live. |
+| `shell/modules/launcher/items/AppItem.qml` | `modelData` is `var`, not `DesktopEntry`, so a preview row can be rendered; `Apps.launch()` resolves it by id. |
 
 `Loader.active` in `Wrapper.qml` is `shouldBeActive || visible`, so the content (and the snapshot) is destroyed when the drawer closes and re-taken on the next open — apps installed while the launcher is open appear from the following open, which is the intended trade.
 
-**The default order itself is cached** in `~/.local/state/caelestia/launcher-order.json` (`Apps.orderPath`; `Paths.state` follows `XDG_STATE_HOME`). AppDb sorts favourites → frequency → name and re-sorts on every launch, so without the file the first screen changed between sessions. `OrderCache.js` (pure, `tests/launcher_order_test.js`, registered in `tests/run.sh`) merges the cached ids with the live DB — unknown ids are skipped, newly installed apps are appended — and decides when to rewrite:
+**Only the first rows are cached**, in `~/.local/state/caelestia/launcher-preview.json` (`Apps.previewPath`; `Paths.state` follows `XDG_STATE_HOME`): `{version, savedAt, rows: [{id, name, comment, icon}]}`, `Apps.previewCount` = 12 (maxShown is 7). AppDb needs ~300–400 ms to fill in, so the file is what lets the launcher open instantly at login instead of holding the drawer back. `PreviewCache.js` (pure, `tests/launcher_preview_test.js`, registered in `tests/run.sh`) parses/serialises/validates it and does the merge ordering.
 
-- no cache, or `orderRefreshMs` (24 h) elapsed → rewrite;
-- the app set changed (install, uninstall, newly hidden) → rewrite;
-- the favourites changed → rewrite;
-- **a pure frequency reorder does not rewrite.** Following it would defeat the cache.
+Rules that keep it from flickering again:
 
-`search("")` returns the merged order, so typed queries stay live while the empty query is stable. The file is also refreshed while the shell runs (15 min tick), which is safe because an open list is a snapshot.
+- The file is rewritten on settle and 1.5 s after an `AppDb.appsChanged` batch (installs, removals, hidden apps) or a favourites change; there is no age timer.
+- When the DB settles **while the launcher is open**, `Apps.expandPreview()` fills each preview row's `entry` and appends the remaining real entries. The preview row objects are kept (same identity), so the visible delegates are not rebuilt — replacing them would re-create the icons and blink the first screen.
+- Order: preview rows keep their order, the rest follow AppDb. A preview id that no longer exists is skipped by the merge; a newly installed app is appended.
+- The preview order therefore equals the first rows of the previous session; it converges to the live order on the next settle, and nothing moves mid-open.
 
 ## Captive portal / portal Wi-Fi
 

@@ -27,11 +27,42 @@ StyledListView {
     // default list is rebuilt on the next open.
     property var openResults: []
 
+    // Ids of the preview rows currently shown, or empty when the open started
+    // after the app DB had settled.
+    property var openPreviewIds: []
+
     function appValues(text: string): var {
         return text ? Apps.search(text) : root.openResults;
     }
 
-    Component.onCompleted: root.openResults = Apps.search("")
+    // Before the DB settles only the cached rows exist; show them right away
+    // instead of holding the launcher back.
+    function loadOpenResults(): void {
+        if (!Apps.settled && Apps.previewReady) {
+            const rows = Apps.previewResults();
+            root.openPreviewIds = rows.map(row => row.id);
+            root.openResults = rows;
+        } else {
+            root.openPreviewIds = [];
+            root.openResults = Apps.search("");
+        }
+    }
+
+    Component.onCompleted: root.loadOpenResults()
+
+    // The DB settled while the launcher is already up: replace the preview rows
+    // with the real entries, keeping the preview order, so the rows on screen
+    // do not move and the rest is appended below the fold.
+    Connections {
+        target: Apps
+
+        function onSettledChanged(): void {
+            if (!Apps.settled || !root.openPreviewIds.length)
+                return;
+            root.openResults = Apps.expandPreview(root.openResults, root.openPreviewIds);
+            root.openPreviewIds = [];
+        }
+    }
 
     Timer {
         id: debounceTimer

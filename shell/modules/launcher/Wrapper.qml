@@ -13,10 +13,11 @@ Item {
     required property DrawerVisibilities visibilities
     required property var panels
 
-    // Apps settle a moment after startup (see Apps.settled). Opening before
-    // that shows a partial list that then re-sorts under the user's cursor,
-    // so the first open waits for it. Subsequent opens are immediate.
-    readonly property bool shouldBeActive: visibilities.launcher && Config.launcher.enabled && Apps.settled
+    // Opening during the startup load used to show a partial list that then
+    // re-sorted under the cursor. Once the cached first rows exist the launcher
+    // opens immediately on them; otherwise (first run after install) it waits
+    // for the DB. See Apps.previewReady.
+    readonly property bool shouldBeActive: visibilities.launcher && Config.launcher.enabled && (Apps.settled || Apps.previewReady)
 
     readonly property real maxHeight: {
         let max = screen.height - Config.border.thickness * 2 + Tokens.padding.extraLarge;

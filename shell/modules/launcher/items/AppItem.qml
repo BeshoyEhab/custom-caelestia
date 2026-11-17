@@ -10,7 +10,9 @@ import qs.modules.launcher.services
 Item {
     id: root
 
-    required property DesktopEntry modelData
+    // A DesktopEntry, or a cached preview row ({id, name, comment, icon}) while
+    // the app DB is still filling in. Apps.launch resolves the row by id.
+    required property var modelData
     required property DrawerVisibilities visibilities
 
     implicitHeight: Tokens.sizes.launcher.itemHeight

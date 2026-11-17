@@ -6,25 +6,48 @@ import QtQuick
 import Caelestia
 import Caelestia.Config
 import qs.utils
-import "OrderCache.js" as OrderCache
+import "PreviewCache.js" as PreviewCache
 
 Searcher {
     id: root
 
-    function launch(entry: DesktopEntry): void {
-        root.remember(entry.id);
-        appDb.incrementFrequency(entry.id);
+    // `entry` is a DesktopEntry, or a cached preview row ({id, name, ...}) when
+    // the launcher opened before AppDb had settled. Resolve the row by id; the
+    // DB is always loaded by the time a row can be clicked.
+    function launch(entry: var): void {
+        const resolved = root.resolve(entry);
+        if (!resolved)
+            return;
 
-        if (entry.runInTerminal)
+        root.remember(resolved.id);
+        appDb.incrementFrequency(resolved.id);
+
+        if (resolved.runInTerminal)
             Quickshell.execDetached({
-                command: ["app2unit", "--", ...GlobalConfig.general.apps.terminal, `${Quickshell.shellDir}/assets/wrap_term_launch.sh`, ...entry.command],
-                workingDirectory: entry.workingDirectory
+                command: ["app2unit", "--", ...GlobalConfig.general.apps.terminal, `${Quickshell.shellDir}/assets/wrap_term_launch.sh`, ...resolved.command],
+                workingDirectory: resolved.workingDirectory
             });
         else
             Quickshell.execDetached({
-                command: ["app2unit", "--", ...entry.command],
-                workingDirectory: entry.workingDirectory
+                command: ["app2unit", "--", ...resolved.command],
+                workingDirectory: resolved.workingDirectory
             });
+    }
+
+    function resolve(entry: var): var {
+        if (!entry)
+            return null;
+        if (entry.command !== undefined)
+            return entry;
+        // Preview row that the DB settle handler already bound to its entry.
+        if (entry.entry)
+            return entry.entry;
+
+        for (const app of appDb.apps)
+            if (app.id === entry.id)
+                return app.entry;
+
+        return null;
     }
 
     // Remember the exact query (typo/synonym/shortcut) the user used to pick this app.
@@ -48,11 +71,6 @@ Searcher {
 
     function search(search: string): list<var> {
         root.lastQuery = activeQuery(search);
-
-        // Empty query: the cached default order instead of AppDb's live sort,
-        // which reorders whenever an app is launched. See the cache below.
-        if (!search.trim())
-            return OrderCache.merge(appDb.apps, root.orderIds).map(app => app.entry);
 
         const prefix = GlobalConfig.launcher.specialPrefix;
 
@@ -132,86 +150,113 @@ Searcher {
             root.sawAppBatch = true;
             settleTimer.restart();
             if (root.settled)
-                root.refreshOrder();
+                previewTimer.restart();
         }
     }
 
     onSettledChanged: {
         if (settled)
-            refreshOrder();
+            writePreview();
     }
 
-    // ── Cached default order ─────────────────────────────────────────────────
-    // AppDb orders the unfiltered list by favourites, then use frequency, then
-    // name, and re-sorts on every launch. Persisting that order keeps the
-    // launcher's first screen identical across sessions; it is rewritten when
-    // the app set changes (install, uninstall, hidden app), when the
-    // favourites change, or once it is a day old. See OrderCache.js.
-    readonly property string orderPath: `${Paths.state}/launcher-order.json`
-    readonly property int orderRefreshMs: 24 * 60 * 60 * 1000
+    // ── Row preview cache ───────────────────────────────────────────────────
+    // The first screen needs rows within a frame, but AppDb fills in ~300-400ms
+    // after the shell starts. The first few rows are kept on disk (name,
+    // comment, icon) and painted straight away, so an open during startup shows
+    // complete rows instead of waiting. `expandPreview()` swaps them for the
+    // real entries once the DB settles, keeping the preview order so nothing on
+    // screen moves. See PreviewCache.js.
+    readonly property string previewPath: `${Paths.state}/launcher-preview.json`
+    // Config.launcher.maxShown defaults to 7; two spare rows keep the visible
+    // area covered on a taller panel.
+    readonly property int previewCount: 12
 
-    property var orderIds: []
-    property var orderFavourites: []
-    property real orderSavedAt: 0
-    property bool orderLoaded: false
+    property var previewRows: []
 
-    function refreshOrder(): void {
-        if (!root.settled || !root.orderLoaded)
+    readonly property bool previewReady: previewRows.length > 0
+
+    // Rows for the pre-settle list: plain objects the delegate can render.
+    function previewResults(): var {
+        return root.previewRows;
+    }
+
+    // Real entries, preview order first, everything else appended in AppDb
+    // order. The preview rows keep their identity (the delegate binds to them
+    // and only their `entry` is filled in), so the rows on screen are not
+    // rebuilt when the DB settles. Used when the DB settles while the launcher
+    // is already open.
+    function expandPreview(rows: var, ids: var): var {
+        const known = new Set(ids);
+
+        for (const row of rows) {
+            const app = root.appById(row.id);
+            if (app)
+                row.entry = app.entry;
+        }
+
+        const out = rows.slice();
+        for (const app of PreviewCache.merge(appDb.apps, ids))
+            if (!known.has(app.id))
+                out.push(app.entry);
+
+        return out;
+    }
+
+    function appById(id: string): var {
+        for (const app of appDb.apps)
+            if (app.id === id)
+                return app;
+        return null;
+    }
+
+    function writePreview(): void {
+        if (!root.settled)
             return;
 
-        const apps = appDb.apps;
-        const favourites = GlobalConfig.launcher.favouriteApps;
-        const now = Date.now();
-        const cached = {
-            ids: root.orderIds,
-            favourites: root.orderFavourites,
-            savedAt: root.orderSavedAt
-        };
+        const rows = [];
+        for (const app of appDb.apps) {
+            if (rows.length >= root.previewCount)
+                break;
+            const entry = app.entry;
+            if (!entry)
+                continue;
+            rows.push({
+                id: app.id,
+                name: entry.name || app.name || app.id,
+                comment: entry.comment || entry.genericName || "",
+                icon: entry.icon || ""
+            });
+        }
 
-        if (!OrderCache.needsRefresh(cached, apps, favourites, now, root.orderRefreshMs))
-            return;
-
-        root.orderIds = apps.map(app => app.id);
-        root.orderFavourites = favourites.slice();
-        root.orderSavedAt = now;
-        orderFile.setText(OrderCache.serialize(root.orderIds, root.orderFavourites, now));
+        root.previewRows = rows;
+        if (rows.length)
+            previewFile.setText(PreviewCache.serialize(rows, Date.now()));
     }
 
     FileView {
-        id: orderFile
+        id: previewFile
 
-        path: root.orderPath
+        path: root.previewPath
         printErrors: false
 
-        onLoaded: {
-            const state = OrderCache.parse(text());
-            root.orderIds = state.ids;
-            root.orderFavourites = state.favourites;
-            root.orderSavedAt = state.savedAt;
-            root.orderLoaded = true;
-            root.refreshOrder();
-        }
-
-        onLoadFailed: {
-            root.orderLoaded = true;
-            root.refreshOrder();
-        }
+        onLoaded: root.previewRows = PreviewCache.parse(text()).rows
+        onLoadFailed: root.previewRows = []
     }
 
-    // A session that stays up for days still refreshes an expired order. The
-    // launcher list is a snapshot per open, so this cannot move visible rows.
+    // Installs, removals, hidden apps and favourites can all change the first
+    // screen; coalesce the batches AppDb emits while it re-sorts.
     Timer {
-        interval: 15 * 60 * 1000
-        repeat: true
-        running: root.settled
-        onTriggered: root.refreshOrder()
+        id: previewTimer
+
+        interval: 1500
+        onTriggered: root.writePreview()
     }
 
     Connections {
         target: GlobalConfig.launcher
 
         function onFavouriteAppsChanged(): void {
-            root.refreshOrder();
+            previewTimer.restart();
         }
     }
 
