@@ -77,3 +77,20 @@ assert(ctx.nextInstanceId("clock", [{ instance: "clock" }]) === "clock-2", "seco
 assert(ctx.nextInstanceId("clock", [{ instance: "clock" }, { instance: "clock-2" }]) === "clock-3", "third instance gets -3");
 assert(ctx.normalizeItem({ type: "clock" }).instance === "clock", "normalize fills the instance");
 assert(ctx.normalizeItem({ type: "clock", enabled: false }).enabled === false, "normalize keeps enabled");
+
+// Catalog coverage: every registry id must be reachable in QML.
+const catalog = fs.readFileSync(__dirname + "/../shell/modules/widgets/WidgetCatalog.qml", "utf8");
+for (const w of ctx.registry())
+  assert(new RegExp(`case "${w.id}":`).test(catalog), `catalog maps ${w.id}`);
+assert(/default:\s*return null/.test(catalog), "catalog returns null for unknown types");
+for (const f of ["Spacer", "Separator", "Group"])
+  assert(fs.existsSync(__dirname + `/../shell/modules/widgets/helpers/${f}.qml`), `${f} helper exists`);
+for (const f of ["DockLogo", "DockWorkspaces", "DockActiveWindow", "DockTray", "DockClock", "DockStatusIcons", "DockPower"])
+  assert(fs.existsSync(__dirname + `/../shell/modules/widgets/builtin/${f}.qml`), `${f} adapter exists`);
+
+// The switch must return a distinct, declared component per id, not just name it.
+const cases = [...catalog.matchAll(/case "(\w+)":\s*return (\w+);/g)].map(m => [m[1], m[2]]);
+assert(cases.length === ctx.registry().length, "catalog has one case per registry id");
+assert(new Set(cases.map(c => c[1])).size === cases.length, "every widget maps to its own component");
+for (const [id, comp] of cases)
+  assert(new RegExp(`id: ${comp}\\b`).test(catalog), `${id} maps to a declared component`);
