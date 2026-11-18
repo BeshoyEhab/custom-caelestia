@@ -42,6 +42,7 @@ test_suite "clock_colours_test" "tests/clock_colours_test.sh"
 test_suite "clock_settings_test" "tests/clock_settings_test.sh"
 test_suite "qml_clock_bindings_test" "tests/qml_clock_bindings_test.sh"
 test_suite "qml_config_scope_test" "tests/qml_config_scope_test.sh"
+test_suite "widget_registry_test" "tests/widget_registry_test.sh"
 
 echo ""
 echo "═══════════════════════════════════════════"
