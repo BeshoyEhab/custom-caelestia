@@ -25,6 +25,21 @@ grep -qF 'root.dashState.currentTab = Math.max(0, count - 1)' "$DASH" \
     && pass "dashboard clamps the stored tab on count change" \
     || fail "dashboard does not clamp the stored tab on count change (upstream fd630ffe)"
 
+BT_POPOUT="$SHELL_DIR/modules/bar/popouts/Bluetooth.qml"
+BT_PAIRING="$SHELL_DIR/modules/nexus/pages/bluetooth/BluetoothPairing.qml"
+
+grep -qF '(!a.deviceName - !b.deviceName)' "$BT_POPOUT" \
+    && pass "bluetooth popout sorts self-named devices first" \
+    || fail "bluetooth popout does not sort unnamed devices last (upstream 72f60b1d)"
+
+grep -qF '(!a.deviceName - !b.deviceName)' "$BT_PAIRING" \
+    && pass "pairing list sorts self-named devices first" \
+    || fail "pairing list does not sort unnamed devices last (upstream cb43fc71)"
+
+grep -qF 'devices.reduce((total, d) => total + d.connected, 0)' "$BT_POPOUT" \
+    && pass "bluetooth popout counts connected devices without an allocation" \
+    || fail "bluetooth popout still filters for the connected count (upstream 72f60b1d)"
+
 echo ""
 echo "upstream_ports_test: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]

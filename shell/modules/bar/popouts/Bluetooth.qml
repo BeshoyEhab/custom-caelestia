@@ -51,7 +51,7 @@ ColumnLayout {
         text: {
             const devices = Bluetooth.devices.values; // qmllint disable unresolved-type
             let available = qsTr("%1 device%2 available").arg(devices.length).arg(devices.length === 1 ? "" : "s");
-            const connected = devices.filter(d => d.connected).length;
+            const connected = devices.reduce((total, d) => total + d.connected, 0);
             if (connected > 0)
                 available += qsTr(" (%1 connected)").arg(connected);
             return available;
@@ -62,7 +62,8 @@ ColumnLayout {
 
     Repeater {
         model: ScriptModel {
-            values: [...Bluetooth.devices.values].sort((a, b) => (b.connected - a.connected) || (b.paired - a.paired) || a.name.localeCompare(b.name)).slice(0, 5) // qmllint disable unresolved-type
+            // Connected/paired devices first, then devices that report their own name, and unnamed ones last
+            values: [...Bluetooth.devices.values].sort((a, b) => (b.connected - a.connected) || (b.paired - a.paired) || (!a.deviceName - !b.deviceName) || a.name.localeCompare(b.name)).slice(0, 5) // qmllint disable unresolved-type
         }
 
         RowLayout {
