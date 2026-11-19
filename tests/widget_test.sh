@@ -97,6 +97,22 @@ while IFS= read -r -d '' f; do
 done < <(find "$SHELL_DIR/modules/bar" -name '*.qml' -not -path '*/upstream/*' -print0 2>/dev/null)
 [[ "$MAGIC" -eq 0 ]] && pass "No suspicious magic numbers > 100 in bar components"
 
+# ── 8. Widget host/frame contract ────────────────────────────────────────────
+WIDGETS_DIR="$SHELL_DIR/modules/widgets"
+
+[[ -f "$WIDGETS_DIR/WidgetHost.qml" ]] && pass "WidgetHost.qml exists" || fail "WidgetHost.qml missing"
+[[ -f "$WIDGETS_DIR/WidgetFrame.qml" ]] && pass "WidgetFrame.qml exists" || fail "WidgetFrame.qml missing"
+
+grep -q '^ColumnLayout' "$WIDGETS_DIR/WidgetHost.qml" && pass "WidgetHost root is ColumnLayout" || fail "WidgetHost root is not ColumnLayout"
+grep -q 'ScriptModel' "$WIDGETS_DIR/WidgetHost.qml" && pass "WidgetHost uses ScriptModel" || fail "WidgetHost does not use ScriptModel"
+grep -q 'ComponentBehavior: Bound' "$WIDGETS_DIR/WidgetHost.qml" && fail "WidgetHost must not use ComponentBehavior: Bound" || pass "WidgetHost is unbound"
+grep -qE '^\s*implicit(Width|Height)\s*:' "$WIDGETS_DIR/WidgetHost.qml" && fail "WidgetHost must size itself from the layout" || pass "WidgetHost takes implicit size from the layout"
+grep -q 'function hitTest' "$WIDGETS_DIR/WidgetHost.qml" && pass "WidgetHost exposes hitTest" || fail "WidgetHost missing hitTest"
+
+grep -q 'createObject' "$WIDGETS_DIR/WidgetFrame.qml" && pass "WidgetFrame creates the widget with initial properties" || fail "WidgetFrame missing createObject"
+grep -q 'errorText' "$WIDGETS_DIR/WidgetFrame.qml" && pass "WidgetFrame reports widget failures" || fail "WidgetFrame missing errorText"
+grep -q 'entryId' "$WIDGETS_DIR/WidgetFrame.qml" && pass "WidgetFrame exposes entryId" || fail "WidgetFrame missing entryId"
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo "widget_test: $PASS passed, $FAIL failed"
