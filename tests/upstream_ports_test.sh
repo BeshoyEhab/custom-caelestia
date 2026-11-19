@@ -56,6 +56,18 @@ grep -qF 'onPressed: root.dnd = !root.dnd' "$NOTIFS" \
     && pass "toggleDnd writes the same flag as the IPC handler" \
     || fail "toggleDnd writes a different flag than the IPC handler"
 
+# This fork has no I18n module: a verbatim upstream hunk containing `Tr.` would
+# fail at load ("Tr is not defined") and take the whole shell down. The five
+# files below are where a port could reintroduce it.
+TR_HITS=$(grep -nE -e 'Tr\.tr\b|Tr\.trN\b|Tr\.trCtx\b|Tr\.formatDateTime\b|Tr\.locale\b' \
+    "$DASH" "$BT_POPOUT" "$BT_PAIRING" "$PAM" "$NOTIFS" 2>/dev/null || true)
+if [[ -n "$TR_HITS" ]]; then
+    fail "ported QML references Tr, which this fork does not have (shell will not load)"
+    echo "$TR_HITS" | head -3 | sed 's/^/      /'
+else
+    pass "ported files use qsTr, not the upstream-only Tr API"
+fi
+
 echo ""
 echo "upstream_ports_test: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]
