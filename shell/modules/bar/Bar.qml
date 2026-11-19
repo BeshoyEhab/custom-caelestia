@@ -1,12 +1,12 @@
 import "popouts" as BarPopouts
-import "components"
-import "components/workspaces"
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Caelestia.Config
 import qs.components
 import qs.services
+import qs.modules.widgets
+import "../widgets/WidgetRegistry.js" as Registry
 
 Item {
     id: root
@@ -19,41 +19,44 @@ Item {
     readonly property bool isVertical: GlobalConfig.bar.positioningEdge === 0 || GlobalConfig.bar.positioningEdge === 1
     readonly property int vPadding: Tokens.padding.large
 
+    // The dock's widget lists come from Config.bar.entries through the
+    // registry: each region keeps only its own ids, drops spacers and unknown
+    // ids, and merges each widget's default options.
+    readonly property var startItems: Registry.fromBarEntries(Config.bar.entries, "start")
+    readonly property var centerItems: Registry.fromBarEntries(Config.bar.entries, "center")
+    readonly property var endItems: Registry.fromBarEntries(Config.bar.entries, "end")
+
+    readonly property int activeWindowMaxHeight: Math.max(0, centerWrapper.height - root.vPadding * 2)
+
     function closeTray(): void {
         if (!Config.bar.tray.compact)
             return;
 
-        for (let i = 0; i < topRepeater.count; i++) {
-            const loader = topRepeater.itemAt(i);
-            const tray = loader?.trayItem;
-            if (tray)
-                tray.expanded = false;
-        }
-        for (let i = 0; i < bottomRepeater.count; i++) {
-            const loader = bottomRepeater.itemAt(i);
-            const tray = loader?.trayItem;
-            if (tray)
-                tray.expanded = false;
+        const hosts = [startHost, endHost];
+        for (let h = 0; h < hosts.length; h++) {
+            const frames = hosts[h].frames;
+            for (let i = 0; i < frames.length; i++) {
+                const frame = frames[i];
+                if (frame?.entryId !== "tray")
+                    continue;
+                const tray = frame.widgetItem;
+                if (tray)
+                    tray.expanded = false;
+            }
         }
     }
 
     function findEntry(pos: real): var {
-        // Check active window first
-        const awWrapper = activeWindowLoader.item;
-        if (awWrapper) {
-            const localPos = awWrapper.mapFromItem(root, 0, pos);
-            if (localPos.y >= 0 && localPos.y < awWrapper.height) {
-                return {
-                    entryId: "activeWindow",
-                    activeWindowItem: awWrapper.activeWindowItem
-                };
-            }
+        // The active window region first, matching the old ordering.
+        const hosts = [centerHost, startHost, endHost];
+        for (let i = 0; i < hosts.length; i++) {
+            const host = hosts[i];
+            const p = host.mapFromItem(root, 0, pos);
+            const frame = host.hitTest(host.width / 2, p.y);
+            if (frame)
+                return frame;
         }
-        const topEntry = topLayout.childAt(topLayout.width / 2, topLayout.mapFromItem(root, 0, pos).y);
-        if (topEntry?.entryId)
-            return topEntry;
-        const bottomEntry = bottomLayout.childAt(bottomLayout.width / 2, bottomLayout.mapFromItem(root, 0, pos).y);
-        return bottomEntry;
+        return null;
     }
 
     // Hovering an entry waits popouts.hoverDelay before its popout opens, so
@@ -115,8 +118,8 @@ Item {
         const id = ch.entryId;
 
         if (id === "statusIcons" && Config.bar.popouts.statusIcons) {
-            const items = (ch.statusIconsItem).items;
-            const icon = items.childAt(items.width / 2, mapToItem(items, 0, pos).y);
+            const items = ch.widgetItem?.items;
+            const icon = items ? items.childAt(items.width / 2, mapToItem(items, 0, pos).y) : null;
             if (icon) {
                 requestPopout(icon.name, () => icon.mapToItem(root, 0, icon.implicitHeight / 2).y);
             } else {
@@ -124,9 +127,12 @@ Item {
                 popouts.closeSoon();
             }
         } else if (id === "tray" && Config.bar.popouts.tray) {
-            const tray = ch.trayItem;
+            const tray = ch.widgetItem;
             const trayPos = mapToItem(ch, 0, pos).y;
-            if (!Config.bar.tray.compact || (tray.expanded && !tray.expandIcon.contains(mapToItem(tray.expandIcon, tray.implicitWidth / 2, trayPos)))) {
+            if (!tray) {
+                cancelPendingPopout();
+                popouts.closeSoon();
+            } else if (!Config.bar.tray.compact || (tray.expanded && !tray.expandIcon.contains(mapToItem(tray.expandIcon, tray.implicitWidth / 2, trayPos)))) {
                 const index = Math.floor(((trayPos - tray.padding * 2 + tray.spacing) / tray.layout.implicitHeight) * tray.items.count);
                 const trayItem = tray.items.itemAt(index);
                 if (trayItem) {
@@ -141,7 +147,12 @@ Item {
                 tray.expanded = true;
             }
         } else if (id === "activeWindow" && Config.bar.popouts.activeWindow && Config.bar.activeWindow.showOnHover) {
-            requestPopout(id.toLowerCase(), () => ch.activeWindowItem.mapToItem(root, 0, ch.activeWindowItem.implicitHeight / 2).y ?? 0);
+            requestPopout(id.toLowerCase(), () => {
+                const aw = ch.widgetItem;
+                if (!aw)
+                    return 0;
+                return aw.mapToItem(root, 0, aw.implicitHeight / 2).y ?? 0;
+            });
         } else {
             cancelPendingPopout();
         }
@@ -170,11 +181,8 @@ Item {
         }
     }
 
-    readonly property var topEntries: ["logo", "workspaces"]
-    readonly property var bottomEntries: ["tray", "clock", "statusIcons", "power"]
-
-    ColumnLayout {
-        id: topLayout
+    WidgetHost {
+        id: startHost
 
         anchors.top: parent.top
         anchors.topMargin: root.vPadding
@@ -183,53 +191,35 @@ Item {
 
         spacing: Tokens.spacing.medium
 
-        Repeater {
-            id: topRepeater
-
-            model: ScriptModel {
-                values: Config.bar.entries.filter(e => (e.enabled ?? true) && root.topEntries.includes(e.id))
-            }
-
-            delegate: TopLoader {}
-        }
+        items: root.startItems
+        hostContext: root
     }
 
-    Loader {
-        id: activeWindowLoader
+    Item {
+        id: centerWrapper
 
-        anchors.top: topLayout.bottom
-        anchors.bottom: bottomLayout.top
+        anchors.top: startHost.bottom
+        anchors.bottom: endHost.top
         anchors.horizontalCenter: parent.horizontalCenter
         width: root.width
 
-        active: true
-
         clip: true
 
-        sourceComponent: ColumnLayout {
-            anchors.fill: parent
-            anchors.topMargin: root.vPadding
-            anchors.bottomMargin: root.vPadding
-            property alias activeWindowItem: activeWindow
-            readonly property int availableHeight: height
+        WidgetHost {
+            id: centerHost
 
-            Item { Layout.fillHeight: true }
+            anchors.verticalCenter: parent.verticalCenter
+            width: root.width
 
-            ActiveWindow {
-                id: activeWindow
-                bar: root
-                monitor: Brightness.getMonitorForScreen(root.screen)
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignHCenter
-                maxHeight: availableHeight
-            }
+            spacing: Tokens.spacing.medium
 
-            Item { Layout.fillHeight: true }
+            items: root.centerItems
+            hostContext: root
         }
     }
 
-    ColumnLayout {
-        id: bottomLayout
+    WidgetHost {
+        id: endHost
 
         anchors.bottom: parent.bottom
         anchors.bottomMargin: root.vPadding
@@ -238,87 +228,7 @@ Item {
 
         spacing: Tokens.spacing.medium
 
-        Repeater {
-            id: bottomRepeater
-
-            model: ScriptModel {
-                values: Config.bar.entries.filter(e => (e.enabled ?? true) && root.bottomEntries.includes(e.id))
-            }
-
-            delegate: BottomLoader {}
-        }
-    }
-
-    Component {
-        id: logoComp
-        OsIcon {}
-    }
-    Component {
-        id: workspacesComp
-        Workspaces {
-            bar: root
-            screen: root.screen
-            fullscreen: root.fullscreen
-        }
-    }
-    Component {
-        id: trayComp
-        Tray {}
-    }
-    Component {
-        id: clockComp
-        Clock {}
-    }
-    Component {
-        id: statusIconsComp
-        StatusIcons {}
-    }
-    Component {
-        id: powerComp
-        Power {
-            visibilities: root.visibilities
-        }
-    }
-
-    component TopLoader: Loader {
-        required property var modelData
-
-        readonly property string entryId: modelData.id
-        property var trayItem: item as Tray
-        property var workspacesItem: item as Workspaces
-
-        Layout.alignment: Qt.AlignHCenter
-
-        active: true
-
-        sourceComponent: {
-            switch (entryId) {
-            case "logo": return logoComp
-            case "workspaces": return workspacesComp
-            default: return null
-            }
-        }
-    }
-
-    component BottomLoader: Loader {
-        required property var modelData
-
-        readonly property string entryId: modelData.id
-        property var trayItem: item as Tray
-        property var statusIconsItem: item as StatusIcons
-
-        Layout.alignment: Qt.AlignHCenter
-
-        active: true
-
-        sourceComponent: {
-            switch (entryId) {
-            case "tray": return trayComp
-            case "clock": return clockComp
-            case "statusIcons": return statusIconsComp
-            case "power": return powerComp
-            default: return null
-            }
-        }
+        items: root.endItems
+        hostContext: root
     }
 }

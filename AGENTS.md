@@ -54,12 +54,14 @@ import qs.modules.nexus.common
 
 ### Bar Rendering (modules/bar/)
 
-The bar uses an `Item` root with a split layout (`topLayout` + `bottomLayout` + active window loader), replacing upstream's `DelegateChooser`. Entry components are loaded via inline `TopLoader`/`BottomLoader` components.
+The dock is three `WidgetHost` regions (`start`, `center`, `end`) inside `Bar.qml`'s `Item` root, replacing upstream's `DelegateChooser` and the old hardcoded `TopLoader`/`BottomLoader` loaders. Widgets come from `Config.bar.entries` through `WidgetRegistry.fromBarEntries(entries, region)` (spacers and unknown ids are dropped, each widget's default options merged); `WidgetHost` renders them as `WidgetFrame`s and answers `hitTest` for popout/wheel routing, with `hostContext` set to the `Bar` root so the adapters can bind `screen`, `fullscreen`, `visibilities` and `activeWindowMaxHeight`.
 
-**Current entry layout (hardcoded in Bar.qml):**
-- `topLayout`: `logo`, `workspaces`
-- `middle`: `activeWindow` (separate `Loader`)
-- `bottomLayout`: `tray`, `clock`, `statusIcons`, `power`
+**Current entry regions (migrated from `Config.bar.entries`):**
+- `start` (`startHost`): `logo`, `workspaces`
+- `center` (`centerHost`, vertically centred in the clipping `centerWrapper`): `activeWindow`
+- `end` (`endHost`): `tray`, `clock`, `statusIcons`, `power`
+
+**Adding a widget:** a `WidgetRegistry.js` entry (including the capability fields `role`, `ownsPopover`, `wantsFocus`, `minSize`), a `WidgetCatalog.componentFor` case, and a component declaring `item`/`host`/`orientation`.
 
 **Critical rules:**
 1. **`pragma ComponentBehavior: Bound` must NOT be used in Bar.qml** — it prevents inline component loaders from resolving component references.
@@ -68,6 +70,7 @@ The bar uses an `Item` root with a split layout (`topLayout` + `bottomLayout` + 
 4. **ContentWindow.qml BarWrapper anchoring**: For vertical bars, use `anchors.top/parent.top` + `anchors.bottom/parent.bottom`. For horizontal bars, use `anchors.left/parent.left` + `anchors.right/parent.right`. Never use conditional logic that removes both top AND bottom anchors for vertical bars — the BarWrapper gets 0 height and nothing renders.
 5. **BarWrapper has no `implicitHeight`** — it gets its height from parent anchors (top+bottom for vertical, left+right for horizontal).
 6. **`Tokens.sizes.bar.innerWidth`** is the content width; `contentWidth = innerWidth + padding*2`.
+7. **Hosts never branch on widget ids** to decide focus, popover routing or minimum size — those read the registry's capability fields (`role`, `ownsPopover`, `wantsFocus`, `minSize`). The existing `tray`/`statusIcons`/`workspaces`/`activeWindow` branches in `Bar.qml` are scheduled for the popover broker.
 
 ### Display switcher (SUPER+P)
 

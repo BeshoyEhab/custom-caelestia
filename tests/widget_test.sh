@@ -26,10 +26,16 @@ elif grep -q '^\s*ColumnLayout\b' "$BAR_QML"; then
     fail "Bar.qml root is ColumnLayout (expected Item per actual code)"
 fi
 
-# Verify split top/bottom layout
-grep -q 'topLayout' "$BAR_QML"    && pass "Bar.qml has topLayout"    || fail "Bar.qml missing topLayout"
-grep -q 'bottomLayout' "$BAR_QML" && pass "Bar.qml has bottomLayout" || fail "Bar.qml missing bottomLayout"
-grep -q 'DelegateChooser' "$BAR_QML" && pass "Bar.qml no longer uses DelegateChooser (uses TopLoader/BottomLoader)" || true
+# The dock is three widget-host regions, not hardcoded loaders/entry lists
+grep -q 'WidgetHost' "$BAR_QML" && pass "Bar.qml hosts widgets" || fail "Bar.qml does not use WidgetHost"
+grep -q 'startHost' "$BAR_QML" && pass "Bar.qml has startHost" || fail "Bar.qml missing startHost"
+grep -q 'centerHost' "$BAR_QML" && pass "Bar.qml has centerHost" || fail "Bar.qml missing centerHost"
+grep -q 'endHost' "$BAR_QML" && pass "Bar.qml has endHost" || fail "Bar.qml missing endHost"
+grep -q 'TopLoader\|BottomLoader' "$BAR_QML" && fail "Bar.qml still has its old loaders" || pass "Bar.qml has no old loaders"
+grep -q 'topEntries\|bottomEntries' "$BAR_QML" && fail "Bar.qml still hardcodes entry lists" || pass "Bar.qml has no hardcoded entry lists"
+grep -q 'fromBarEntries' "$BAR_QML" && pass "Bar.qml migrates Config.bar.entries" || fail "Bar.qml does not migrate entries"
+grep -q 'closeTray' "$BAR_QML" && pass "Bar.qml keeps tray handling" || fail "Bar.qml lost tray handling"
+grep -q 'handleWheel' "$BAR_QML" && pass "Bar.qml keeps wheel actions" || fail "Bar.qml lost wheel actions"
 
 # ── 2. BarWrapper contentWidth = innerWidth + padding*2 ────────────────────────
 if [[ -f "$BAR_WRAPPER" ]]; then
@@ -49,6 +55,9 @@ count=$(grep -rl 'Tokens\.sizes\.bar\.innerWidth' "$SHELL_DIR/modules/bar/" --in
 [[ "$count" -ge 7 ]] && pass "innerWidth referenced in $count bar files" || fail "innerWidth only in $count bar files (expected >=7)"
 
 # ── 4. Check bar entry IDs match actual components ────────────────────────────
+# Now hosted through the registry: id -> component lives in WidgetCatalog.qml
+# (componentFor switch) and builtin/ (the adapters wrap the original bar
+# components, e.g. DockLogo wraps OsIcon), so grep those instead of Bar.qml.
 # Bar uses: logo, workspaces, activeWindow, tray, clock, statusIcons, power
 declare -A entry_map
 entry_map["logo"]="OsIcon"
@@ -59,12 +68,16 @@ entry_map["clock"]="Clock"
 entry_map["statusIcons"]="StatusIcons"
 entry_map["power"]="Power"
 
+CATALOG_QML="$SHELL_DIR/modules/widgets/WidgetCatalog.qml"
+BUILTIN_DIR="$SHELL_DIR/modules/widgets/builtin"
+
 for entry in "${!entry_map[@]}"; do
     comp="${entry_map[$entry]}"
-    if grep -qi "$comp" "$BAR_QML" 2>/dev/null; then
+    if grep -qi "$comp" "$CATALOG_QML" 2>/dev/null \
+        || grep -rqi "$comp" "$BUILTIN_DIR" 2>/dev/null; then
         pass "Bar entry '$entry' -> '$comp' referenced"
     else
-        fail "Bar entry '$entry' -> '$comp' NOT referenced in Bar.qml"
+        fail "Bar entry '$entry' -> '$comp' NOT referenced in WidgetCatalog.qml/builtin"
     fi
 done
 
@@ -96,6 +109,98 @@ while IFS= read -r -d '' f; do
     done < "$f"
 done < <(find "$SHELL_DIR/modules/bar" -name '*.qml' -not -path '*/upstream/*' -print0 2>/dev/null)
 [[ "$MAGIC" -eq 0 ]] && pass "No suspicious magic numbers > 100 in bar components"
+
+# ── 8. Widget host/frame contract ────────────────────────────────────────────
+WIDGETS_DIR="$SHELL_DIR/modules/widgets"
+
+[[ -f "$WIDGETS_DIR/WidgetHost.qml" ]] && pass "WidgetHost.qml exists" || fail "WidgetHost.qml missing"
+[[ -f "$WIDGETS_DIR/WidgetFrame.qml" ]] && pass "WidgetFrame.qml exists" || fail "WidgetFrame.qml missing"
+
+grep -q '^ColumnLayout' "$WIDGETS_DIR/WidgetHost.qml" && pass "WidgetHost root is ColumnLayout" || fail "WidgetHost root is not ColumnLayout"
+grep -q 'ScriptModel' "$WIDGETS_DIR/WidgetHost.qml" && pass "WidgetHost uses ScriptModel" || fail "WidgetHost does not use ScriptModel"
+# Disabled items must be filtered out: validateItems keeps them, so the host
+# has to render through visibleItems or a disabled widget would still show.
+grep -q 'visibleItems' "$WIDGETS_DIR/WidgetHost.qml" && pass "WidgetHost filters disabled items" || fail "WidgetHost does not filter disabled items"
+grep -q 'ComponentBehavior: Bound' "$WIDGETS_DIR/WidgetHost.qml" && fail "WidgetHost must not use ComponentBehavior: Bound" || pass "WidgetHost is unbound"
+grep -qE '^\s*implicit(Width|Height)\s*:' "$WIDGETS_DIR/WidgetHost.qml" && fail "WidgetHost must size itself from the layout" || pass "WidgetHost takes implicit size from the layout"
+grep -q 'function hitTest' "$WIDGETS_DIR/WidgetHost.qml" && pass "WidgetHost exposes hitTest" || fail "WidgetHost missing hitTest"
+
+grep -q 'createObject' "$WIDGETS_DIR/WidgetFrame.qml" && pass "WidgetFrame creates the widget with initial properties" || fail "WidgetFrame missing createObject"
+grep -q 'errorText' "$WIDGETS_DIR/WidgetFrame.qml" && pass "WidgetFrame reports widget failures" || fail "WidgetFrame missing errorText"
+grep -q 'entryId' "$WIDGETS_DIR/WidgetFrame.qml" && pass "WidgetFrame exposes entryId" || fail "WidgetFrame missing entryId"
+
+DOCK_ACTIVE_WINDOW="$WIDGETS_DIR/builtin/DockActiveWindow.qml"
+[[ -f "$DOCK_ACTIVE_WINDOW" ]] && pass "DockActiveWindow.qml exists" || fail "DockActiveWindow.qml missing"
+
+# The adapter must not hard-bind the bar-only property without a fallback:
+# hosts that are not a bar would pass undefined and silently collapse the widget.
+if grep -qE 'maxHeight[[:space:]]*:[[:space:]]*host\.activeWindowMaxHeight[[:space:]]*$' "$DOCK_ACTIVE_WINDOW"; then
+    fail "DockActiveWindow maxHeight hard-binds host.activeWindowMaxHeight without a fallback"
+else
+    pass "DockActiveWindow maxHeight falls back for non-bar hosts"
+fi
+
+grep -qF 'host.activeWindowMaxHeight ?? (host.height * 0.25)' "$DOCK_ACTIVE_WINDOW" \
+    && pass "DockActiveWindow maxHeight uses the native fallback" \
+    || fail "DockActiveWindow maxHeight fallback missing"
+
+# ── 9. Widget creation-order pin (review fix 94fabd8f) ───────────────────────
+# The frame builds in its own Component.onCompleted, so the delegate must
+# supply the frame's inputs as bindings (initial properties) and the host
+# must derive its frames from the repeater.
+grep -qPz 'delegate: WidgetFrame\s*\{[^}]*required property var modelData[^}]*item:\s*modelData' \
+    "$WIDGETS_DIR/WidgetHost.qml" \
+    && pass "WidgetHost delegate supplies item as an initial property" \
+    || fail "WidgetHost delegate does not supply item as an initial property"
+grep -qPz 'delegate: WidgetFrame\s*\{[^}]*hostContext:\s*root\.hostContext' \
+    "$WIDGETS_DIR/WidgetHost.qml" \
+    && pass "WidgetHost delegate forwards hostContext" \
+    || fail "WidgetHost delegate missing hostContext"
+grep -q 'Component\.onCompleted' "$WIDGETS_DIR/WidgetHost.qml" \
+    && fail "WidgetHost must not assign frame inputs imperatively" \
+    || pass "WidgetHost assigns frame inputs via bindings only"
+grep -q 'frameList' "$WIDGETS_DIR/WidgetHost.qml" \
+    && fail "WidgetHost must derive frames from the repeater" \
+    || pass "WidgetHost frames are derived from the repeater"
+# The rebuild must be wired through a REAL declarative handler; declaring the
+# method as `function onItemChanged` would be an ordinary function that never
+# fires (QML only treats `on<Item>Changed:` as a signal handler).
+if grep -q 'function onItemChanged' "$WIDGETS_DIR/WidgetFrame.qml"; then
+    fail "WidgetFrame declares onItemChanged as a function (dead code)"
+elif grep -qE '^[[:space:]]*onItemChanged[[:space:]]*:' "$WIDGETS_DIR/WidgetFrame.qml"; then
+    pass "WidgetFrame rebuilds when item changes via declarative onItemChanged"
+else
+    fail "WidgetFrame missing declarative onItemChanged handler"
+fi
+grep -q 'destroy()' "$WIDGETS_DIR/WidgetFrame.qml" \
+    && pass "WidgetFrame destroys replaced widgets on rebuild" \
+    || fail "WidgetFrame missing destroy() on rebuild"
+
+# ── 10. The widget types must actually parse ─────────────────────────────────
+# `qmllint` exits 0 on these diagnostics, so grepping for "syntax error" proves
+# nothing. A `property alias` pointing at something that is not an object id
+# (e.g. `alias widgetItem: created` where `created` is a property) fails at
+# load time with "Invalid alias reference" and takes the whole shell down,
+# which no structural grep can see. Gate on the diagnostic classes that mean
+# "this file cannot be instantiated".
+QML_LINT=/usr/lib/qt6/bin/qmllint
+if [[ -x "$QML_LINT" ]]; then
+    LINT_OUT=$("$QML_LINT" "$WIDGETS_DIR"/*.qml "$WIDGETS_DIR"/builtin/*.qml "$WIDGETS_DIR"/helpers/*.qml 2>&1 || true)
+    if grep -q 'unresolved-alias' <<< "$LINT_OUT"; then
+        fail "unresolved alias in widget QML (type will not load)"
+        grep 'unresolved-alias' <<< "$LINT_OUT" | head -3 | sed 's/^/      /'
+    else
+        pass "no unresolved aliases in widget QML"
+    fi
+    if grep -qE 'Failed to parse|Expected token' <<< "$LINT_OUT"; then
+        fail "widget QML does not parse"
+        grep -E 'Failed to parse|Expected token' <<< "$LINT_OUT" | head -3 | sed 's/^/      /'
+    else
+        pass "widget QML parses"
+    fi
+else
+    echo -e "  \033[0;33mSKIP\033[0m Qt6 qmllint not found; widget QML parse gate skipped"
+fi
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
