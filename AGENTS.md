@@ -65,7 +65,7 @@ The dock is three `WidgetHost` regions (`start`, `center`, `end`) inside `Bar.qm
 
 **Critical rules:**
 1. **`pragma ComponentBehavior: Bound` must NOT be used in Bar.qml** — it prevents inline component loaders from resolving component references.
-2. **No `ColumnLayout` root** — the root is `Item` with separate `ColumnLayout` for top/bottom sections.
+2. **No `ColumnLayout` root** — the root is `Item`; the three regions are `WidgetHost`s (`startHost`, `centerHost` inside the clipping `centerWrapper`, `endHost`), each a `ColumnLayout` that lays out `WidgetFrame`s. Do not reintroduce `topLayout`/`bottomLayout` or per-region `ColumnLayout`s in `Bar.qml`.
 3. **Popout widths use Tokens** — each popout has a dedicated token: `batteryWidth` (250), `networkWidth` (320), `kbLayoutWidth` (320), `bluetoothWidth` (300), `trayMenuWidth` (300). Never hardcode pixel values.
 4. **ContentWindow.qml BarWrapper anchoring**: For vertical bars, use `anchors.top/parent.top` + `anchors.bottom/parent.bottom`. For horizontal bars, use `anchors.left/parent.left` + `anchors.right/parent.right`. Never use conditional logic that removes both top AND bottom anchors for vertical bars — the BarWrapper gets 0 height and nothing renders.
 5. **BarWrapper has no `implicitHeight`** — it gets its height from parent anchors (top+bottom for vertical, left+right for horizontal).
