@@ -17,7 +17,9 @@ Item {
 
     readonly property string entryId: root.item?.type ?? ""
 
-    readonly property alias widgetItem: created
+    // Not an alias: `created` is a property of this item, not an object id, so
+    // an alias reference cannot resolve it and the whole type fails to load.
+    readonly property var widgetItem: root.created
 
     property string errorText: ""
 

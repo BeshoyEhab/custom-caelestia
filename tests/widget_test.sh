@@ -154,6 +154,32 @@ grep -q 'destroy()' "$WIDGETS_DIR/WidgetFrame.qml" \
     && pass "WidgetFrame destroys replaced widgets on rebuild" \
     || fail "WidgetFrame missing destroy() on rebuild"
 
+# ── 10. The widget types must actually parse ─────────────────────────────────
+# `qmllint` exits 0 on these diagnostics, so grepping for "syntax error" proves
+# nothing. A `property alias` pointing at something that is not an object id
+# (e.g. `alias widgetItem: created` where `created` is a property) fails at
+# load time with "Invalid alias reference" and takes the whole shell down,
+# which no structural grep can see. Gate on the diagnostic classes that mean
+# "this file cannot be instantiated".
+QML_LINT=/usr/lib/qt6/bin/qmllint
+if [[ -x "$QML_LINT" ]]; then
+    LINT_OUT=$("$QML_LINT" "$WIDGETS_DIR"/*.qml "$WIDGETS_DIR"/builtin/*.qml "$WIDGETS_DIR"/helpers/*.qml 2>&1 || true)
+    if grep -q 'unresolved-alias' <<< "$LINT_OUT"; then
+        fail "unresolved alias in widget QML (type will not load)"
+        grep 'unresolved-alias' <<< "$LINT_OUT" | head -3 | sed 's/^/      /'
+    else
+        pass "no unresolved aliases in widget QML"
+    fi
+    if grep -qE 'Failed to parse|Expected token' <<< "$LINT_OUT"; then
+        fail "widget QML does not parse"
+        grep -E 'Failed to parse|Expected token' <<< "$LINT_OUT" | head -3 | sed 's/^/      /'
+    else
+        pass "widget QML parses"
+    fi
+else
+    echo -e "  \033[0;33mSKIP\033[0m Qt6 qmllint not found; widget QML parse gate skipped"
+fi
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo "widget_test: $PASS passed, $FAIL failed"
