@@ -46,6 +46,16 @@ grep -qF 'event.key === Qt.Key_U' "$PAM" \
     && pass "lock screen clears the password with Ctrl+U" \
     || fail "lock screen ignores Ctrl+U (upstream 48b323fa)"
 
+NOTIFS="$SHELL_DIR/services/Notifs.qml"
+
+grep -qF 'name: "toggleDnd"' "$NOTIFS" \
+    && pass "notifications expose a toggleDnd shortcut" \
+    || fail "no toggleDnd shortcut (upstream be553a69)"
+
+grep -qF 'onPressed: root.dnd = !root.dnd' "$NOTIFS" \
+    && pass "toggleDnd writes the same flag as the IPC handler" \
+    || fail "toggleDnd writes a different flag than the IPC handler"
+
 echo ""
 echo "upstream_ports_test: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]
