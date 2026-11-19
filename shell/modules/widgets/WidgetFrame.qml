@@ -45,6 +45,18 @@ Item {
         }
     }
 
+    // The frame rebuilds when its item changes: the previous widget is
+    // destroyed so it cannot leak, and the cleared state lifts the guard in
+    // buildWidget() so a retry is possible instead of a one-way latch.
+    function onItemChanged(): void {
+        const previous = root.created;
+        if (previous)
+            previous.destroy();
+        root.created = null;
+        root.errorText = "";
+        root.buildWidget();
+    }
+
     Component.onCompleted: root.buildWidget()
 
     Layout.alignment: root.orientation === "vertical" ? Qt.AlignHCenter : Qt.AlignVCenter

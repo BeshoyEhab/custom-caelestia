@@ -13,13 +13,35 @@ ColumnLayout {
     property var hostContext
     property string orientation: "vertical"
 
-    property var frameList: []
-
-    readonly property var frames: frameList
+    // The frames are the repeater's live delegates: the list is derived from
+    // the repeater, so it never goes stale and never retains a destroyed
+    // delegate.
+    readonly property var frames: []
+    Binding {
+        target: root
+        property: "frames"
+        value: (function () {
+            const out = [];
+            for (let i = 0; i < frameRepeater.count; i++) {
+                const frame = frameRepeater.itemAt(i);
+                if (frame)
+                    out.push(frame);
+            }
+            return out;
+        })()
+    }
 
     function hitTest(x: real, y: real): var {
-        const hit = root.childAt(x, y);
-        return hit ?? null;
+        // A hit anywhere inside a frame maps back to the frame itself, not
+        // to the inner child that contains the point.
+        const frames = root.frames;
+        for (let i = 0; i < frames.length; i++) {
+            const frame = frames[i];
+            if (frame && frame.x <= x && x < frame.x + frame.width &&
+                          frame.y <= y && y < frame.y + frame.height)
+                return frame;
+        }
+        return null;
     }
 
     function frameFor(type: string): var {
@@ -44,21 +66,9 @@ ColumnLayout {
 
             required property var modelData
 
-            Component.onCompleted: {
-                frame.item = modelData
-                frame.hostContext = root.hostContext
-                root.frameList.push(frame)
-            }
-
-            Component.onDestruction: {
-                const frames = root.frameList;
-                for (let i = frames.length - 1; i >= 0; i--) {
-                    if (frames[i] === frame) {
-                        frames.splice(i, 1);
-                        break;
-                    }
-                }
-            }
+            item: modelData
+            hostContext: root.hostContext
+            orientation: root.orientation
         }
     }
 }

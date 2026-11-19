@@ -113,6 +113,31 @@ grep -q 'createObject' "$WIDGETS_DIR/WidgetFrame.qml" && pass "WidgetFrame creat
 grep -q 'errorText' "$WIDGETS_DIR/WidgetFrame.qml" && pass "WidgetFrame reports widget failures" || fail "WidgetFrame missing errorText"
 grep -q 'entryId' "$WIDGETS_DIR/WidgetFrame.qml" && pass "WidgetFrame exposes entryId" || fail "WidgetFrame missing entryId"
 
+# ── 9. Widget creation-order pin (review fix 94fabd8f) ───────────────────────
+# The frame builds in its own Component.onCompleted, so the delegate must
+# supply the frame's inputs as bindings (initial properties) and the host
+# must derive its frames from the repeater.
+grep -qPz 'delegate: WidgetFrame\s*\{[^}]*required property var modelData[^}]*item:\s*modelData' \
+    "$WIDGETS_DIR/WidgetHost.qml" \
+    && pass "WidgetHost delegate supplies item as an initial property" \
+    || fail "WidgetHost delegate does not supply item as an initial property"
+grep -qPz 'delegate: WidgetFrame\s*\{[^}]*hostContext:\s*root\.hostContext' \
+    "$WIDGETS_DIR/WidgetHost.qml" \
+    && pass "WidgetHost delegate forwards hostContext" \
+    || fail "WidgetHost delegate missing hostContext"
+grep -q 'Component\.onCompleted' "$WIDGETS_DIR/WidgetHost.qml" \
+    && fail "WidgetHost must not assign frame inputs imperatively" \
+    || pass "WidgetHost assigns frame inputs via bindings only"
+grep -q 'frameList' "$WIDGETS_DIR/WidgetHost.qml" \
+    && fail "WidgetHost must derive frames from the repeater" \
+    || pass "WidgetHost frames are derived from the repeater"
+grep -q 'onItemChanged' "$WIDGETS_DIR/WidgetFrame.qml" \
+    && pass "WidgetFrame rebuilds when item changes" \
+    || fail "WidgetFrame missing onItemChanged"
+grep -q 'destroy()' "$WIDGETS_DIR/WidgetFrame.qml" \
+    && pass "WidgetFrame destroys replaced widgets on rebuild" \
+    || fail "WidgetFrame missing destroy() on rebuild"
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""
 echo "widget_test: $PASS passed, $FAIL failed"
