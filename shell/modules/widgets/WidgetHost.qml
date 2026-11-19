@@ -53,7 +53,10 @@ ColumnLayout {
         id: frameRepeater
 
         model: ScriptModel {
-            values: Registry.validateItems(root.items).items
+            // visibleItems, not validateItems: validation keeps disabled items
+            // and the dock must not render widgets the user turned off (the
+            // old bar filtered e.enabled before building its loaders).
+            values: Registry.visibleItems(root.items)
         }
 
         delegate: WidgetFrame {

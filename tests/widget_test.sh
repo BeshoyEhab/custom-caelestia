@@ -26,10 +26,16 @@ elif grep -q '^\s*ColumnLayout\b' "$BAR_QML"; then
     fail "Bar.qml root is ColumnLayout (expected Item per actual code)"
 fi
 
-# Verify split top/bottom layout
-grep -q 'topLayout' "$BAR_QML"    && pass "Bar.qml has topLayout"    || fail "Bar.qml missing topLayout"
-grep -q 'bottomLayout' "$BAR_QML" && pass "Bar.qml has bottomLayout" || fail "Bar.qml missing bottomLayout"
-grep -q 'DelegateChooser' "$BAR_QML" && pass "Bar.qml no longer uses DelegateChooser (uses TopLoader/BottomLoader)" || true
+# The dock is three widget-host regions, not hardcoded loaders/entry lists
+grep -q 'WidgetHost' "$BAR_QML" && pass "Bar.qml hosts widgets" || fail "Bar.qml does not use WidgetHost"
+grep -q 'startHost' "$BAR_QML" && pass "Bar.qml has startHost" || fail "Bar.qml missing startHost"
+grep -q 'centerHost' "$BAR_QML" && pass "Bar.qml has centerHost" || fail "Bar.qml missing centerHost"
+grep -q 'endHost' "$BAR_QML" && pass "Bar.qml has endHost" || fail "Bar.qml missing endHost"
+grep -q 'TopLoader\|BottomLoader' "$BAR_QML" && fail "Bar.qml still has its old loaders" || pass "Bar.qml has no old loaders"
+grep -q 'topEntries\|bottomEntries' "$BAR_QML" && fail "Bar.qml still hardcodes entry lists" || pass "Bar.qml has no hardcoded entry lists"
+grep -q 'fromBarEntries' "$BAR_QML" && pass "Bar.qml migrates Config.bar.entries" || fail "Bar.qml does not migrate entries"
+grep -q 'closeTray' "$BAR_QML" && pass "Bar.qml keeps tray handling" || fail "Bar.qml lost tray handling"
+grep -q 'handleWheel' "$BAR_QML" && pass "Bar.qml keeps wheel actions" || fail "Bar.qml lost wheel actions"
 
 # ── 2. BarWrapper contentWidth = innerWidth + padding*2 ────────────────────────
 if [[ -f "$BAR_WRAPPER" ]]; then
@@ -49,6 +55,9 @@ count=$(grep -rl 'Tokens\.sizes\.bar\.innerWidth' "$SHELL_DIR/modules/bar/" --in
 [[ "$count" -ge 7 ]] && pass "innerWidth referenced in $count bar files" || fail "innerWidth only in $count bar files (expected >=7)"
 
 # ── 4. Check bar entry IDs match actual components ────────────────────────────
+# Now hosted through the registry: id -> component lives in WidgetCatalog.qml
+# (componentFor switch) and builtin/ (the adapters wrap the original bar
+# components, e.g. DockLogo wraps OsIcon), so grep those instead of Bar.qml.
 # Bar uses: logo, workspaces, activeWindow, tray, clock, statusIcons, power
 declare -A entry_map
 entry_map["logo"]="OsIcon"
@@ -59,12 +68,16 @@ entry_map["clock"]="Clock"
 entry_map["statusIcons"]="StatusIcons"
 entry_map["power"]="Power"
 
+CATALOG_QML="$SHELL_DIR/modules/widgets/WidgetCatalog.qml"
+BUILTIN_DIR="$SHELL_DIR/modules/widgets/builtin"
+
 for entry in "${!entry_map[@]}"; do
     comp="${entry_map[$entry]}"
-    if grep -qi "$comp" "$BAR_QML" 2>/dev/null; then
+    if grep -qi "$comp" "$CATALOG_QML" 2>/dev/null \
+        || grep -rqi "$comp" "$BUILTIN_DIR" 2>/dev/null; then
         pass "Bar entry '$entry' -> '$comp' referenced"
     else
-        fail "Bar entry '$entry' -> '$comp' NOT referenced in Bar.qml"
+        fail "Bar entry '$entry' -> '$comp' NOT referenced in WidgetCatalog.qml/builtin"
     fi
 done
 
@@ -105,6 +118,9 @@ WIDGETS_DIR="$SHELL_DIR/modules/widgets"
 
 grep -q '^ColumnLayout' "$WIDGETS_DIR/WidgetHost.qml" && pass "WidgetHost root is ColumnLayout" || fail "WidgetHost root is not ColumnLayout"
 grep -q 'ScriptModel' "$WIDGETS_DIR/WidgetHost.qml" && pass "WidgetHost uses ScriptModel" || fail "WidgetHost does not use ScriptModel"
+# Disabled items must be filtered out: validateItems keeps them, so the host
+# has to render through visibleItems or a disabled widget would still show.
+grep -q 'visibleItems' "$WIDGETS_DIR/WidgetHost.qml" && pass "WidgetHost filters disabled items" || fail "WidgetHost does not filter disabled items"
 grep -q 'ComponentBehavior: Bound' "$WIDGETS_DIR/WidgetHost.qml" && fail "WidgetHost must not use ComponentBehavior: Bound" || pass "WidgetHost is unbound"
 grep -qE '^\s*implicit(Width|Height)\s*:' "$WIDGETS_DIR/WidgetHost.qml" && fail "WidgetHost must size itself from the layout" || pass "WidgetHost takes implicit size from the layout"
 grep -q 'function hitTest' "$WIDGETS_DIR/WidgetHost.qml" && pass "WidgetHost exposes hitTest" || fail "WidgetHost missing hitTest"
