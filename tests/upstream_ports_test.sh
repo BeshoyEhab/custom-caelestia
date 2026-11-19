@@ -40,6 +40,12 @@ grep -qF 'devices.reduce((total, d) => total + d.connected, 0)' "$BT_POPOUT" \
     && pass "bluetooth popout counts connected devices without an allocation" \
     || fail "bluetooth popout still filters for the connected count (upstream 72f60b1d)"
 
+PAM="$SHELL_DIR/modules/lock/Pam.qml"
+
+grep -qF 'event.key === Qt.Key_U' "$PAM" \
+    && pass "lock screen clears the password with Ctrl+U" \
+    || fail "lock screen ignores Ctrl+U (upstream 48b323fa)"
+
 echo ""
 echo "upstream_ports_test: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]
