@@ -14,21 +14,16 @@ ColumnLayout {
     property string orientation: "vertical"
 
     // The frames are the repeater's live delegates: the list is derived from
-    // the repeater, so it never goes stale and never retains a destroyed
-    // delegate.
-    readonly property var frames: []
-    Binding {
-        target: root
-        property: "frames"
-        value: (function () {
-            const out = [];
-            for (let i = 0; i < frameRepeater.count; i++) {
-                const frame = frameRepeater.itemAt(i);
-                if (frame)
-                    out.push(frame);
-            }
-            return out;
-        })()
+    // the repeater, so it re-evaluates when the repeater's count changes and
+    // never retains a destroyed delegate.
+    readonly property var frames: {
+        const out = [];
+        for (let i = 0; i < frameRepeater.count; i++) {
+            const frame = frameRepeater.itemAt(i);
+            if (frame)
+                out.push(frame);
+        }
+        return out;
     }
 
     function hitTest(x: real, y: real): var {
