@@ -10,6 +10,8 @@ ActiveWindow {
 
     bar: host
     monitor: Brightness.getMonitorForScreen(host.screen)
-    maxHeight: host.activeWindowMaxHeight
+    // The bar supplies the real max height; hosts that do not get the bar
+    // context fall back to the widget's native default (bar height * 0.25).
+    maxHeight: host.activeWindowMaxHeight ?? (host.height * 0.25)
     Layout.fillWidth: true
 }

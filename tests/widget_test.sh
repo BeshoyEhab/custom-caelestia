@@ -129,6 +129,21 @@ grep -q 'createObject' "$WIDGETS_DIR/WidgetFrame.qml" && pass "WidgetFrame creat
 grep -q 'errorText' "$WIDGETS_DIR/WidgetFrame.qml" && pass "WidgetFrame reports widget failures" || fail "WidgetFrame missing errorText"
 grep -q 'entryId' "$WIDGETS_DIR/WidgetFrame.qml" && pass "WidgetFrame exposes entryId" || fail "WidgetFrame missing entryId"
 
+DOCK_ACTIVE_WINDOW="$WIDGETS_DIR/builtin/DockActiveWindow.qml"
+[[ -f "$DOCK_ACTIVE_WINDOW" ]] && pass "DockActiveWindow.qml exists" || fail "DockActiveWindow.qml missing"
+
+# The adapter must not hard-bind the bar-only property without a fallback:
+# hosts that are not a bar would pass undefined and silently collapse the widget.
+if grep -qE 'maxHeight[[:space:]]*:[[:space:]]*host\.activeWindowMaxHeight[[:space:]]*$' "$DOCK_ACTIVE_WINDOW"; then
+    fail "DockActiveWindow maxHeight hard-binds host.activeWindowMaxHeight without a fallback"
+else
+    pass "DockActiveWindow maxHeight falls back for non-bar hosts"
+fi
+
+grep -qF 'host.activeWindowMaxHeight ?? (host.height * 0.25)' "$DOCK_ACTIVE_WINDOW" \
+    && pass "DockActiveWindow maxHeight uses the native fallback" \
+    || fail "DockActiveWindow maxHeight fallback missing"
+
 # ── 9. Widget creation-order pin (review fix 94fabd8f) ───────────────────────
 # The frame builds in its own Component.onCompleted, so the delegate must
 # supply the frame's inputs as bindings (initial properties) and the host
@@ -147,9 +162,16 @@ grep -q 'Component\.onCompleted' "$WIDGETS_DIR/WidgetHost.qml" \
 grep -q 'frameList' "$WIDGETS_DIR/WidgetHost.qml" \
     && fail "WidgetHost must derive frames from the repeater" \
     || pass "WidgetHost frames are derived from the repeater"
-grep -q 'onItemChanged' "$WIDGETS_DIR/WidgetFrame.qml" \
-    && pass "WidgetFrame rebuilds when item changes" \
-    || fail "WidgetFrame missing onItemChanged"
+# The rebuild must be wired through a REAL declarative handler; declaring the
+# method as `function onItemChanged` would be an ordinary function that never
+# fires (QML only treats `on<Item>Changed:` as a signal handler).
+if grep -q 'function onItemChanged' "$WIDGETS_DIR/WidgetFrame.qml"; then
+    fail "WidgetFrame declares onItemChanged as a function (dead code)"
+elif grep -qE '^[[:space:]]*onItemChanged[[:space:]]*:' "$WIDGETS_DIR/WidgetFrame.qml"; then
+    pass "WidgetFrame rebuilds when item changes via declarative onItemChanged"
+else
+    fail "WidgetFrame missing declarative onItemChanged handler"
+fi
 grep -q 'destroy()' "$WIDGETS_DIR/WidgetFrame.qml" \
     && pass "WidgetFrame destroys replaced widgets on rebuild" \
     || fail "WidgetFrame missing destroy() on rebuild"

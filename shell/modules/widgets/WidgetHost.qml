@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Caelestia.Config
 import "WidgetRegistry.js" as Registry
 
 // Vertical host: lays widget frames out in a column and answers hit tests

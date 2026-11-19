@@ -1,7 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell
-import Caelestia.Config
 import qs.services
 
 // One widget instance inside its frame: creates the widget the validated
@@ -49,8 +47,11 @@ Item {
 
     // The frame rebuilds when its item changes: the previous widget is
     // destroyed so it cannot leak, and the cleared state lifts the guard in
-    // buildWidget() so a retry is possible instead of a one-way latch.
-    function onItemChanged(): void {
+    // buildWidget() so a retry is possible instead of a one-way latch. Wired as
+    // a real declarative handler so an item change actually triggers it.
+    onItemChanged: root.rebuildWidget()
+
+    function rebuildWidget(): void {
         const previous = root.created;
         if (previous)
             previous.destroy();
